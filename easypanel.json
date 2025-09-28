@@ -1,0 +1,33 @@
+{
+  "name": "dash-inteli",
+  "description": "Dashboard Inteligente - Sistema de Gestão de Vendas",
+  "version": "1.0.0",
+  "type": "application",
+  "dockerfile": "Dockerfile",
+  "port": 3000,
+  "environment": {
+    "NODE_ENV": "production",
+    "PORT": "3000",
+    "HOSTNAME": "0.0.0.0"
+  },
+  "healthCheck": {
+    "path": "/",
+    "port": 3000,
+    "interval": 30,
+    "timeout": 10,
+    "retries": 3
+  },
+  "resources": {
+    "cpu": "0.5",
+    "memory": "512Mi",
+    "storage": "1Gi"
+  },
+  "networking": {
+    "ports": [
+      {
+        "port": 3000,
+        "protocol": "http"
+      }
+    ]
+  }
+}
