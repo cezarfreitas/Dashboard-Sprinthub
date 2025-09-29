@@ -2,11 +2,13 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { executeQuery, executeQueryOne } from './database'
 
-// Chave secreta para JWT (deve estar em variável de ambiente)
-const JWT_SECRET = process.env.JWT_SECRET!
-
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  throw new Error('JWT_SECRET deve ser definido e ter pelo menos 32 caracteres')
+// Função para obter JWT_SECRET com validação
+function getJWTSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET deve ser definido e ter pelo menos 32 caracteres')
+  }
+  return secret
 }
 
 // Configurações de segurança JWT
@@ -60,7 +62,7 @@ export function generateToken(user: User): string {
     jti: `token_${user.id}_${Date.now()}` // JWT ID único
   }
 
-  return jwt.sign(payload, JWT_SECRET as jwt.Secret)
+  return jwt.sign(payload, getJWTSecret() as jwt.Secret)
 }
 
 // Gerar refresh token
@@ -72,13 +74,13 @@ export function generateRefreshToken(user: User): string {
     jti: `refresh_${user.id}_${Date.now()}`
   }
 
-  return jwt.sign(payload, JWT_SECRET as jwt.Secret)
+  return jwt.sign(payload, getJWTSecret() as jwt.Secret)
 }
 
 // Verificar token JWT
 export function verifyToken(token: string): any {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET as jwt.Secret) as any
+    const decoded = jwt.verify(token, getJWTSecret() as jwt.Secret) as any
 
     // Verificações adicionais de segurança
     if (!decoded.id || !decoded.username || !decoded.role) {
