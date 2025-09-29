@@ -59,11 +59,11 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Faça login para acessar o sistema
           </p>
         </div>
@@ -82,7 +82,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="username">Usuário</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="username"
                     type="text"
@@ -99,7 +99,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -113,7 +113,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600 focus:outline-none"
+                    className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground focus:outline-none"
                     disabled={loading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -143,16 +143,16 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               </Button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-gray-600">
+            <div className="mt-6 text-center text-sm text-muted-foreground">
               <p className="font-medium">Credenciais padrão:</p>
-              <p>Usuário: <code className="bg-gray-100 px-1 rounded">admin</code></p>
-              <p>Senha: <code className="bg-gray-100 px-1 rounded">admin@1234</code></p>
+              <p>Usuário: <code className="bg-muted px-1 rounded">admin</code></p>
+              <p>Senha: <code className="bg-muted px-1 rounded">admin@1234</code></p>
             </div>
           </CardContent>
         </Card>
 
         {/* Rodapé */}
-        <div className="text-center text-sm text-gray-500 mt-8">
+        <div className="text-center text-sm text-muted-foreground mt-8">
           <p className="flex items-center justify-center gap-1">
             Feito com 
             <HeartOutline 
