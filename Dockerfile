@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Instalar dependências baseadas no gerenciador de pacotes preferido
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Rebuild do código fonte apenas quando necessário
 FROM base AS builder
@@ -28,9 +28,9 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 # Descomente a linha a seguir se você quiser desabilitar o telemetria durante o runtime.
-# ENV NEXT_TELEMETRY_DISABLED 1
+# ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -50,8 +50,8 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 # server.js é criado pelo comando next build a partir do arquivo next.config.js
 CMD ["node", "server.js"]
