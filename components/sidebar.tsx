@@ -13,7 +13,6 @@ import {
   ChevronRight,
   BarChart3,
   Settings,
-  Target,
   Users,
   Activity,
   Building2,
@@ -50,22 +49,6 @@ const menuItems = [
     href: "/analytics"
   },
   {
-    title: "Metas",
-    icon: Target,
-    href: "/metas",
-    hasSubmenu: true,
-    submenu: [
-      {
-        title: "Unidades",
-        href: "/metas/unidades"
-      },
-      {
-        title: "Vendedores",
-        href: "/metas/vendedores"
-      }
-    ]
-  },
-  {
     title: "Ranking",
     icon: Trophy,
     href: "/ranking",
@@ -82,9 +65,16 @@ const menuItems = [
     ]
   },
   {
-    title: "Roletas",
+    title: "Metas",
     icon: CircleDot,
-    href: "/roletas"
+    href: "/metas",
+    hasSubmenu: true,
+    submenu: [
+      {
+        title: "Configurações",
+        href: "/metas/config"
+      }
+    ]
   },
   {
     title: "Unidades",

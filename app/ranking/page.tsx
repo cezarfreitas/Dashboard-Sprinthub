@@ -432,7 +432,7 @@ export default function RankingPage() {
               <span className="text-sm text-blue-700 dark:text-blue-300">Mês:</span>
               <Select value={mesAtual.toString()} onValueChange={(value) => setMesAtual(parseInt(value))}>
                 <SelectTrigger className="w-32">
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => (

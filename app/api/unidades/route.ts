@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery } from '@/lib/database'
+import { sincronizarRoletaUnidade, removerRoletaUnidade } from '@/lib/roleta-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,41 +39,70 @@ export async function GET(request: NextRequest) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `)
 
-    // Verificar se coluna unidade_id existe na tabela vendedores
-    const checkColumn = await executeQuery(`
-      SELECT COLUMN_NAME 
-      FROM INFORMATION_SCHEMA.COLUMNS 
-      WHERE TABLE_SCHEMA = DATABASE() 
-      AND TABLE_NAME = 'vendedores' 
-      AND COLUMN_NAME = 'unidade_id'
-    `) as any[]
-
-    if (checkColumn.length === 0) {
-      await executeQuery(`
-        ALTER TABLE vendedores 
-        ADD COLUMN unidade_id INT NULL,
-        ADD INDEX idx_unidade_id (unidade_id)
-      `)
-    }
+    // Criar tabela de relacionamento many-to-many se não existir
+    await executeQuery(`
+      CREATE TABLE IF NOT EXISTS vendedores_unidades (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendedor_id INT NOT NULL,
+        unidade_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        
+        INDEX idx_vendedor_id (vendedor_id),
+        INDEX idx_unidade_id (unidade_id),
+        INDEX idx_vendedor_unidade (vendedor_id, unidade_id),
+        UNIQUE KEY unique_vendedor_unidade (vendedor_id, unidade_id),
+        
+        CONSTRAINT fk_vendedores_unidades_vendedor 
+          FOREIGN KEY (vendedor_id) REFERENCES vendedores(id) 
+          ON DELETE CASCADE ON UPDATE CASCADE,
+          
+        CONSTRAINT fk_vendedores_unidades_unidade 
+          FOREIGN KEY (unidade_id) REFERENCES unidades(id) 
+          ON DELETE CASCADE ON UPDATE CASCADE
+          
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
 
     // Buscar todas as unidades
     const unidades = await executeQuery('SELECT * FROM unidades ORDER BY nome') as Unidade[]
 
-    // Buscar todos os vendedores com suas unidades
+    // Buscar todos os vendedores
     const vendedores = await executeQuery(`
-      SELECT id, name, lastName, email, username, telephone, unidade_id 
+      SELECT id, name, lastName, email, username, telephone 
       FROM vendedores 
       ORDER BY name
     `) as VendedorUnidade[]
 
+    // Buscar relacionamentos vendedores-unidades ordenados pela sequencia
+    const vendedoresUnidades = await executeQuery(`
+      SELECT vu.vendedor_id, vu.unidade_id, vu.sequencia, vu.ativo, v.name, v.lastName, v.email, v.username, v.telephone, u.nome as unidade_nome
+      FROM vendedores_unidades vu
+      JOIN vendedores v ON vu.vendedor_id = v.id
+      JOIN unidades u ON vu.unidade_id = u.id
+      ORDER BY u.nome, vu.sequencia
+    `) as any[]
+
     // Organizar vendedores por unidade
     const unidadesComVendedores = unidades.map(unidade => ({
       ...unidade,
-      vendedores: vendedores.filter(v => v.unidade_id === unidade.id)
+      vendedores: vendedoresUnidades
+        .filter(vu => vu.unidade_id === unidade.id)
+        .map(vu => ({
+          id: vu.vendedor_id,
+          name: vu.name,
+          lastName: vu.lastName,
+          email: vu.email,
+          username: vu.username,
+          telephone: vu.telephone,
+          sequencia: vu.sequencia,
+          ativo: vu.ativo
+        }))
     }))
 
-    // Vendedores sem unidade
-    const vendedoresSemUnidade = vendedores.filter(v => !v.unidade_id)
+    // Vendedores sem unidade (não estão em nenhuma unidade)
+    const vendedoresComUnidades = vendedoresUnidades.map(vu => vu.vendedor_id)
+    const vendedoresSemUnidade = vendedores.filter(v => !vendedoresComUnidades.includes(v.id))
 
     return NextResponse.json({
       success: true,
@@ -81,7 +111,7 @@ export async function GET(request: NextRequest) {
       stats: {
         total_unidades: unidades.length,
         total_vendedores: vendedores.length,
-        vendedores_com_unidade: vendedores.filter(v => v.unidade_id).length,
+        vendedores_com_unidade: vendedoresUnidades.length,
         vendedores_sem_unidade: vendedoresSemUnidade.length
       }
     })
@@ -136,6 +166,9 @@ export async function POST(request: NextRequest) {
       'SELECT * FROM unidades WHERE id = ?',
       [result.insertId]
     ) as Unidade[]
+
+    // Sincronizar roleta da nova unidade
+    await sincronizarRoletaUnidade(result.insertId)
 
     return NextResponse.json({
       success: true,
@@ -255,7 +288,7 @@ export async function DELETE(request: NextRequest) {
 
     // Verificar se há vendedores vinculados à unidade
     const vendedoresVinculados = await executeQuery(
-      'SELECT COUNT(*) as count FROM vendedores WHERE unidade_id = ?',
+      'SELECT COUNT(*) as count FROM vendedores_unidades WHERE unidade_id = ?',
       [id]
     ) as any[]
 
@@ -270,6 +303,9 @@ export async function DELETE(request: NextRequest) {
         { status: 409 }
       )
     }
+
+    // Remover roleta da unidade antes de excluir
+    await removerRoletaUnidade(parseInt(id))
 
     // Excluir unidade
     await executeQuery('DELETE FROM unidades WHERE id = ?', [id])

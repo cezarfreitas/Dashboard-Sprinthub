@@ -36,7 +36,6 @@ import {
 } from '@/components/ui/table'
 import { 
   User, 
-  Mail, 
   Phone, 
   Calendar, 
   Search, 
@@ -68,7 +67,6 @@ interface VendedorMySQL {
   state: string | null
   city: string | null
   whatsapp_automation: string | null
-  unidade_id: number | null
   ativo: boolean
   last_login: string | null
   last_action: string | null
@@ -217,10 +215,6 @@ export default function VendedoresPage() {
     return new Date(dateString).toLocaleDateString('pt-BR')
   }
 
-  const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return 'Nunca'
-    return new Date(dateString).toLocaleString('pt-BR')
-  }
 
   const formatPhone = (phone: string | null) => {
     if (!phone) return ''
@@ -331,7 +325,7 @@ export default function VendedoresPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           )}
           <Input
-            placeholder="Buscar por nome, email, username..."
+            placeholder="Buscar por nome, username, telefone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -386,7 +380,7 @@ export default function VendedoresPage() {
                   <p className="text-sm font-medium text-muted-foreground">Última Sync</p>
                   <p className="text-xs font-medium">
                     {stats.ultima_sincronizacao 
-                      ? formatDateTime(stats.ultima_sincronizacao).split(' ')[1]
+                      ? new Date(stats.ultima_sincronizacao).toLocaleString('pt-BR').split(' ')[1]
                       : 'Nunca'
                     }
                   </p>
@@ -433,13 +427,10 @@ export default function VendedoresPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Email</TableHead>
                     <TableHead>Telefone</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Admin</TableHead>
                     <TableHead>Ativo</TableHead>
-                    <TableHead>Última Ação</TableHead>
-                    <TableHead>Sincronizado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -453,12 +444,6 @@ export default function VendedoresPage() {
                           <div className="text-sm text-muted-foreground">
                             @{vendedor.username} • ID: {vendedor.id}
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{vendedor.email}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -489,16 +474,6 @@ export default function VendedoresPage() {
                           checked={vendedor.ativo}
                           onCheckedChange={(checked: boolean) => toggleVendedorStatus(vendedor.id, vendedor.ativo)}
                         />
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">
-                          {formatDateTime(vendedor.last_action)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDateTime(vendedor.synced_at)}
-                        </span>
                       </TableCell>
                     </TableRow>
                   ))}

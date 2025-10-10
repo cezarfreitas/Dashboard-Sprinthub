@@ -1,7 +1,83 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import {
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+// Componente para item arrastável dos vendedores
+function SortableVendedorItem({ vendedor, index, unidadeId }: { 
+  vendedor: Vendedor, 
+  index: number,
+  unidadeId: number
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: vendedor.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center space-x-2 p-2 rounded border transition-colors bg-muted/50 border-transparent hover:border-primary/20"
+    >
+      <div 
+        {...attributes} 
+        {...listeners} 
+        className="flex items-center space-x-2 flex-1 cursor-grab active:cursor-grabbing"
+      >
+        <BadgeComponent 
+          variant="outline" 
+          className="text-xs px-1 py-0 h-4 flex-shrink-0"
+        >
+          #{vendedor.sequencia || index + 1}
+        </BadgeComponent>
+        <Avatar className="h-6 w-6 flex-shrink-0">
+          <AvatarFallback className="text-xs">
+            {vendedor.name.charAt(0)}{vendedor.lastName.charAt(0)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium truncate">
+            {vendedor.name} {vendedor.lastName}
+          </div>
+        </div>
+        <div className="text-muted-foreground text-xs">
+          ⋮⋮
+        </div>
+      </div>
+      
+    </div>
+  )
+}
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -43,7 +119,8 @@ import {
   RefreshCw,
   Search,
   Building,
-  BarChart3
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react'
 
 interface Unidade {
@@ -60,6 +137,28 @@ interface Unidade {
   updated_at: string
 }
 
+interface FilaVendedor {
+  id: number
+  vendedor_id: number
+  ordem: number
+  name: string
+  lastName: string
+  email: string
+  telephone?: string
+}
+
+interface RoletaUnidade {
+  id: number
+  unidade_id: number
+  ativo: boolean
+  unidade_nome: string
+  responsavel: string
+  total_vendedores: number
+  fila: FilaVendedor[]
+  created_at: string
+  updated_at: string
+}
+
 interface Vendedor {
   id: number
   name: string
@@ -68,6 +167,8 @@ interface Vendedor {
   username: string
   telephone: string
   unidade_id?: number
+  sequencia?: number
+  ativo?: boolean
 }
 
 // Badge component inline temporário
@@ -106,6 +207,14 @@ export default function UnidadesPage() {
 
   const { toast } = useToast()
 
+  // Configurar sensores para drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   // Filtrar vendedores disponíveis baseado na busca
   const vendedoresFiltrados = vendedoresDisponiveis.filter(vendedor =>
     vendedor.name.toLowerCase().includes(searchVendedores.toLowerCase()) ||
@@ -142,6 +251,7 @@ export default function UnidadesPage() {
       if (vendedoresResponse.ok) {
         setVendedores(vendedoresData.vendedores || [])
       }
+
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
@@ -280,8 +390,8 @@ export default function UnidadesPage() {
     setSearchVendedores('') // Limpar busca ao abrir
     
     try {
-      // Buscar vendedores disponíveis
-      const response = await fetch('/api/unidades/vendedores')
+      // Buscar vendedores disponíveis para esta unidade específica
+      const response = await fetch(`/api/unidades/vendedores?unidade_id=${unidade.id}`)
       const data = await response.json()
       
       if (response.ok) {
@@ -354,7 +464,7 @@ export default function UnidadesPage() {
     if (!selectedUnidade) return
 
     try {
-      const response = await fetch(`/api/unidades/vendedores?vendedor_id=${vendedorId}`, {
+      const response = await fetch(`/api/unidades/vendedores?vendedor_id=${vendedorId}&unidade_id=${selectedUnidade.id}`, {
         method: 'DELETE'
       })
 
@@ -404,6 +514,68 @@ export default function UnidadesPage() {
       nome: '',
       responsavel: ''
     })
+  }
+
+
+
+  // Função para lidar com drag end dos vendedores
+  const handleDragEnd = async (event: DragEndEvent, unidadeId: number) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id) {
+      return
+    }
+
+    const unidade = unidades.find(u => u.id === unidadeId)
+    if (!unidade) return
+
+    const oldIndex = unidade.vendedores.findIndex(item => item.id === active.id)
+    const newIndex = unidade.vendedores.findIndex(item => item.id === over.id)
+
+    if (oldIndex === -1 || newIndex === -1) return
+
+    // Criar nova ordem
+    const newVendedores = arrayMove(unidade.vendedores, oldIndex, newIndex)
+    const novaSequencia = newVendedores.map(v => v.id)
+    
+    try {
+      const response = await fetch('/api/unidades/sequencia', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          unidade_id: unidadeId,
+          vendedores_sequencia: novaSequencia
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Atualizar estado local imediatamente para feedback visual
+        setUnidades(prev => prev.map(u => 
+          u.id === unidadeId 
+            ? { ...u, vendedores: newVendedores.map((v, index) => ({ ...v, sequencia: index + 1 })) }
+            : u
+        ))
+        
+        toast({
+          title: "Ordem atualizada!",
+          description: "A ordem dos vendedores foi atualizada com sucesso.",
+        })
+      } else {
+        throw new Error(data.error || 'Erro ao atualizar ordem')
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar ordem dos vendedores",
+        variant: "destructive"
+      })
+      // Recarregar dados em caso de erro
+      await fetchData()
+    }
   }
 
   const openEditDialog = (unidade: Unidade) => {
@@ -555,60 +727,6 @@ export default function UnidadesPage() {
         />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total de Unidades</p>
-                <p className="text-2xl font-bold">{unidades.length}</p>
-              </div>
-              <Building2 className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total de Vendedores</p>
-                <p className="text-2xl font-bold">{vendedores.length}</p>
-              </div>
-              <Users className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Maior Unidade</p>
-                <p className="text-2xl font-bold">
-                  {Math.max(...unidades.map(u => u.vendedores.length))}
-                </p>
-              </div>
-              <UserPlus className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Média por Unidade</p>
-                <p className="text-2xl font-bold">
-                  {Math.round(vendedores.length / (unidades.length || 1))}
-                </p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Unidades Grid */}
       {filteredUnidades.length === 0 ? (
@@ -626,7 +744,7 @@ export default function UnidadesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {filteredUnidades.map((unidade) => (
             <Card key={unidade.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
@@ -677,33 +795,38 @@ export default function UnidadesPage() {
                   </div>
                 </div>
 
-                {/* Lista de Vendedores */}
+                {/* Vendedores com Drag and Drop */}
                 {unidade.vendedores.length > 0 && (
                   <div className="border-t pt-4">
-                    <h4 className="text-sm font-medium mb-3">Vendedores:</h4>
-                    <div className="space-y-2">
-                      {unidade.vendedores.slice(0, 4).map((vendedor) => (
-                        <div key={vendedor.id} className="flex items-center space-x-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarFallback className="text-xs">
-                              {vendedor.name.charAt(0)}{vendedor.lastName.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm">{vendedor.name} {vendedor.lastName}</span>
-                          <span className="text-xs text-muted-foreground">{vendedor.email}</span>
+                    <h4 className="text-sm font-medium mb-3 flex items-center">
+                      <Users className="h-4 w-4 mr-1 text-blue-600" />
+                      Vendedores ({unidade.vendedores.length})
+                    </h4>
+                    
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(event) => handleDragEnd(event, unidade.id)}
+                    >
+                      <SortableContext
+                        items={unidade.vendedores.map(v => v.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-1">
+                          {unidade.vendedores.map((vendedor, index) => (
+                            <SortableVendedorItem
+                              key={vendedor.id}
+                              vendedor={vendedor}
+                              index={index}
+                              unidadeId={unidade.id}
+                            />
+                          ))}
                         </div>
-                      ))}
-                      {unidade.vendedores.length > 4 && (
-                        <div className="flex items-center space-x-2 text-muted-foreground">
-                          <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
-                            <span className="text-xs">+{unidade.vendedores.length - 4}</span>
-                          </div>
-                          <span className="text-xs">outros vendedores...</span>
-                        </div>
-                      )}
-                    </div>
+                      </SortableContext>
+                    </DndContext>
                   </div>
                 )}
+
               </CardContent>
             </Card>
           ))}
@@ -793,30 +916,35 @@ export default function UnidadesPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {selectedUnidade?.vendedores.map((vendedor) => (
-                      <div key={vendedor.id} className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 hover:bg-emerald-50">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-emerald-100 text-emerald-700">
-                              {vendedor.name.charAt(0)}{vendedor.lastName.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">{vendedor.name} {vendedor.lastName}</p>
-                          <p className="text-xs text-muted-foreground">{vendedor.email}</p>
+                      {selectedUnidade?.vendedores.map((vendedor) => (
+                        <div key={vendedor.id} className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 hover:bg-emerald-50">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="bg-emerald-100 text-emerald-700">
+                                {vendedor.name.charAt(0)}{vendedor.lastName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium">{vendedor.name} {vendedor.lastName}</p>
+                                <BadgeComponent variant="outline" className="text-xs">
+                                  Multi-unidade
+                                </BadgeComponent>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{vendedor.email}</p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveVendedor(vendedor.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Remover desta unidade"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveVendedor(vendedor.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Remover da unidade"
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </div>

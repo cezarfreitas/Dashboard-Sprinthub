@@ -115,11 +115,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Adicionar unidade à roleta
+// POST - Sincronizar roleta de uma unidade (agora automático)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { unidade_id, vendedores_ids } = body
+    const { unidade_id } = body
 
     if (!unidade_id) {
       return NextResponse.json(
@@ -128,58 +128,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar se a unidade já está na roleta
-    const existing = await executeQuery(`
-      SELECT id FROM roletas WHERE unidade_id = ?
-    `, [unidade_id]) as any[]
-
-    if (existing.length > 0) {
-      return NextResponse.json(
-        { success: false, error: 'Esta unidade já está na roleta' },
-        { status: 400 }
-      )
-    }
-
-    // Adicionar unidade à roleta
-    const result = await executeQuery(`
-      INSERT INTO roletas (unidade_id, ativo)
-      VALUES (?, TRUE)
-    `, [unidade_id]) as any
-
-    const roletaId = result.insertId
-
-    // Se vendedores foram especificados, adicionar à fila
-    if (vendedores_ids && Array.isArray(vendedores_ids) && vendedores_ids.length > 0) {
-      for (let i = 0; i < vendedores_ids.length; i++) {
-        await executeQuery(`
-          INSERT INTO fila_roleta (roleta_id, vendedor_id, ordem)
-          VALUES (?, ?, ?)
-        `, [roletaId, vendedores_ids[i], i + 1])
-      }
-    } else {
-      // Se não especificados, adicionar todos os vendedores da unidade
-      const vendedores = await executeQuery(`
-        SELECT id FROM vendedores WHERE unidade_id = ? ORDER BY name
-      `, [unidade_id]) as any[]
-
-      for (let i = 0; i < vendedores.length; i++) {
-        await executeQuery(`
-          INSERT INTO fila_roleta (roleta_id, vendedor_id, ordem)
-          VALUES (?, ?, ?)
-        `, [roletaId, vendedores[i].id, i + 1])
-      }
-    }
+    // Importar função de sincronização
+    const { sincronizarRoletaUnidade } = await import('@/lib/roleta-sync')
+    
+    // Sincronizar roleta da unidade
+    await sincronizarRoletaUnidade(unidade_id)
 
     return NextResponse.json({
       success: true,
-      message: 'Unidade adicionada à roleta com sucesso!',
-      roleta_id: roletaId
+      message: 'Roleta sincronizada com sucesso!'
     })
 
   } catch (error) {
-    console.error('Erro ao adicionar unidade à roleta:', error)
+    console.error('Erro ao sincronizar roleta:', error)
     return NextResponse.json(
-      { success: false, error: 'Erro ao adicionar unidade à roleta' },
+      { success: false, error: 'Erro ao sincronizar roleta' },
       { status: 500 }
     )
   }
@@ -308,32 +271,13 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Remover unidade da roleta
+// DELETE - Não permitir mais remoção manual de roletas (agora automático)
 export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const roletaId = searchParams.get('id')
-
-    if (!roletaId) {
-      return NextResponse.json(
-        { success: false, error: 'ID da roleta é obrigatório' },
-        { status: 400 }
-      )
-    }
-
-    // Remover roleta (cascade remove a fila automaticamente)
-    await executeQuery(`DELETE FROM roletas WHERE id = ?`, [roletaId])
-
-    return NextResponse.json({
-      success: true,
-      message: 'Unidade removida da roleta com sucesso!'
-    })
-
-  } catch (error) {
-    console.error('Erro ao remover roleta:', error)
-    return NextResponse.json(
-      { success: false, error: 'Erro ao remover roleta' },
-      { status: 500 }
-    )
-  }
+  return NextResponse.json(
+    { 
+      success: false, 
+      error: 'Roletas agora são gerenciadas automaticamente. Use a API de unidades para remover unidades.' 
+    },
+    { status: 400 }
+  )
 }

@@ -437,7 +437,7 @@ export default function FunilPage() {
                     <div className="flex flex-col gap-0.5">
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Badge variant="secondary" className="text-xs px-1 py-0 cursor-help h-4">
+                          <Badge className="text-xs px-1 py-0 cursor-help h-4 bg-blue-500 text-white hover:bg-blue-600">
                             {taxaRelativa}%
                           </Badge>
                         </TooltipTrigger>
@@ -448,7 +448,7 @@ export default function FunilPage() {
                       
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Badge variant="outline" className="text-xs px-1 py-0 cursor-help h-4">
+                          <Badge className="text-xs px-1 py-0 cursor-help h-4 bg-purple-100 text-purple-700 border border-purple-400 dark:bg-purple-950 dark:text-purple-400">
                             {taxaAcumulada}%
                           </Badge>
                         </TooltipTrigger>
@@ -481,11 +481,11 @@ export default function FunilPage() {
             </div>
             <Separator orientation="vertical" className="h-3" />
             <div className="flex items-center gap-1">
-              <Badge variant="secondary" className="text-xs h-4 px-1">Relativa</Badge>
+              <Badge className="text-xs h-4 px-1 bg-blue-500 text-white">Relativa</Badge>
               <span className="text-muted-foreground">% etapa anterior</span>
             </div>
             <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-xs h-4 px-1">Acumulada</Badge>
+              <Badge className="text-xs h-4 px-1 bg-purple-100 text-purple-700 border border-purple-400">Acumulada</Badge>
               <span className="text-muted-foreground">% total inicial</span>
             </div>
           </div>

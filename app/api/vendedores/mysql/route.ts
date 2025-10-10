@@ -20,7 +20,6 @@ interface VendedorMySQL {
   state: string | null
   city: string | null
   whatsapp_automation: string | null
-  unidade_id: number | null
   ativo: boolean
   last_login: string | null
   last_action: string | null
@@ -83,25 +82,14 @@ export async function GET(request: NextRequest) {
       queryParams.push(status)
     }
 
-    // Filtro por unidade (se a coluna existir)
+    // Filtro por unidade - agora usando a tabela de relacionamento
     if (unidade_id) {
-      // Verificar se a coluna unidade_id existe
-      try {
-        const columnCheck = await executeQuery(`
-          SELECT COUNT(*) as count 
-          FROM information_schema.columns 
-          WHERE table_schema = DATABASE() 
-          AND table_name = 'vendedores' 
-          AND column_name = 'unidade_id'
-        `) as any[]
-        
-        if (columnCheck[0]?.count > 0) {
-          whereClause += ` AND unidade_id = ?`
-          queryParams.push(parseInt(unidade_id))
-        }
-      } catch (error) {
-        console.log('Coluna unidade_id não encontrada, ignorando filtro')
-      }
+      whereClause += ` AND id IN (
+        SELECT vendedor_id 
+        FROM vendedores_unidades 
+        WHERE unidade_id = ?
+      )`
+      queryParams.push(parseInt(unidade_id))
     }
 
     // Contar total de registros
@@ -110,12 +98,11 @@ export async function GET(request: NextRequest) {
     const total = countResult[0]?.total || 0
     const pages = Math.ceil(total / limit)
 
-    // Buscar vendedores com paginação - query simplificada
+    // Buscar vendedores com paginação
     const vendedoresQuery = `
       SELECT 
         id, name, lastName, email, cpf, username, birthDate, telephone,
         admin, last_login, last_action, status, synced_at, created_at, updated_at,
-        COALESCE(unidade_id, NULL) as unidade_id,
         COALESCE(ativo, TRUE) as ativo
       FROM vendedores 
       WHERE ${whereClause}
