@@ -4,6 +4,7 @@ import { syncUnidadesFromSprintHub } from './unidades-sync'
 import { syncFunis } from './funis-sync'
 import { syncMotivosPerda } from './motivos-perda-sync'
 import { syncColunasFunil } from './colunas-funil-sync'
+import { syncOportunidades } from './oportunidades-sync'
 
 interface CronJob {
   name: string
@@ -30,6 +31,7 @@ class CronScheduler {
     const funisSyncSchedule = process.env.FUNIS_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const motivosPerdaSyncSchedule = process.env.MOTIVOS_PERDA_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const colunasFunilSyncSchedule = process.env.COLUNAS_FUNIL_SYNC_SCHEDULE || '0 8,14,20 * * *'
+    const oportunidadesSyncSchedule = process.env.OPORTUNIDADES_SYNC_SCHEDULE || '0 9,15,21 * * *'
     const timezone = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
 
     // Sincronização de vendedores
@@ -87,12 +89,24 @@ class CronScheduler {
       }
     })
 
+    // Sincronização de oportunidades
+    this.addJob('oportunidades-sync', oportunidadesSyncSchedule, async () => {
+      console.log('🔄 [CRON] Iniciando sincronização automática de oportunidades...')
+      try {
+        await syncOportunidades()
+        console.log('✅ [CRON] Sincronização de oportunidades concluída com sucesso')
+      } catch (error) {
+        console.error('❌ [CRON] Erro na sincronização de oportunidades:', error)
+      }
+    })
+
     console.log(`📅 [CRON] Jobs configurados com timezone: ${timezone}`)
     console.log(`📅 [CRON] Sincronização vendedores: ${vendedoresSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização unidades: ${unidadesSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização funis: ${funisSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização motivos perda: ${motivosPerdaSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização colunas funil: ${colunasFunilSyncSchedule}`)
+    console.log(`📅 [CRON] Sincronização oportunidades: ${oportunidadesSyncSchedule}`)
   }
 
   addJob(name: string, schedule: string, task: () => Promise<void> | void) {
@@ -234,6 +248,8 @@ class CronScheduler {
         await syncMotivosPerda()
       } else if (name === 'colunas-funil-sync') {
         await syncColunasFunil()
+      } else if (name === 'oportunidades-sync') {
+        await syncOportunidades()
       } else {
         // Para outros jobs, você pode adicionar mais condições aqui
         throw new Error(`Função para job '${name}' não implementada`)

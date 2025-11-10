@@ -26,12 +26,17 @@ export async function GET() {
       'SELECT COUNT(*) as total FROM colunas_funil'
     ) as any[]
 
+    const oportunidadesResult = await executeQuery(
+      'SELECT COUNT(*) as total FROM oportunidades'
+    ) as any[]
+
     const stats = {
       vendedores: vendedoresResult[0]?.total || 0,
       unidades: unidadesResult[0]?.total || 0,
       funis: funisResult[0]?.total || 0,
       motivosPerda: motivosPerdaResult[0]?.total || 0,
-      colunasFunil: colunasFunilResult[0]?.total || 0
+      colunasFunil: colunasFunilResult[0]?.total || 0,
+      oportunidades: oportunidadesResult[0]?.total || 0
     }
 
     return NextResponse.json({

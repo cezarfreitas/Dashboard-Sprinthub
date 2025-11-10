@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import CronControls from '@/components/cron-controls'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Settings, Clock, Database, Users, GitBranch, XCircle, Columns } from 'lucide-react'
+import { Settings, Clock, Database, Users, GitBranch, XCircle, Columns, Target } from 'lucide-react'
 import { RefreshCw } from 'lucide-react'
 
 interface Stats {
@@ -12,6 +12,7 @@ interface Stats {
   funis: number
   motivosPerda: number
   colunasFunil: number
+  oportunidades: number
 }
 
 export default function SprintHubPage() {
@@ -59,7 +60,7 @@ export default function SprintHubPage() {
       </div>
 
       {/* Estatísticas de Sincronização */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -153,6 +154,26 @@ export default function SprintHubPage() {
                     <div className="h-6 w-16 bg-gray-200 rounded animate-pulse mt-1"></div>
                   ) : (
                     <p className="text-2xl font-bold">{stats?.colunasFunil || 0}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-cyan-100 rounded-lg">
+                  <Target className="h-5 w-5 text-cyan-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Oportunidades</p>
+                  {loading ? (
+                    <div className="h-6 w-16 bg-gray-200 rounded animate-pulse mt-1"></div>
+                  ) : (
+                    <p className="text-2xl font-bold">{stats?.oportunidades || 0}</p>
                   )}
                 </div>
               </div>
