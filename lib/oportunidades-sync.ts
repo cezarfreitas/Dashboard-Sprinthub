@@ -19,30 +19,31 @@ interface SprintHubOportunidade {
   id: number
   title: string
   value: number | string
-  crmColumn?: string
-  lead?: { id: number } | number
+  crm_column?: number
+  lead_id?: number
   sequence?: number
   status?: string
-  lossReason?: string
-  gainReason?: string
+  loss_reason?: string
+  gain_reason?: string
   expectedCloseDate?: string
-  saleChannel?: string
+  sale_channel?: string
   campaign?: string
   user?: string
-  lastColumnChange?: string
-  lastStatusChange?: string
-  gainDate?: string
-  lostDate?: string
-  reopenDate?: string
-  awaitColumnApproved?: boolean
-  awaitColumnApprovedUser?: string
-  rejectAppro?: boolean
-  rejectApproDesc?: string
-  confInstallment?: any
+  last_column_change?: string
+  last_status_change?: string
+  gain_date?: string
+  lost_date?: string
+  reopen_date?: string
+  await_column_approved?: boolean | null
+  await_column_approved_user?: string | null
+  reject_appro?: boolean | null
+  reject_appro_desc?: string | null
+  conf_installment?: any
   fields?: any
   createDate?: string
   updateDate?: string
-  archived?: boolean
+  archived?: number
+  dataLead?: any
 }
 
 interface PaginatedResponse {
@@ -195,8 +196,8 @@ export async function syncOportunidades(): Promise<{
                   title: oportunidades[0].title,
                   status: oportunidades[0].status,
                   value: oportunidades[0].value,
-                  lead: oportunidades[0].lead,
-                  leadType: typeof oportunidades[0].lead
+                  lead_id: oportunidades[0].lead_id,
+                  crm_column: oportunidades[0].crm_column
                 })
               }
 
@@ -214,42 +215,34 @@ export async function syncOportunidades(): Promise<{
                     continue
                   }
 
-                  // Mapear campos
+                  // Mapear campos (API usa snake_case)
                   const title = opp.title || 'Sem título'
                   const value = typeof opp.value === 'string' ? parseFloat(opp.value || '0') : (opp.value || 0)
-                  const crmColumn = opp.crmColumn || null
-                  
-                  // Lead pode vir como objeto {id: X} ou número direto
-                  let leadId = null
-                  if (typeof opp.lead === 'number') {
-                    leadId = opp.lead
-                  } else if (typeof opp.lead === 'object' && opp.lead?.id) {
-                    leadId = opp.lead.id
-                  }
-                  
+                  const crmColumn = opp.crm_column || null
+                  const leadId = opp.lead_id || null
                   const sequence = opp.sequence !== undefined ? opp.sequence : null
                   const status = opp.status || null
-                  const lossReason = opp.lossReason || null
-                  const gainReason = opp.gainReason || null
+                  const lossReason = opp.loss_reason || null
+                  const gainReason = opp.gain_reason || null
                   const expectedCloseDate = opp.expectedCloseDate ? opp.expectedCloseDate.split('T')[0] : null
-                  const saleChannel = opp.saleChannel || null
+                  const saleChannel = opp.sale_channel || null
                   const campaign = opp.campaign || null
-                  const user = opp.user || null
+                  const user = opp.user ? String(opp.user) : null
                   
                   // Converter datas ISO para formato MySQL
-                  const lastColumnChange = convertToMySQLDateTime(opp.lastColumnChange)
-                  const lastStatusChange = convertToMySQLDateTime(opp.lastStatusChange)
-                  const gainDate = convertToMySQLDateTime(opp.gainDate)
-                  const lostDate = convertToMySQLDateTime(opp.lostDate)
-                  const reopenDate = convertToMySQLDateTime(opp.reopenDate)
+                  const lastColumnChange = convertToMySQLDateTime(opp.last_column_change)
+                  const lastStatusChange = convertToMySQLDateTime(opp.last_status_change)
+                  const gainDate = convertToMySQLDateTime(opp.gain_date)
+                  const lostDate = convertToMySQLDateTime(opp.lost_date)
+                  const reopenDate = convertToMySQLDateTime(opp.reopen_date)
                   const createDate = convertToMySQLDateTime(opp.createDate)
                   const updateDate = convertToMySQLDateTime(opp.updateDate)
                   
-                  const awaitColumnApproved = opp.awaitColumnApproved ? 1 : 0
-                  const awaitColumnApprovedUser = opp.awaitColumnApprovedUser || null
-                  const rejectAppro = opp.rejectAppro ? 1 : 0
-                  const rejectApproDesc = opp.rejectApproDesc || null
-                  const confInstallment = opp.confInstallment ? JSON.stringify(opp.confInstallment) : null
+                  const awaitColumnApproved = opp.await_column_approved ? 1 : 0
+                  const awaitColumnApprovedUser = opp.await_column_approved_user || null
+                  const rejectAppro = opp.reject_appro ? 1 : 0
+                  const rejectApproDesc = opp.reject_appro_desc || null
+                  const confInstallment = opp.conf_installment ? JSON.stringify(opp.conf_installment) : null
                   const fields = opp.fields ? JSON.stringify(opp.fields) : null
                   const archived = opp.archived ? 1 : 0
                   const colunaFunilId = coluna.id
