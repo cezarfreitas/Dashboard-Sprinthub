@@ -20,14 +20,15 @@ export async function syncFunis(): Promise<{
 
     // Buscar variáveis de ambiente
     const apiToken = process.env.APITOKEN
+    const groupId = process.env.I
     const urlPatch = process.env.URLPATCH
 
-    if (!apiToken || !urlPatch) {
-      throw new Error('Variáveis de ambiente APITOKEN ou URLPATCH não configuradas')
+    if (!apiToken || !groupId || !urlPatch) {
+      throw new Error('Variáveis de ambiente APITOKEN, I ou URLPATCH não configuradas')
     }
 
     // Buscar funis da API SprintHub
-    const sprintHubUrl = `${urlPatch}/crm?apitoken=${apiToken}`
+    const sprintHubUrl = `${urlPatch}/crm?apitoken=${apiToken}&i=${groupId}`
     
     console.log('📡 Buscando funis do SprintHub...')
     const response = await fetch(sprintHubUrl, {
