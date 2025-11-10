@@ -1,9 +1,8 @@
 "use client"
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -19,57 +18,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { 
-  Users, 
-  Building2,
-  RefreshCw,
-  Calendar,
-  ChevronDown
-} from 'lucide-react'
+import { Calendar } from 'lucide-react'
 import { 
   FaMedal,
   FaTrophy,
-  FaAward,
   FaCrown,
   FaChartLine,
-  FaCalendarAlt,
-  FaUsers as FaUsersIcon,
-  FaBuilding,
-  FaDollarSign
+  FaCalendarAlt
 } from 'react-icons/fa'
 import { HiRefresh } from 'react-icons/hi'
 
-interface Vendedor {
-  id: number
+interface RankingVendedor {
+  vendedor_id: number
   name: string
   lastName: string
   email: string
   username: string
   telephone?: string
-  unidade_id?: number
-}
-
-interface Unidade {
-  id: number
-  nome: string
-  gerente: string
-  vendedores: Vendedor[]
-}
-
-interface RankingVendedor {
-  vendedor: Vendedor
-  unidade?: Unidade
-  totalRealizado: number
-  totalOportunidades: number
+  total_oportunidades: number
+  total_realizado: number
   posicao: number
   medalha: 'ouro' | 'prata' | 'bronze' | null
-  crescimentoPercentual?: number // Para comparação com mês anterior
-}
-
-interface OportunidadeRanking {
-  user: string | number
-  total_realizado: number
-  total_oportunidades: number
 }
 
 // Função para formatar valores monetários
@@ -79,8 +48,6 @@ const formatCurrency = (value: number): string => {
 }
 
 export default function RankingPage() {
-  const [vendedores, setVendedores] = useState<Vendedor[]>([])
-  const [unidades, setUnidades] = useState<Unidade[]>([])
   const [rankingMensal, setRankingMensal] = useState<RankingVendedor[]>([])
   const [rankingAnual, setRankingAnual] = useState<RankingVendedor[]>([])
   const [loading, setLoading] = useState(true)
@@ -93,46 +60,16 @@ export default function RankingPage() {
     setError('')
     
     try {
-      // Calcular mês anterior
-      const mesAnterior = mesAtual === 1 ? 12 : mesAtual - 1
-      const anoMesAnterior = mesAtual === 1 ? anoAtual - 1 : anoAtual
-      
-      // Buscar unidades, vendedores e rankings de oportunidades em paralelo
-      const [unidadesResponse, vendedoresResponse, rankingMensalResponse, rankingAnualResponse, rankingMesAnteriorResponse] = await Promise.all([
-        fetch('/api/unidades'),
-        fetch('/api/vendedores/mysql'),
-        fetch('/api/oportunidades', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tipo: 'mensal', mes: mesAtual, ano: anoAtual })
-        }),
-        fetch('/api/oportunidades', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tipo: 'anual', mes: mesAtual, ano: anoAtual })
-        }),
-        fetch('/api/oportunidades', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tipo: 'mensal', mes: mesAnterior, ano: anoMesAnterior })
-        })
+      // Buscar rankings mensal e anual em paralelo
+      const [rankingMensalResponse, rankingAnualResponse] = await Promise.all([
+        fetch(`/api/ranking/vendedores?tipo=mensal&mes=${mesAtual}&ano=${anoAtual}`),
+        fetch(`/api/ranking/vendedores?tipo=anual&ano=${anoAtual}`)
       ])
 
-      const [unidadesData, vendedoresData, rankingMensalData, rankingAnualData, rankingMesAnteriorData] = await Promise.all([
-        unidadesResponse.json(),
-        vendedoresResponse.json(),
+      const [rankingMensalData, rankingAnualData] = await Promise.all([
         rankingMensalResponse.json(),
-        rankingAnualResponse.json(),
-        rankingMesAnteriorResponse.json()
+        rankingAnualResponse.json()
       ])
-      
-      if (!unidadesResponse.ok) {
-        throw new Error(unidadesData.message || 'Erro ao carregar unidades')
-      }
-      
-      if (!vendedoresResponse.ok) {
-        throw new Error(vendedoresData.message || 'Erro ao carregar vendedores')
-      }
 
       if (!rankingMensalResponse.ok) {
         throw new Error(rankingMensalData.message || 'Erro ao carregar ranking mensal')
@@ -142,90 +79,16 @@ export default function RankingPage() {
         throw new Error(rankingAnualData.message || 'Erro ao carregar ranking anual')
       }
       
-      const unidadesList = unidadesData.unidades || []
-      const vendedoresList = vendedoresData.vendedores || []
-      
-      setUnidades(unidadesList)
-      setVendedores(vendedoresList)
-      
-      
-      // Processar rankings reais com dados da tabela oportunidades
-      const rankingMensalProcessado = processarRankingReal(
-        rankingMensalData.ranking || [], 
-        vendedoresList, 
-        unidadesList,
-        rankingMesAnteriorData.ranking || [] // Dados do mês anterior para calcular crescimento
-      )
-      const rankingAnualProcessado = processarRankingReal(rankingAnualData.ranking || [], vendedoresList, unidadesList)
-      
-      
-      setRankingMensal(rankingMensalProcessado)
-      setRankingAnual(rankingAnualProcessado)
+      setRankingMensal(rankingMensalData.ranking || [])
+      setRankingAnual(rankingAnualData.ranking || [])
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
-      setVendedores([])
-      setUnidades([])
       setRankingMensal([])
       setRankingAnual([])
     } finally {
       setLoading(false)
     }
-  }
-
-  const processarRankingReal = (rankingOportunidades: OportunidadeRanking[], vendedoresList: Vendedor[], unidadesList: Unidade[], rankingMesAnterior?: OportunidadeRanking[]): RankingVendedor[] => {
-    const rankingArray: RankingVendedor[] = []
-    
-    
-    if (!rankingOportunidades || rankingOportunidades.length === 0) {
-      return []
-    }
-    
-    rankingOportunidades.forEach((oportunidade) => {
-      // Garantir que user seja string para comparação
-      const userId = oportunidade.user.toString()
-      
-      // Encontrar vendedor pelo ID (user field)
-      const vendedor = vendedoresList.find(v => v.id.toString() === userId)
-      
-      
-      if (vendedor) {
-        // Encontrar unidade do vendedor
-        const unidade = unidadesList.find(u => u.vendedores.some(v => v.id === vendedor.id))
-        
-        // Calcular crescimento se dados do mês anterior estiverem disponíveis
-        let crescimentoPercentual: number | undefined = undefined
-        if (rankingMesAnterior) {
-          const dadosMesAnterior = rankingMesAnterior.find(r => r.user.toString() === userId)
-          if (dadosMesAnterior && dadosMesAnterior.total_realizado > 0) {
-            const valorAtual = Number(oportunidade.total_realizado) || 0
-            const valorAnterior = Number(dadosMesAnterior.total_realizado) || 0
-            crescimentoPercentual = ((valorAtual - valorAnterior) / valorAnterior) * 100
-          }
-        }
-        
-        rankingArray.push({
-          vendedor,
-          unidade,
-          totalRealizado: Number(oportunidade.total_realizado) || 0,
-          totalOportunidades: Number(oportunidade.total_oportunidades) || 0,
-          posicao: 0, // Será definido depois
-          medalha: null, // Será definido depois
-          crescimentoPercentual
-        })
-      }
-    })
-    
-    
-    // Reordenar por total realizado e definir posições e medalhas
-    rankingArray.sort((a, b) => b.totalRealizado - a.totalRealizado)
-    
-    rankingArray.forEach((item, index) => {
-      item.posicao = index + 1
-      item.medalha = index === 0 ? 'ouro' : index === 1 ? 'prata' : index === 2 ? 'bronze' : null
-    })
-    
-    return rankingArray
   }
 
   const getMedalIcon = (medalha: 'ouro' | 'prata' | 'bronze' | null) => {
@@ -241,9 +104,13 @@ export default function RankingPage() {
     }
   }
 
-  const renderPodio = (ranking: RankingVendedor[], titulo: string, icon?: React.ReactNode, showGrowth: boolean = false) => {
+  const renderPodio = (ranking: RankingVendedor[], titulo: string, icon?: React.ReactNode) => {
     const top3 = ranking.slice(0, 3)
     
+    if (top3.length === 0) {
+      return null
+    }
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -251,9 +118,9 @@ export default function RankingPage() {
           <h3 className="text-lg font-semibold">{titulo}</h3>
         </div>
         <div className="grid grid-cols-3 gap-4">
-          {top3.map((vendedorRank, index) => (
+          {top3.map((vendedor, index) => (
             <div 
-              key={`${titulo}-podio-${vendedorRank.vendedor.id}`}
+              key={`${titulo}-podio-${vendedor.vendedor_id}`}
               className={`
                 text-center p-4 rounded-lg border-2 shadow-lg transition-all duration-300 hover:scale-105
                 ${index === 0 ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20' : 
@@ -263,33 +130,22 @@ export default function RankingPage() {
             >
               <div className="h-full flex flex-col justify-between">
                 <div className="flex justify-center mb-2">
-                  {getMedalIcon(vendedorRank.medalha)}
+                  {getMedalIcon(vendedor.medalha)}
                 </div>
                 <div className="space-y-2 flex-1 flex flex-col justify-center">
                   <h4 className="font-bold text-sm">
-                    {vendedorRank.vendedor.name} {vendedorRank.vendedor.lastName}
+                    {vendedor.name} {vendedor.lastName}
                   </h4>
                   <p className="text-xs text-muted-foreground">
-                    {vendedorRank.unidade?.nome || 'Sem Unidade'}
+                    @{vendedor.username}
                   </p>
                   <div className="space-y-1">
                     <div className="text-lg font-bold text-green-600">
-                      {formatCurrency(vendedorRank.totalRealizado)}
+                      {formatCurrency(vendedor.total_realizado)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {vendedorRank.totalOportunidades} oportunidade{vendedorRank.totalOportunidades !== 1 ? 's' : ''}
+                      {vendedor.total_oportunidades} oportunidade{vendedor.total_oportunidades !== 1 ? 's' : ''}
                     </div>
-                    {showGrowth && vendedorRank.crescimentoPercentual !== undefined && (
-                      <div className={`text-xs font-semibold ${
-                        vendedorRank.crescimentoPercentual > 0 
-                          ? 'text-green-600' 
-                          : vendedorRank.crescimentoPercentual < 0 
-                            ? 'text-red-600' 
-                            : 'text-gray-500'
-                      }`}>
-                        {vendedorRank.crescimentoPercentual > 0 ? '+' : ''}{vendedorRank.crescimentoPercentual.toFixed(1)}%
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -312,24 +168,23 @@ export default function RankingPage() {
             <TableRow>
               <TableHead className="text-center w-16">Pos</TableHead>
               <TableHead>Vendedor</TableHead>
-              <TableHead>Unidade</TableHead>
               <TableHead className="text-right">Total Vendas</TableHead>
               <TableHead className="text-center">Oportunidades</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ranking.map((vendedorRank) => (
+            {ranking.map((vendedor) => (
               <TableRow 
-                key={`${titulo}-table-${vendedorRank.vendedor.id}`}
-                className={vendedorRank.posicao <= 3 ? 'bg-muted/50' : ''}
+                key={`${titulo}-table-${vendedor.vendedor_id}`}
+                className={vendedor.posicao <= 3 ? 'bg-muted/50' : ''}
               >
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center">
-                    {vendedorRank.posicao <= 3 ? (
-                      getMedalIcon(vendedorRank.medalha)
+                    {vendedor.posicao <= 3 ? (
+                      getMedalIcon(vendedor.medalha)
                     ) : (
                       <span className="font-bold text-muted-foreground">
-                        #{vendedorRank.posicao}
+                        #{vendedor.posicao}
                       </span>
                     )}
                   </div>
@@ -337,24 +192,19 @@ export default function RankingPage() {
                 <TableCell>
                   <div className="space-y-1">
                     <div className="font-medium text-sm">
-                      {vendedorRank.vendedor.name} {vendedorRank.vendedor.lastName}
+                      {vendedor.name} {vendedor.lastName}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {vendedorRank.vendedor.email}
+                      {vendedor.email}
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>
-                  <span className="font-medium text-sm">
-                    {vendedorRank.unidade?.nome || 'Sem Unidade'}
-                  </span>
-                </TableCell>
                 <TableCell className="text-right font-mono text-sm font-bold text-green-600">
-                  {formatCurrency(vendedorRank.totalRealizado)}
+                  {formatCurrency(vendedor.total_realizado)}
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <span className="font-semibold">{vendedorRank.totalOportunidades}</span>
+                    <span className="font-semibold">{vendedor.total_oportunidades}</span>
                   </div>
                 </TableCell>
               </TableRow>
@@ -406,7 +256,7 @@ export default function RankingPage() {
         <div>
           <h1 className="text-3xl font-bold">Ranking de Vendedores</h1>
           <p className="text-muted-foreground">
-            Rankings mensal e anual dos vendedores
+            Rankings mensal e anual baseados em vendas concluídas (status: gain)
           </p>
         </div>
         <Button onClick={fetchData} variant="outline">
@@ -414,7 +264,6 @@ export default function RankingPage() {
           Atualizar
         </Button>
       </div>
-
 
       {/* Rankings */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 xl:divide-x xl:divide-gray-200">
@@ -464,7 +313,7 @@ export default function RankingPage() {
 
           {rankingMensal.length > 0 ? (
             <>
-              {renderPodio(rankingMensal, `Pódio - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />, true)}
+              {renderPodio(rankingMensal, `Pódio - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
               {renderTabelaRanking(rankingMensal, `Ranking Completo - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaChartLine className="h-5 w-5 text-blue-500" />)}
             </>
           ) : (
