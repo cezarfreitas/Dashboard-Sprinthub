@@ -148,20 +148,28 @@ export async function syncOportunidades(): Promise<{
                 break
               }
 
-              const data = await response.json() as PaginatedResponse
+              const data = await response.json()
+
+              // Log da estrutura completa da resposta (primeira vez apenas)
+              if (page === 0 && coluna.id === colunas[0]?.id) {
+                console.log(`    📦 Estrutura completa da resposta (sample):`, JSON.stringify(data, null, 2).substring(0, 500))
+              }
 
               // Log detalhado da resposta para debug
               console.log(`    📦 Resposta da API:`, {
+                keys: Object.keys(data || {}),
                 hasData: !!data.data,
                 dataLength: data.data?.length || 0,
                 total: data.total,
                 page: data.page,
                 totalPages: data.totalPages,
                 dataType: typeof data.data,
-                isArray: Array.isArray(data.data)
+                isArray: Array.isArray(data.data),
+                isDirect: Array.isArray(data)
               })
 
-              const oportunidades = data.data || []
+              // A API pode retornar diretamente um array ou um objeto com propriedade data
+              const oportunidades = Array.isArray(data) ? data : (data.data || [])
               
               console.log(`    ✓ ${oportunidades.length} oportunidades recebidas`)
               
@@ -254,8 +262,7 @@ export async function syncOportunidades(): Promise<{
                            createDate = ?,
                            updateDate = ?,
                            archived = ?,
-                           coluna_funil_id = ?,
-                           updated_at = NOW()
+                           coluna_funil_id = ?
                        WHERE id = ?`,
                       [
                         title, value, crmColumn, leadId, sequence, status, lossReason, gainReason,
@@ -274,8 +281,8 @@ export async function syncOportunidades(): Promise<{
                         expectedCloseDate, sale_channel, campaign, user, last_column_change, last_status_change,
                         gain_date, lost_date, reopen_date, await_column_approved, await_column_approved_user,
                         reject_appro, reject_appro_desc, conf_installment, fields, createDate, updateDate,
-                        archived, coluna_funil_id, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+                        archived, coluna_funil_id, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
                       [
                         opp.id, title, value, crmColumn, leadId, sequence, status, lossReason, gainReason,
                         expectedCloseDate, saleChannel, campaign, user, lastColumnChange, lastStatusChange,

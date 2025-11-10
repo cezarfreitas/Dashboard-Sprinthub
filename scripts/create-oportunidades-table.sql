@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS `oportunidades` (
   `updateDate` datetime DEFAULT NULL,
   `archived` tinyint(1) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `coluna_funil_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_status` (`status`),
