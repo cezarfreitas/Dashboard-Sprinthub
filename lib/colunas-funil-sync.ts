@@ -78,19 +78,18 @@ export async function syncColunasFunil(): Promise<{
       try {
         console.log(`📡 Buscando colunas do funil ${funil.id}...`)
         
-        // Buscar colunas do funil da API SprintHub usando PATCH
-        const sprintHubUrl = `${urlPatch}/crmfastloadv2?apitoken=${apiToken}&i=${groupId}&id=${funil.id}`
+        // Buscar colunas do funil da API SprintHub
+        // ID do funil vai no path da URL
+        const sprintHubUrl = `${urlPatch}/crmfastloadv2/${funil.id}?apitoken=${apiToken}&i=${groupId}`
+        
+        console.log(`  🌐 URL: ${sprintHubUrl}`)
         
         const response = await fetch(sprintHubUrl, {
-          method: 'PATCH',
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'User-Agent': 'CRM-by-INTELI/1.0'
-          },
-          body: JSON.stringify({
-            start: 0,
-            limit: 0
-          })
+          }
         })
 
         if (!response.ok) {
