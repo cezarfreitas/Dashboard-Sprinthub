@@ -100,39 +100,82 @@ export async function GET(request: NextRequest) {
     
     const metas = await executeQuery(query, params) as MetaMensal[]
 
-    // Buscar unidades reais para a matriz
+    // Buscar unidades reais com campo users (JSON com IDs dos vendedores)
     const unidadesReais = await executeQuery(`
-      SELECT id, nome FROM unidades ORDER BY nome
+      SELECT id, COALESCE(nome, name, 'Sem Nome') as nome, users FROM unidades WHERE ativo = 1 ORDER BY id
     `) as any[]
 
-    // Buscar vendedores reais com suas unidades (vendedores podem aparecer múltiplas vezes se estiverem em múltiplas unidades)
-    const vendedoresReais = await executeQuery(`
-      SELECT v.id, v.name, v.lastName, v.username, vu.unidade_id, u.nome as unidade_nome
-      FROM vendedores v
-      JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
-      JOIN unidades u ON vu.unidade_id = u.id
-      ORDER BY v.name, v.lastName, u.nome
+    // Se não houver unidades, criar uma unidade padrão
+    if (unidadesReais.length === 0) {
+      unidadesReais.push({ id: 1, nome: 'Unidade Geral', users: null })
+    }
+
+    // Buscar todos os vendedores ativos
+    const todosVendedores = await executeQuery(`
+      SELECT id, name, lastName, username FROM vendedores WHERE ativo = 1 AND status = 'active' ORDER BY name, lastName
     `) as any[]
+
+    // Criar array de vendedores com suas unidades (baseado no campo users de cada unidade)
+    const vendedoresReais: any[] = []
+    
+    for (const unidade of unidadesReais) {
+      let userIds: number[] = []
+      
+      // Parsear o campo users (JSON)
+      if (unidade.users) {
+        try {
+          userIds = typeof unidade.users === 'string' ? JSON.parse(unidade.users) : unidade.users
+        } catch (e) {
+          console.error('Erro ao parsear users da unidade', unidade.id, e)
+          userIds = []
+        }
+      }
+      
+      // Se a unidade tem vendedores definidos, adicionar cada um
+      if (userIds && userIds.length > 0) {
+        for (const vendedorId of userIds) {
+          const vendedor = todosVendedores.find(v => v.id === vendedorId)
+          if (vendedor) {
+            vendedoresReais.push({
+              id: vendedor.id,
+              name: vendedor.name,
+              lastName: vendedor.lastName,
+              username: vendedor.username,
+              unidade_id: unidade.id,
+              unidade_nome: unidade.nome
+            })
+          }
+        }
+      }
+    }
+    
+    // Se não encontrou nenhum vendedor com unidade, associar todos à primeira unidade
+    if (vendedoresReais.length === 0) {
+      for (const vendedor of todosVendedores) {
+        vendedoresReais.push({
+          id: vendedor.id,
+          name: vendedor.name,
+          lastName: vendedor.lastName,
+          username: vendedor.username,
+          unidade_id: unidadesReais[0].id,
+          unidade_nome: unidadesReais[0].nome
+        })
+      }
+    }
 
     // Buscar vendedores sem meta para o período
-    const vendedoresSemMeta = await executeQuery(`
-      SELECT DISTINCT 
-        v.id as vendedor_id,
-        v.name as vendedor_nome,
-        v.lastName as vendedor_lastName,
-        v.username as vendedor_username,
-        vu.unidade_id,
-        u.nome as unidade_nome
-      FROM vendedores v
-      JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
-      JOIN unidades u ON vu.unidade_id = u.id
-      WHERE v.id NOT IN (
-        SELECT DISTINCT m.vendedor_id 
-        FROM metas_mensais m 
-        WHERE m.ano = ? AND m.mes = ? AND m.status = 'ativa'
-      )
-      ORDER BY v.name, u.nome
-    `, [targetAno, targetMes]) as any[]
+    // Criar lista baseada nos vendedores reais já processados
+    const idsComMeta = new Set(metas.map(m => `${m.vendedor_id}-${m.unidade_id}-${m.mes}`))
+    const vendedoresSemMeta = vendedoresReais
+      .filter(v => !idsComMeta.has(`${v.id}-${v.unidade_id}-${targetMes}`))
+      .map(v => ({
+        vendedor_id: v.id,
+        vendedor_nome: v.name,
+        vendedor_lastName: v.lastName,
+        vendedor_username: v.username,
+        unidade_id: v.unidade_id,
+        unidade_nome: v.unidade_nome
+      }))
 
     return NextResponse.json({
       success: true,

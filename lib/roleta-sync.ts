@@ -6,7 +6,7 @@ import { executeQuery } from '@/lib/database'
 export async function sincronizarRoletaUnidade(unidadeId: number): Promise<void> {
   try {
     // Verificar se a roleta existe, se não existir, criar
-    const [roletas] = await executeQuery(
+    const roletas = await executeQuery(
       'SELECT id FROM roletas WHERE unidade_id = ?',
       [unidadeId]
     ) as any[]
@@ -25,12 +25,12 @@ export async function sincronizarRoletaUnidade(unidadeId: number): Promise<void>
       roletaId = roletas[0].id
     }
 
-    // Buscar todos os vendedores ativos da unidade
+    // Buscar todos os vendedores da unidade
     const vendedores = await executeQuery(`
       SELECT v.id, v.name, v.lastName
       FROM vendedores v
       JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
-      WHERE vu.unidade_id = ? AND v.ativo = 1
+      WHERE vu.unidade_id = ?
       ORDER BY v.name
     `, [unidadeId]) as any[]
 

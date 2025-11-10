@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import CompactFilters, { FilterState } from '@/components/compact-filters'
+import CronControls from '@/components/cron-controls'
 // import { Badge } from '@/components/ui/badge'
 
 // Badge component inline temporário
@@ -95,12 +95,6 @@ export default function VendedoresPage() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
-  const [filters, setFilters] = useState<FilterState>({
-    periodo: {
-      mes: new Date().getMonth() + 1,
-      ano: new Date().getFullYear()
-    }
-  })
 
   const fetchVendedores = async (showLoading = true) => {
     if (showLoading) setLoading(true)
@@ -110,8 +104,7 @@ export default function VendedoresPage() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '50',
-        ...(searchTerm && { search: searchTerm }),
-        ...(filters.unidadeId && { unidade_id: filters.unidadeId.toString() })
+        ...(searchTerm && { search: searchTerm })
       })
       
       const response = await fetch(`/api/vendedores/mysql?${params}`)
@@ -121,14 +114,7 @@ export default function VendedoresPage() {
         throw new Error(data.message || 'Erro ao carregar vendedores')
       }
       
-      let vendedoresFiltrados = data.vendedores || []
-      
-      // Aplicar filtro de vendedor se necessário
-      if (filters.vendedorId) {
-        vendedoresFiltrados = vendedoresFiltrados.filter((v: VendedorMySQL) => v.id.toString() === filters.vendedorId)
-      }
-      
-      setVendedores(vendedoresFiltrados)
+      setVendedores(data.vendedores || [])
       setStats(data.stats || null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
@@ -196,7 +182,7 @@ export default function VendedoresPage() {
 
   useEffect(() => {
     fetchVendedores()
-  }, [page, filters])
+  }, [page])
 
   // Debounce para busca
   useEffect(() => {
@@ -212,7 +198,9 @@ export default function VendedoresPage() {
   }, [searchTerm])
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR')
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      timeZone: 'America/Sao_Paulo'
+    })
   }
 
 
@@ -281,29 +269,6 @@ export default function VendedoresPage() {
             Gerencie sua equipe de vendas sincronizada com SprintHub
           </p>
         </div>
-        
-        <div className="flex items-center space-x-2">
-          <CompactFilters
-            onFiltersChange={setFilters}
-            initialFilters={filters}
-            showPeriodo={false}
-            showUnidades={true}
-            showVendedores={true}
-          />
-          
-          <Button 
-            onClick={syncVendedores} 
-            disabled={syncing}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {syncing ? (
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <RotateCcw className="h-4 w-4 mr-2" />
-            )}
-            {syncing ? 'Sincronizando...' : 'Sincronizar com SprintHub'}
-          </Button>
-        </div>
       </div>
 
       {error && (
@@ -317,22 +282,8 @@ export default function VendedoresPage() {
         </Card>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-md">
-          {loading && vendedores.length > 0 ? (
-            <RefreshCw className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
-          ) : (
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          )}
-          <Input
-            placeholder="Buscar por nome, username, telefone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-      </div>
+      {/* Cron Controls - Apenas Vendedores */}
+      <CronControls filterJobs={['vendedores-sync']} />
 
       {/* Stats Cards */}
       {stats && (
@@ -380,7 +331,9 @@ export default function VendedoresPage() {
                   <p className="text-sm font-medium text-muted-foreground">Última Sync</p>
                   <p className="text-xs font-medium">
                     {stats.ultima_sincronizacao 
-                      ? new Date(stats.ultima_sincronizacao).toLocaleString('pt-BR').split(' ')[1]
+                      ? new Date(stats.ultima_sincronizacao).toLocaleString('pt-BR', {
+                          timeZone: 'America/Sao_Paulo'
+                        }).split(' ')[1]
                       : 'Nunca'
                     }
                   </p>
@@ -395,17 +348,32 @@ export default function VendedoresPage() {
       {/* Tabela de Vendedores */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Users className="h-5 w-5" />
-            <span>Vendedores Cadastrados</span>
-            {vendedores.length > 0 && (
-              <Badge variant="secondary">{vendedores.length}</Badge>
-            )}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="h-5 w-5" />
+              <span>Vendedores Cadastrados</span>
+              {vendedores.length > 0 && (
+                <Badge variant="secondary">{vendedores.length}</Badge>
+              )}
+            </CardTitle>
+            <div className="relative w-full max-w-sm">
+              {loading && vendedores.length > 0 ? (
+                <RefreshCw className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+              ) : (
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              )}
+              <Input
+                placeholder="Buscar por nome, username, telefone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {vendedores.length === 0 ? (
-            <div className="text-center py-12">
+                <div className="text-center py-12">
               <Database className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">Nenhum vendedor encontrado</h3>
               <p className="text-muted-foreground mb-4">
@@ -426,6 +394,7 @@ export default function VendedoresPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>ID SH</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Telefone</TableHead>
                     <TableHead>Status</TableHead>
@@ -437,12 +406,17 @@ export default function VendedoresPage() {
                   {vendedores.map((vendedor) => (
                     <TableRow key={vendedor.id}>
                       <TableCell>
+                        <div className="font-mono text-sm font-medium">
+                          {vendedor.id}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div>
                           <div className="font-medium">
                             {vendedor.name} {vendedor.lastName}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            @{vendedor.username} • ID: {vendedor.id}
+                            @{vendedor.username}
                           </div>
                         </div>
                       </TableCell>

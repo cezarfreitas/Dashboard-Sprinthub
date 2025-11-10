@@ -6,10 +6,18 @@ import { AuthLayout } from '@/components/auth-layout'
 import GlobalNotifications from '@/components/global-notifications'
 import { ThemeProvider } from '@/components/theme-provider'
 
-// Fonte principal - Poppins (moderna e limpa)
-const poppins = Poppins({ 
+// Fonte principal - Inter (suave e moderna)
+const inter = Inter({ 
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap'
+})
+
+// Fonte alternativa - Poppins (para títulos)
+const poppins = Poppins({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-poppins',
   display: 'swap'
 })
@@ -18,13 +26,6 @@ const poppins = Poppins({
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
-  display: 'swap'
-})
-
-// Fallback para Inter
-const inter = Inter({ 
-  subsets: ['latin'],
-  variable: '--font-inter',
   display: 'swap'
 })
 
@@ -39,8 +40,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR" className={`${poppins.variable} ${jetbrainsMono.variable} ${inter.variable}`}>
-      <body className="font-poppins antialiased bg-background text-foreground">
+    <html lang="pt-BR" className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-inter antialiased bg-background text-foreground">
         <ThemeProvider>
           <AuthLayout>
             {children}

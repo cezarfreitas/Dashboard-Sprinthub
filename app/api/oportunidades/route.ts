@@ -130,32 +130,30 @@ export async function POST(request: NextRequest) {
     const params: any[] = []
 
     if (agruparPor === 'unidade') {
-      // Ranking por unidade - precisa fazer JOIN com vendedores_unidades
+      // Ranking por unidade - agora usa apenas vendedores.unidade_id (sem vendedores_unidades)
       if (tipo === 'mensal') {
         query = `
           SELECT 
-            vu.unidade_id,
+            v.unidade_id,
             SUM(o.value) as total_realizado,
             COUNT(o.id) as total_oportunidades
           FROM oportunidades o
           INNER JOIN vendedores v ON o.user = v.id
-          INNER JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
           WHERE MONTH(o.gain_date) = ? AND YEAR(o.gain_date) = ?
-          GROUP BY vu.unidade_id
+          GROUP BY v.unidade_id
           ORDER BY total_realizado DESC
         `
         params.push(mesAtual, anoAtual)
       } else {
         query = `
           SELECT 
-            vu.unidade_id,
+            v.unidade_id,
             SUM(o.value) as total_realizado,
             COUNT(o.id) as total_oportunidades
           FROM oportunidades o
           INNER JOIN vendedores v ON o.user = v.id
-          INNER JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
           WHERE YEAR(o.gain_date) = ? AND MONTH(o.gain_date) <= ?
-          GROUP BY vu.unidade_id
+          GROUP BY v.unidade_id
           ORDER BY total_realizado DESC
         `
         params.push(anoAtual, mesAtual)

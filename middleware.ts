@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
+  // TEMPORÁRIO: Login desabilitado para facilitar desenvolvimento
+  // TODO: Reativar autenticação quando necessário
+  return NextResponse.next()
+  
+  /* CÓDIGO ORIGINAL COMENTADO - DESATIVAR QUANDO PRECISAR DE LOGIN
   const { pathname } = request.nextUrl
   
   // Rotas que não precisam de autenticação
@@ -31,6 +36,7 @@ export function middleware(request: NextRequest) {
   // Para Edge Runtime, apenas verificar se o token existe
   // A validação completa será feita nas APIs
   return NextResponse.next()
+  */
 }
 
 export const config = {

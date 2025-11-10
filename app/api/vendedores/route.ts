@@ -18,106 +18,46 @@ export async function GET(request: NextRequest) {
     // Obter variáveis de ambiente
     const apiToken = process.env.APITOKEN
     const groupId = process.env.I
+    const urlPatch = process.env.URLPATCH
 
-    if (!apiToken || !groupId) {
+    if (!apiToken || !groupId || !urlPatch) {
       return NextResponse.json(
         { 
           success: false, 
-          message: 'Configuração da API não encontrada. Verifique as variáveis de ambiente.' 
+          message: 'Configuração da API não encontrada. Verifique as variáveis de ambiente (APITOKEN, I, URLPATCH).' 
         },
         { status: 500 }
       )
     }
 
-    // Dados mock para teste da interface
-    const mockVendedores: SprintHubUser[] = [
-      {
-        id: 235,
-        name: "Alessandra",
-        lastName: "Silva",
-        email: "alessandra.silva@souatlas.com.br",
-        cpf: "123.456.789-01",
-        username: "alessandra",
-        birthDate: "1983-07-21",
-        telephone: "11973902905"
-      },
-      {
-        id: 236,
-        name: "Carlos",
-        lastName: "Santos",
-        email: "carlos.santos@souatlas.com.br",
-        cpf: null,
-        username: "carlos_santos",
-        birthDate: "1990-03-15",
-        telephone: "11987654321"
-      },
-      {
-        id: 237,
-        name: "Maria",
-        lastName: "Oliveira",
-        email: "maria.oliveira@souatlas.com.br",
-        cpf: "987.654.321-09",
-        username: "maria_oliveira",
-        birthDate: "1985-12-08",
-        telephone: "11912345678"
-      },
-      {
-        id: 238,
-        name: "João",
-        lastName: "Ferreira",
-        email: "joao.ferreira@souatlas.com.br",
-        cpf: "456.789.123-45",
-        username: "joao_ferreira",
-        birthDate: "1988-09-22",
-        telephone: "11956781234"
-      },
-      {
-        id: 239,
-        name: "Ana",
-        lastName: "Costa",
-        email: "ana.costa@souatlas.com.br",
-        cpf: null,
-        username: "ana_costa",
-        birthDate: "1992-05-30",
-        telephone: "11934567890"
-      }
-    ]
-
     console.log('🔍 Buscando vendedores na SprintHub...')
 
-    // Fazer chamada real para a API da SprintHub
-    const sprintHubUrl = `https://sprinthub-api-master.sprinthub.app/user?apitoken=${apiToken}&i=${groupId}`
+    const sprintHubUrl = `${urlPatch}/user?apitoken=${apiToken}&i=${groupId}`
     
-    let vendedores: SprintHubUser[] = []
-    let isUsingMock = false
+    const response = await fetch(sprintHubUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'CRM-by-INTELI/1.0'
+      },
+      // Cache por 5 minutos
+      next: { revalidate: 300 }
+    })
 
-    try {
-      const response = await fetch(sprintHubUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'CRM-by-INTELI/1.0'
+    if (!response.ok) {
+      console.error('❌ Erro na API SprintHub:', response.status, response.statusText)
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: `Erro na API SprintHub: ${response.status} ${response.statusText}` 
         },
-        // Cache por 5 minutos
-        next: { revalidate: 300 }
-      })
-
-      if (!response.ok) {
-        console.error('❌ Erro na API SprintHub:', response.status, response.statusText)
-        // Fallback para dados mock em caso de erro
-        vendedores = mockVendedores
-        isUsingMock = true
-      } else {
-        const data = await response.json()
-        vendedores = Array.isArray(data) ? data : []
-        console.log('✅ Dados recebidos da SprintHub:', vendedores.length, 'vendedores')
-      }
-    } catch (fetchError) {
-      console.error('❌ Erro de conexão com SprintHub:', fetchError)
-      // Fallback para dados mock em caso de erro de conexão
-      vendedores = mockVendedores
-      isUsingMock = true
+        { status: response.status }
+      )
     }
+
+    const data = await response.json()
+    const vendedores = Array.isArray(data) ? data : []
+    console.log('✅ Dados recebidos da SprintHub:', vendedores.length, 'vendedores')
     
     // Estatísticas
     const stats = {
@@ -131,7 +71,7 @@ export async function GET(request: NextRequest) {
       success: true,
       vendedores,
       stats,
-      message: `${vendedores.length} vendedores carregados com sucesso${isUsingMock ? ' (dados mock - API indisponível)' : ''}`
+      message: `${vendedores.length} vendedores carregados com sucesso`
     })
 
   } catch (error) {
@@ -164,15 +104,16 @@ export async function POST(request: NextRequest) {
     // Buscar todos os vendedores e filtrar pelo ID
     const apiToken = process.env.APITOKEN
     const groupId = process.env.I
+    const urlPatch = process.env.URLPATCH
 
-    if (!apiToken || !groupId) {
+    if (!apiToken || !groupId || !urlPatch) {
       return NextResponse.json(
-        { success: false, message: 'Configuração da API não encontrada' },
+        { success: false, message: 'Configuração da API não encontrada (APITOKEN, I, URLPATCH)' },
         { status: 500 }
       )
     }
 
-    const sprintHubUrl = `https://sprinthub-api-master.sprinthub.app/user?apitoken=${apiToken}&i=${groupId}`
+    const sprintHubUrl = `${urlPatch}/user?apitoken=${apiToken}&i=${groupId}`
     
     const response = await fetch(sprintHubUrl, {
       method: 'GET',

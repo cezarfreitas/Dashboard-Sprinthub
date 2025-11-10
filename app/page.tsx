@@ -4,6 +4,14 @@ import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import FunilDashboard from "@/components/funil-dashboard"
 import MonthFilter from "@/components/month-filter"
+import NovasOportunidadesCard from "@/components/novas-oportunidades-card"
+import GanhosCard from "@/components/ganhos-card"
+import PerdidosCard from "@/components/perdidos-card"
+import AbertosCard from "@/components/abertos-card"
+import CriacaoOportunidadesChart from "@/components/criacao-oportunidades-chart"
+import OportunidadesChart from "@/components/oportunidades-chart"
+import ResumoUnidades from "@/components/resumo-unidades"
+import RankingMotivosPerda from "@/components/ranking-motivos-perda"
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth()
@@ -25,13 +33,6 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-4xl font-display">Dashboard</h1>
-        <p className="text-muted-foreground font-body">
-          Funil de vendas e visão geral do sistema
-        </p>
-      </div>
-
       {/* Filtros */}
       <MonthFilter 
         mes={mesSelecionado}
@@ -42,6 +43,66 @@ export default function Home() {
         onAnoChange={setAnoSelecionado}
         onVendedorChange={setVendedorSelecionado}
         onUnidadeChange={setUnidadeSelecionada}
+      />
+
+      {/* Cards Principais */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <NovasOportunidadesCard 
+          mes={mesSelecionado}
+          ano={anoSelecionado}
+          vendedorId={vendedorSelecionado}
+          unidadeId={unidadeSelecionada}
+        />
+        <GanhosCard 
+          mes={mesSelecionado}
+          ano={anoSelecionado}
+          vendedorId={vendedorSelecionado}
+          unidadeId={unidadeSelecionada}
+        />
+        <PerdidosCard 
+          mes={mesSelecionado}
+          ano={anoSelecionado}
+          vendedorId={vendedorSelecionado}
+          unidadeId={unidadeSelecionada}
+        />
+        <AbertosCard 
+          mes={mesSelecionado}
+          ano={anoSelecionado}
+          vendedorId={vendedorSelecionado}
+          unidadeId={unidadeSelecionada}
+        />
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <CriacaoOportunidadesChart 
+          mes={mesSelecionado}
+          ano={anoSelecionado}
+          vendedorId={vendedorSelecionado}
+          unidadeId={unidadeSelecionada}
+        />
+        <OportunidadesChart 
+          mes={mesSelecionado}
+          ano={anoSelecionado}
+          vendedorId={vendedorSelecionado}
+          unidadeId={unidadeSelecionada}
+        />
+      </div>
+
+      {/* Resumo por Unidade */}
+      <ResumoUnidades 
+        mes={mesSelecionado}
+        ano={anoSelecionado}
+        vendedorId={vendedorSelecionado}
+        unidadeId={unidadeSelecionada}
+      />
+
+      {/* Ranking de Motivos de Perda */}
+      <RankingMotivosPerda 
+        mes={mesSelecionado}
+        ano={anoSelecionado}
+        vendedorId={vendedorSelecionado}
+        unidadeId={unidadeSelecionada}
       />
 
       {/* Funil de Vendas */}

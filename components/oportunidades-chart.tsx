@@ -205,41 +205,41 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
 
   return (
     <Card className="w-full">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-5 w-5 text-green-600" />
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-green-600" />
             <div>
-              <CardTitle className="text-lg">Receita Acumulada</CardTitle>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+              <CardTitle className="text-sm font-semibold">Receita Acumulada</CardTitle>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
                 {getMesNome(data.mes)} {data.ano}
               </p>
             </div>
           </div>
-          <Button onClick={fetchData} variant="ghost" size="sm">
-            <RefreshCw className="h-4 w-4" />
+          <Button onClick={fetchData} variant="ghost" size="sm" className="h-6 w-6 p-0">
+            <RefreshCw className="h-3 w-3" />
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {/* Resumo compacto */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="p-2 rounded-md bg-green-50 border border-green-200">
             <div className="text-xs text-green-600 mb-0.5">Receita</div>
-            <div className="text-xl font-bold text-green-700">{formatCurrency(data.valor_total_mes)}</div>
+            <div className="text-sm font-bold text-green-700">{formatCurrency(data.valor_total_mes)}</div>
           </div>
           
-          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+          <div className="p-2 rounded-md bg-blue-50 border border-blue-200">
             <div className="text-xs text-blue-600 mb-0.5">Meta</div>
-            <div className="text-xl font-bold text-blue-700">
+            <div className="text-sm font-bold text-blue-700">
               {data.meta_total > 0 ? formatCurrency(data.meta_total) : '-'}
             </div>
           </div>
           
           {data.meta_total > 0 && (
             <>
-              <div className={`p-3 rounded-lg border ${
+              <div className={`p-2 rounded-md border ${
                 data.valor_total_mes >= data.meta_total 
                   ? 'bg-green-50 border-green-200' 
                   : 'bg-orange-50 border-orange-200'
@@ -251,7 +251,7 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
                 }`}>
                   Progresso
                 </div>
-                <div className={`text-xl font-bold ${
+                <div className={`text-sm font-bold ${
                   data.valor_total_mes >= data.meta_total 
                     ? 'text-green-700' 
                     : 'text-orange-700'
@@ -260,7 +260,7 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
                 </div>
               </div>
               
-              <div className={`p-3 rounded-lg border ${
+              <div className={`p-2 rounded-md border ${
                 data.valor_total_mes >= data.meta_total 
                   ? 'bg-green-50 border-green-200' 
                   : 'bg-orange-50 border-orange-200'
@@ -272,7 +272,7 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
                 }`}>
                   {data.valor_total_mes >= data.meta_total ? 'Superado' : 'Faltam'}
                 </div>
-                <div className={`text-xl font-bold ${
+                <div className={`text-sm font-bold ${
                   data.valor_total_mes >= data.meta_total 
                     ? 'text-green-700' 
                     : 'text-orange-700'
@@ -284,7 +284,7 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
           )}
           
           {!data.meta_total && (
-            <div className="col-span-2 p-3 rounded-lg bg-muted/50 border border-muted flex items-center justify-center">
+            <div className="col-span-2 p-2 rounded-md bg-muted/50 border border-muted flex items-center justify-center">
               <p className="text-xs text-muted-foreground">Média diária: <span className="font-bold text-foreground">{formatCurrency(data.valor_total_mes / data.dados.length)}</span></p>
             </div>
           )}

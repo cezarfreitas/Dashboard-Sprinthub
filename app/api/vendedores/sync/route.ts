@@ -31,19 +31,20 @@ export async function POST(request: NextRequest) {
     // Obter variáveis de ambiente
     const apiToken = process.env.APITOKEN
     const groupId = process.env.I
+    const urlPatch = process.env.URLPATCH
 
-    if (!apiToken || !groupId) {
+    if (!apiToken || !groupId || !urlPatch) {
       return NextResponse.json(
         { 
           success: false, 
-          message: 'Configuração da API não encontrada. Verifique as variáveis de ambiente.' 
+          message: 'Configuração da API não encontrada. Verifique as variáveis de ambiente (APITOKEN, I, URLPATCH).' 
         },
         { status: 500 }
       )
     }
 
     // Buscar vendedores da SprintHub
-    const sprintHubUrl = `https://sprinthub-api-master.sprinthub.app/user?apitoken=${apiToken}&i=${groupId}`
+    const sprintHubUrl = `${urlPatch}/user?apitoken=${apiToken}&i=${groupId}`
     
     const response = await fetch(sprintHubUrl, {
       method: 'GET',
@@ -73,42 +74,6 @@ export async function POST(request: NextRequest) {
         message: 'Nenhum vendedor encontrado na SprintHub'
       }, { status: 404 })
     }
-
-    // Criar tabela se não existir
-    await executeQuery(`
-      CREATE TABLE IF NOT EXISTS vendedores (
-        id INT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        lastName VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        cpf VARCHAR(14) NULL,
-        username VARCHAR(100) NOT NULL,
-        birthDate DATE NOT NULL,
-        telephone VARCHAR(20) NULL,
-        photo TEXT NULL,
-        admin TINYINT DEFAULT 0,
-        branch VARCHAR(100) NULL,
-        position_company VARCHAR(255) NULL,
-        skills TEXT NULL,
-        state VARCHAR(100) NULL,
-        city VARCHAR(100) NULL,
-        whatsapp_automation VARCHAR(20) NULL,
-        last_login DATETIME NULL,
-        last_action DATETIME NULL,
-        status ENUM('active', 'inactive', 'blocked') DEFAULT 'active',
-        synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        
-        INDEX idx_email (email),
-        INDEX idx_username (username),
-        INDEX idx_status (status),
-        INDEX idx_synced_at (synced_at),
-        
-        UNIQUE KEY unique_email (email),
-        UNIQUE KEY unique_username (username)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `)
 
     let inserted = 0
     let updated = 0
@@ -234,8 +199,8 @@ export async function GET(request: NextRequest) {
 
     if (tableExists[0]?.count === 0) {
       return NextResponse.json({
-        success: true,
-        message: 'Tabela de vendedores não existe. Execute a sincronização para criar.',
+        success: false,
+        message: 'Tabela de vendedores não existe. Verifique a estrutura do banco de dados.',
         stats: {
           table_exists: false,
           total: 0,

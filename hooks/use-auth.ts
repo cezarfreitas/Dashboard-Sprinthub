@@ -30,10 +30,26 @@ export function useAuth() {
 
   // Verificar autenticação ao carregar
   useEffect(() => {
-    checkAuth()
+    // TEMPORÁRIO: Autenticação desabilitada (não usa mais tabela users)
+    // Os usuários são do Bitrix24/linhas
+    setAuthState({
+      user: null,
+      loading: false,
+      isAuthenticated: true // Considera sempre autenticado
+    })
+    // checkAuth() // DESABILITADO - não tenta acessar tabela users
   }, [])
 
   const checkAuth = useCallback(async () => {
+    // TEMPORÁRIO: Autenticação desabilitada
+    // Retorna sempre como autenticado sem verificar tabela users
+    setAuthState({
+      user: null,
+      loading: false,
+      isAuthenticated: true
+    })
+    
+    /* CÓDIGO ORIGINAL COMENTADO - NÃO USA MAIS TABELA USERS
     try {
       const response = await fetch('/api/auth/me', {
         credentials: 'include'
@@ -61,6 +77,7 @@ export function useAuth() {
         isAuthenticated: false
       })
     }
+    */
   }, [])
 
   const login = async (username: string, password: string) => {

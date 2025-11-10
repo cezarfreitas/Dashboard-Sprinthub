@@ -162,12 +162,12 @@ export async function GET(request: NextRequest) {
     const unidade_id = searchParams.get('unidade_id')
 
     if (!unidade_id) {
-      // Retornar todos os vendedores sem unidade e ativos
+      // Retornar todos os vendedores sem unidade
       const vendedoresSemUnidade = await executeQuery(`
         SELECT v.id, v.name, v.lastName, v.email, v.username, v.telephone
         FROM vendedores v
         LEFT JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
-        WHERE vu.vendedor_id IS NULL AND v.ativo = 1
+        WHERE vu.vendedor_id IS NULL
         ORDER BY v.name, v.lastName
       `) as any[]
 
@@ -204,8 +204,7 @@ export async function GET(request: NextRequest) {
     const vendedoresDisponiveis = await executeQuery(`
       SELECT v.id, v.name, v.lastName, v.email, v.username, v.telephone
       FROM vendedores v
-      WHERE v.ativo = 1 
-      AND v.id NOT IN (
+      WHERE v.id NOT IN (
         SELECT vu.vendedor_id 
         FROM vendedores_unidades vu 
         WHERE vu.unidade_id = ?

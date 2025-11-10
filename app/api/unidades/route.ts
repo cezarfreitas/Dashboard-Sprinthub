@@ -10,6 +10,7 @@ interface Unidade {
   responsavel: string
   created_at: string
   updated_at: string
+  users?: string | any[] // Campo JSON com IDs dos vendedores
 }
 
 interface VendedorUnidade {
@@ -19,90 +20,108 @@ interface VendedorUnidade {
   email: string
   username: string
   telephone: string
-  unidade_id: number | null
 }
 
 // GET - Listar todas as unidades com seus vendedores
 export async function GET(request: NextRequest) {
   try {
-    // Criar tabela se não existir
-    await executeQuery(`
-      CREATE TABLE IF NOT EXISTS unidades (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nome VARCHAR(255) NOT NULL,
-        responsavel VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        
-        INDEX idx_nome (nome),
-        INDEX idx_responsavel (responsavel)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `)
-
-    // Criar tabela de relacionamento many-to-many se não existir
-    await executeQuery(`
-      CREATE TABLE IF NOT EXISTS vendedores_unidades (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        vendedor_id INT NOT NULL,
-        unidade_id INT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        
-        INDEX idx_vendedor_id (vendedor_id),
-        INDEX idx_unidade_id (unidade_id),
-        INDEX idx_vendedor_unidade (vendedor_id, unidade_id),
-        UNIQUE KEY unique_vendedor_unidade (vendedor_id, unidade_id),
-        
-        CONSTRAINT fk_vendedores_unidades_vendedor 
-          FOREIGN KEY (vendedor_id) REFERENCES vendedores(id) 
-          ON DELETE CASCADE ON UPDATE CASCADE,
-          
-        CONSTRAINT fk_vendedores_unidades_unidade 
-          FOREIGN KEY (unidade_id) REFERENCES unidades(id) 
-          ON DELETE CASCADE ON UPDATE CASCADE
-          
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `)
-
     // Buscar todas as unidades
     const unidades = await executeQuery('SELECT * FROM unidades ORDER BY nome') as Unidade[]
 
     // Buscar todos os vendedores
     const vendedores = await executeQuery(`
-      SELECT id, name, lastName, email, username, telephone 
+      SELECT id, name, lastName, email, username, telephone
       FROM vendedores 
       ORDER BY name
     `) as VendedorUnidade[]
 
-    // Buscar relacionamentos vendedores-unidades ordenados pela sequencia
-    const vendedoresUnidades = await executeQuery(`
-      SELECT vu.vendedor_id, vu.unidade_id, vu.sequencia, vu.ativo, v.name, v.lastName, v.email, v.username, v.telephone, u.nome as unidade_nome
-      FROM vendedores_unidades vu
-      JOIN vendedores v ON vu.vendedor_id = v.id
-      JOIN unidades u ON vu.unidade_id = u.id
-      ORDER BY u.nome, vu.sequencia
-    `) as any[]
+    // Buscar informações das roletas e filas para cada unidade
+    const unidadesComVendedores = await Promise.all(unidades.map(async (unidade) => {
+      // Extrair IDs de vendedores do campo JSON users da unidade
+      let userIds: number[] = []
+      if (unidade.users) {
+        try {
+          const parsed = typeof unidade.users === 'string' 
+            ? JSON.parse(unidade.users) 
+            : unidade.users
+          
+          if (Array.isArray(parsed)) {
+            userIds = parsed
+              .map((u: any) => typeof u === 'object' ? u.id : u)
+              .filter((id: any) => typeof id === 'number')
+          }
+        } catch (e) {
+          console.warn(`Erro ao parsear users da unidade ${unidade.id}:`, e)
+        }
+      }
 
-    // Organizar vendedores por unidade
-    const unidadesComVendedores = unidades.map(unidade => ({
-      ...unidade,
-      vendedores: vendedoresUnidades
-        .filter(vu => vu.unidade_id === unidade.id)
-        .map(vu => ({
-          id: vu.vendedor_id,
-          name: vu.name,
-          lastName: vu.lastName,
-          email: vu.email,
-          username: vu.username,
-          telephone: vu.telephone,
-          sequencia: vu.sequencia,
-          ativo: vu.ativo
+      // Buscar vendedores da unidade pelos IDs extraídos
+      const vendedoresUnidade = vendedores
+        .filter(v => userIds.includes(v.id))
+        .map(v => ({
+          id: v.id,
+          name: v.name,
+          lastName: v.lastName,
+          email: v.email,
+          username: v.username,
+          telephone: v.telephone
         }))
+
+      // Buscar roleta da unidade
+      const roletas = await executeQuery(`
+        SELECT id FROM roletas WHERE unidade_id = ? AND ativo = TRUE
+      `, [unidade.id]) as any[]
+
+      let filaVendedores: any[] = []
+      if (roletas.length > 0) {
+        // Buscar fila da roleta
+        filaVendedores = await executeQuery(`
+          SELECT 
+            fr.vendedor_id,
+            fr.ordem,
+            v.name,
+            v.lastName,
+            v.email,
+            v.telephone
+          FROM fila_roleta fr
+          LEFT JOIN vendedores v ON fr.vendedor_id = v.id
+          WHERE fr.roleta_id = ?
+          ORDER BY fr.ordem ASC
+        `, [roletas[0].id]) as any[]
+      }
+
+      // Separar vendedores em fila e fora da fila
+      const vendedoresNaFila = vendedoresUnidade.filter(v => 
+        filaVendedores.some(f => f.vendedor_id === v.id)
+      )
+      const vendedoresForaFila = vendedoresUnidade.filter(v => 
+        !filaVendedores.some(f => f.vendedor_id === v.id)
+      )
+
+      return {
+        ...unidade,
+        vendedores: vendedoresUnidade,
+        vendedores_na_fila: vendedoresNaFila,
+        vendedores_fora_fila: vendedoresForaFila,
+        fila_roleta: filaVendedores
+      }
     }))
 
-    // Vendedores sem unidade (não estão em nenhuma unidade)
-    const vendedoresComUnidades = vendedoresUnidades.map(vu => vu.vendedor_id)
-    const vendedoresSemUnidade = vendedores.filter(v => !vendedoresComUnidades.includes(v.id))
+    // Vendedores sem unidade (aqueles que não estão no campo users de nenhuma unidade)
+    const todosUserIds = unidades.flatMap(u => {
+      if (!u.users) return []
+      try {
+        const parsed = typeof u.users === 'string' ? JSON.parse(u.users) : u.users
+        if (Array.isArray(parsed)) {
+          return parsed.map((user: any) => typeof user === 'object' ? user.id : user)
+        }
+      } catch (e) {
+        console.warn(`Erro ao parsear users da unidade ${u.id}:`, e)
+      }
+      return []
+    })
+    
+    const vendedoresSemUnidade = vendedores.filter(v => !todosUserIds.includes(v.id))
 
     return NextResponse.json({
       success: true,
@@ -111,7 +130,7 @@ export async function GET(request: NextRequest) {
       stats: {
         total_unidades: unidades.length,
         total_vendedores: vendedores.length,
-        vendedores_com_unidade: vendedoresUnidades.length,
+        vendedores_com_unidade: todosUserIds.length,
         vendedores_sem_unidade: vendedoresSemUnidade.length
       }
     })
@@ -286,13 +305,25 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Verificar se há vendedores vinculados à unidade
-    const vendedoresVinculados = await executeQuery(
-      'SELECT COUNT(*) as count FROM vendedores_unidades WHERE unidade_id = ?',
+    // Verificar se há vendedores vinculados à unidade (campo users)
+    const unidadeParaExcluir = await executeQuery(
+      'SELECT users FROM unidades WHERE id = ?',
       [id]
     ) as any[]
 
-    const totalVendedores = vendedoresVinculados[0]?.count || 0
+    let totalVendedores = 0
+    if (unidadeParaExcluir.length > 0 && unidadeParaExcluir[0].users) {
+      try {
+        const parsed = typeof unidadeParaExcluir[0].users === 'string' 
+          ? JSON.parse(unidadeParaExcluir[0].users) 
+          : unidadeParaExcluir[0].users
+        if (Array.isArray(parsed)) {
+          totalVendedores = parsed.length
+        }
+      } catch (e) {
+        console.warn('Erro ao parsear users:', e)
+      }
+    }
 
     if (totalVendedores > 0) {
       return NextResponse.json(
