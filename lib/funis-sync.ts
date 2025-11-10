@@ -15,6 +15,8 @@ export async function syncFunis(): Promise<{
     erros: number
   }
 }> {
+  const startTime = Date.now()
+  
   try {
     console.log('🔄 Iniciando sincronização de funis...')
 
@@ -112,22 +114,33 @@ export async function syncFunis(): Promise<{
       }
     }
 
-    // Registrar histórico de sincronização
-    try {
-      await executeQuery(
-        `INSERT INTO sync_history (entity_type, total_records, new_records, updated_records, errors, sync_date)
-         VALUES ('funis', ?, ?, ?, ?, NOW())`,
-        [funis.length, novos, atualizados, erros]
-      )
-    } catch (error) {
-      console.error('⚠️ Erro ao registrar histórico (tabela pode não existir):', error)
-    }
-
     const stats = {
       total: funis.length,
       novos,
       atualizados,
       erros
+    }
+
+    const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(2)
+
+    // Registrar histórico de sincronização
+    try {
+      await executeQuery(
+        `INSERT INTO cron_sync_history 
+         (job_name, started_at, completed_at, status, type, records_inserted, records_updated, records_errors, duration_seconds, created_at)
+         VALUES ('funis-sync', FROM_UNIXTIME(?), FROM_UNIXTIME(?), 'success', 'manual', ?, ?, ?, ?, FROM_UNIXTIME(?))`,
+        [
+          Math.floor(startTime / 1000),
+          Math.floor(Date.now() / 1000),
+          novos,
+          atualizados,
+          erros,
+          parseFloat(durationSeconds),
+          Math.floor(startTime / 1000)
+        ]
+      )
+    } catch (error) {
+      console.error('⚠️ Erro ao registrar histórico (tabela pode não existir):', error)
     }
 
     console.log('✅ Sincronização de funis concluída:', stats)
@@ -140,6 +153,27 @@ export async function syncFunis(): Promise<{
 
   } catch (error) {
     console.error('❌ Erro na sincronização de funis:', error)
+    
+    const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(2)
+    
+    // Registrar erro no histórico
+    try {
+      await executeQuery(
+        `INSERT INTO cron_sync_history 
+         (job_name, started_at, completed_at, status, type, error_message, duration_seconds, created_at)
+         VALUES ('funis-sync', FROM_UNIXTIME(?), FROM_UNIXTIME(?), 'error', 'manual', ?, ?, FROM_UNIXTIME(?))`,
+        [
+          Math.floor(startTime / 1000),
+          Math.floor(Date.now() / 1000),
+          error instanceof Error ? error.message : 'Erro desconhecido',
+          parseFloat(durationSeconds),
+          Math.floor(startTime / 1000)
+        ]
+      )
+    } catch (historyError) {
+      console.error('⚠️ Erro ao registrar histórico de erro:', historyError)
+    }
+    
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Erro desconhecido na sincronização'
