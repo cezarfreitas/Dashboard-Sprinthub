@@ -298,7 +298,8 @@ export async function syncOportunidades(): Promise<{
       }
     }
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2)
+    const endTime = Date.now()
+    const durationSeconds = ((endTime - startTime) / 1000).toFixed(2)
     const stats = {
       totalFunis: funis.length,
       totalColunas,
@@ -308,20 +309,27 @@ export async function syncOportunidades(): Promise<{
       erros
     }
 
-    console.log(`\n✅ Sincronização de oportunidades concluída em ${duration}s:`, stats)
+    console.log(`\n✅ Sincronização de oportunidades concluída em ${durationSeconds}s:`, stats)
 
     // Registrar histórico de sincronização
-    await executeQuery(
-      `INSERT INTO cron_sync_history (job_name, status, message, duration_ms, stats)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        'oportunidades-sync',
-        erros > 0 ? 'completed_with_errors' : 'success',
-        `Sincronizados ${totalOportunidades} oportunidades (${novos} novos, ${atualizados} atualizados, ${erros} erros)`,
-        Date.now() - startTime,
-        JSON.stringify(stats)
-      ]
-    )
+    try {
+      await executeQuery(
+        `INSERT INTO cron_sync_history 
+         (job_name, started_at, completed_at, status, type, records_inserted, records_updated, records_errors, duration_seconds, created_at)
+         VALUES ('oportunidades-sync', FROM_UNIXTIME(?), FROM_UNIXTIME(?), 'success', 'manual', ?, ?, ?, ?, FROM_UNIXTIME(?))`,
+        [
+          startTime / 1000,
+          endTime / 1000,
+          novos,
+          atualizados,
+          erros,
+          parseFloat(durationSeconds),
+          endTime / 1000
+        ]
+      )
+    } catch (logError) {
+      console.error('Erro ao registrar histórico:', logError)
+    }
 
     return {
       success: true,
@@ -331,18 +339,23 @@ export async function syncOportunidades(): Promise<{
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+    const endTime = Date.now()
+    const durationSeconds = ((endTime - startTime) / 1000).toFixed(2)
+    
     console.error('❌ Erro na sincronização de oportunidades:', error)
 
     // Registrar erro no histórico
     try {
       await executeQuery(
-        `INSERT INTO cron_sync_history (job_name, status, message, error_details)
-         VALUES (?, ?, ?, ?)`,
+        `INSERT INTO cron_sync_history 
+         (job_name, started_at, completed_at, status, type, error_message, duration_seconds, created_at)
+         VALUES ('oportunidades-sync', FROM_UNIXTIME(?), FROM_UNIXTIME(?), 'error', 'manual', ?, ?, FROM_UNIXTIME(?))`,
         [
-          'oportunidades-sync',
-          'error',
-          'Erro na sincronização de oportunidades',
-          errorMessage
+          startTime / 1000,
+          endTime / 1000,
+          errorMessage,
+          parseFloat(durationSeconds),
+          endTime / 1000
         ]
       )
     } catch (logError) {
