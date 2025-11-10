@@ -126,7 +126,7 @@ export function Header({ className }: HeaderProps) {
         <div className="container flex h-14 items-center">
           <div className="mr-4 flex">
             <Building2 className="h-6 w-6 mr-2" />
-            <span className="font-bold">CRM by INTELI</span>
+            <span className="font-bold">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
           </div>
           <div className="flex-1 flex justify-center">
             <span className="text-sm text-muted-foreground">Carregando...</span>
@@ -146,7 +146,7 @@ export function Header({ className }: HeaderProps) {
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center space-x-2 text-white hover:text-gray-300">
             <Building2 className="h-6 w-6" />
-            <span className="font-bold">CRM by INTELI</span>
+            <span className="font-bold">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
           </Link>
         </div>
 

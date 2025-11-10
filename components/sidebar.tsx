@@ -192,13 +192,13 @@ export function Sidebar({ className }: SidebarProps) {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="ml-2">
-                  <p>CRM by INTELI</p>
+                  <p>{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
             <h2 className="text-xl font-display text-sidebar-foreground">
-              CRM by INTELI
+              {process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}
             </h2>
           )}
           <Button

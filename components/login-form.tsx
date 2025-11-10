@@ -74,7 +74,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               Bem-vindo
             </CardTitle>
             <CardDescription className="text-center font-body">
-              Faça login para acessar o CRM by INTELI
+              Faça login para acessar o {process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}
             </CardDescription>
           </CardHeader>
           <CardContent>
