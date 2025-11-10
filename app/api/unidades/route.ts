@@ -67,36 +67,9 @@ export async function GET(request: NextRequest) {
           telephone: v.telephone
         }))
 
-      // Buscar roleta da unidade
-      const roletas = await executeQuery(`
-        SELECT id FROM roletas WHERE unidade_id = ? AND ativo = TRUE
-      `, [unidade.id]) as any[]
-
-      let filaVendedores: any[] = []
-      if (roletas.length > 0) {
-        // Buscar fila da roleta
-        filaVendedores = await executeQuery(`
-          SELECT 
-            fr.vendedor_id,
-            fr.ordem,
-            v.name,
-            v.lastName,
-            v.email,
-            v.telephone
-          FROM fila_roleta fr
-          LEFT JOIN vendedores v ON fr.vendedor_id = v.id
-          WHERE fr.roleta_id = ?
-          ORDER BY fr.ordem ASC
-        `, [roletas[0].id]) as any[]
-      }
-
-      // Separar vendedores em fila e fora da fila
-      const vendedoresNaFila = vendedoresUnidade.filter(v => 
-        filaVendedores.some(f => f.vendedor_id === v.id)
-      )
-      const vendedoresForaFila = vendedoresUnidade.filter(v => 
-        !filaVendedores.some(f => f.vendedor_id === v.id)
-      )
+      // Tabela roletas foi removida - todos os vendedores são tratados como "fora da fila"
+      const vendedoresNaFila: any[] = []
+      const vendedoresForaFila = vendedoresUnidade
 
       return {
         ...unidade,

@@ -5,6 +5,13 @@ export const dynamic = 'force-dynamic'
 
 // POST - Adicionar vendedor à fila de roleta
 export async function POST(request: NextRequest) {
+  // Funcionalidade desabilitada - tabela roletas foi removida
+  return NextResponse.json(
+    { success: false, message: 'Funcionalidade de fila de roleta foi desabilitada' },
+    { status: 410 }
+  )
+  
+  /*
   try {
     const body = await request.json()
     const { unidade_id, vendedor_id } = body
@@ -107,10 +114,18 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+  */
 }
 
 // DELETE - Remover vendedor da fila de roleta
 export async function DELETE(request: NextRequest) {
+  // Funcionalidade desabilitada - tabela roletas foi removida
+  return NextResponse.json(
+    { success: false, message: 'Funcionalidade de fila de roleta foi desabilitada' },
+    { status: 410 }
+  )
+  
+  /*
   try {
     const body = await request.json()
     const { unidade_id, vendedor_id } = body
@@ -193,4 +208,5 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     )
   }
+  */
 }

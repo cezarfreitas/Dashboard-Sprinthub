@@ -54,13 +54,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Vendedores na fila
-      const vendedoresNaFila = await executeQuery(`
-        SELECT COUNT(DISTINCT fr.vendedor_id) as total
-        FROM fila_roleta fr
-        JOIN roletas r ON fr.roleta_id = r.id
-        WHERE r.unidade_id = ?
-      `, [unidade.id]) as Array<{ total: number }>
+      // Vendedores na fila - tabela roletas foi removida
+      const vendedoresNaFila = [{ total: 0 }]
 
       // Construir filtros para vendedor
       let vendedorFilter = ''
