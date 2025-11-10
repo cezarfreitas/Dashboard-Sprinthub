@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise'
 
 // Validar variáveis de ambiente obrigatórias
 function validateEnvVariables() {
-  const required = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']
+  const required = ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']
   const missing = required.filter(key => !process.env[key])
   
   if (missing.length > 0) {
@@ -17,7 +17,7 @@ function validateEnvVariables() {
 // IMPORTANTE: Todas as credenciais devem vir das variáveis de ambiente (.env.local)
 const dbConfig = {
   host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '3306'),
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
