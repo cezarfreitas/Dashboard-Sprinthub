@@ -1,53 +1,45 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FaCrown, FaTrophy, FaMedal, FaChartLine, FaCalendarAlt, FaBuilding, FaDollarSign } from 'react-icons/fa'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Calendar } from 'lucide-react'
+import { FaCrown, FaTrophy, FaMedal, FaChartLine, FaCalendarAlt, FaBuilding } from 'react-icons/fa'
 import { HiRefresh } from 'react-icons/hi'
 
-interface Unidade {
-  id: number
-  nome: string
-  gerente: string
-  created_at?: string
-  updated_at?: string
-  vendedores: {
-    id: number
-    name: string
-    lastName: string
-    email: string
-    username: string
-    telephone: string
-    unidade_id: number | null
-  }[]
-}
-
-interface OportunidadeRankingUnidade {
-  unidade_id: string | number
-  total_realizado: string | number
-  total_oportunidades: string | number
-}
-
 interface RankingUnidade {
-  unidade: Unidade
-  totalRealizado: number
-  totalOportunidades: number
+  unidade_id: number
+  unidade_nome: string
+  unidade_responsavel: string
+  total_oportunidades: number
+  total_realizado: number
+  total_vendedores: number
   posicao: number
   medalha: 'ouro' | 'prata' | 'bronze' | null
-  crescimentoPercentual?: number
 }
 
 export default function RankingUnidadesPage() {
-  const [unidades, setUnidades] = useState<Unidade[]>([])
   const [rankingMensal, setRankingMensal] = useState<RankingUnidade[]>([])
   const [rankingAnual, setRankingAnual] = useState<RankingUnidade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const mesAtual = new Date().getMonth() + 1
-  const anoAtual = new Date().getFullYear()
+  const [mesAtual, setMesAtual] = useState(new Date().getMonth() + 1)
+  const [anoAtual, setAnoAtual] = useState(new Date().getFullYear())
 
   const formatCurrency = (value: number): string => {
     const numValue = Math.round(Number(value) || 0)
@@ -67,138 +59,49 @@ export default function RankingUnidadesPage() {
     }
   }
 
-  const processarRankingUnidades = (
-    oportunidades: OportunidadeRankingUnidade[], 
-    unidadesList: Unidade[],
-    rankingMesAnterior?: OportunidadeRankingUnidade[]
-  ): RankingUnidade[] => {
-    const rankingArray: RankingUnidade[] = []
-
-    oportunidades.forEach(oportunidade => {
-      const unidadeId = oportunidade.unidade_id.toString()
-      const unidade = unidadesList.find(u => u.id.toString() === unidadeId)
-      
-      if (unidade) {
-        // Calcular crescimento se dados do mês anterior estiverem disponíveis
-        let crescimentoPercentual: number | undefined = undefined
-        if (rankingMesAnterior) {
-          const dadosMesAnterior = rankingMesAnterior.find(r => r.unidade_id.toString() === unidadeId)
-          if (dadosMesAnterior && Number(dadosMesAnterior.total_realizado) > 0) {
-            const valorAtual = Number(oportunidade.total_realizado) || 0
-            const valorAnterior = Number(dadosMesAnterior.total_realizado) || 0
-            crescimentoPercentual = ((valorAtual - valorAnterior) / valorAnterior) * 100
-          }
-        }
-        
-        rankingArray.push({
-          unidade,
-          totalRealizado: Number(oportunidade.total_realizado) || 0,
-          totalOportunidades: Number(oportunidade.total_oportunidades) || 0,
-          posicao: 0,
-          medalha: null,
-          crescimentoPercentual
-        })
-      }
-    })
-
-    // Ordenar por total realizado (decrescente)
-    rankingArray.sort((a, b) => b.totalRealizado - a.totalRealizado)
-
-    // Definir posições e medalhas
-    rankingArray.forEach((item, index) => {
-      item.posicao = index + 1
-      if (index === 0) item.medalha = 'ouro'
-      else if (index === 1) item.medalha = 'prata'
-      else if (index === 2) item.medalha = 'bronze'
-    })
-
-    return rankingArray
-  }
-
   const fetchData = async () => {
+    setLoading(true)
+    setError(null)
+
     try {
-      setLoading(true)
-      setError(null)
+      // Buscar rankings mensal e anual em paralelo
+      const [rankingMensalResponse, rankingAnualResponse] = await Promise.all([
+        fetch(`/api/ranking/unidades?tipo=mensal&mes=${mesAtual}&ano=${anoAtual}`),
+        fetch(`/api/ranking/unidades?tipo=anual&ano=${anoAtual}`)
+      ])
 
-      // Buscar unidades
-      const unidadesResponse = await fetch('/api/unidades')
-      if (!unidadesResponse.ok) throw new Error('Erro ao buscar unidades')
-      const unidadesData = await unidadesResponse.json()
-      const unidadesList = unidadesData.unidades || []
-      setUnidades(unidadesList)
+      const [rankingMensalData, rankingAnualData] = await Promise.all([
+        rankingMensalResponse.json(),
+        rankingAnualResponse.json()
+      ])
 
-      // Buscar ranking mensal
-      const rankingMensalResponse = await fetch('/api/oportunidades', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: 'mensal',
-          mes: mesAtual,
-          ano: anoAtual,
-          agruparPor: 'unidade'
-        })
-      })
+      if (!rankingMensalResponse.ok) {
+        throw new Error(rankingMensalData.message || 'Erro ao carregar ranking mensal')
+      }
 
-      if (!rankingMensalResponse.ok) throw new Error('Erro ao buscar ranking mensal')
-      const responseMensal = await rankingMensalResponse.json()
-      const dadosRankingMensal = responseMensal.ranking || []
+      if (!rankingAnualResponse.ok) {
+        throw new Error(rankingAnualData.message || 'Erro ao carregar ranking anual')
+      }
 
-      // Buscar ranking do mês anterior para calcular crescimento
-      const mesAnterior = mesAtual === 1 ? 12 : mesAtual - 1
-      const anoAnterior = mesAtual === 1 ? anoAtual - 1 : anoAtual
-
-      const rankingMesAnteriorResponse = await fetch('/api/oportunidades', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: 'mensal',
-          mes: mesAnterior,
-          ano: anoAnterior,
-          agruparPor: 'unidade'
-        })
-      })
-
-      const responseMesAnterior = rankingMesAnteriorResponse.ok 
-        ? await rankingMesAnteriorResponse.json()
-        : null
-      const dadosRankingMesAnterior = responseMesAnterior?.ranking || null
-
-      // Buscar ranking anual
-      const rankingAnualResponse = await fetch('/api/oportunidades', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: 'anual',
-          ano: anoAtual,
-          agruparPor: 'unidade'
-        })
-      })
-
-      if (!rankingAnualResponse.ok) throw new Error('Erro ao buscar ranking anual')
-      const responseAnual = await rankingAnualResponse.json()
-      const dadosRankingAnual = responseAnual.ranking || []
-
-      // Processar dados
-      const rankingMensalProcessado = processarRankingUnidades(dadosRankingMensal, unidadesList, dadosRankingMesAnterior)
-      const rankingAnualProcessado = processarRankingUnidades(dadosRankingAnual, unidadesList)
-
-      setRankingMensal(rankingMensalProcessado)
-      setRankingAnual(rankingAnualProcessado)
+      setRankingMensal(rankingMensalData.ranking || [])
+      setRankingAnual(rankingAnualData.ranking || [])
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
+      setRankingMensal([])
+      setRankingAnual([])
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const renderPodio = (ranking: RankingUnidade[], titulo: string, icon?: React.ReactNode, showGrowth: boolean = false) => {
+  const renderPodio = (ranking: RankingUnidade[], titulo: string, icon?: React.ReactNode) => {
     const top3 = ranking.slice(0, 3)
     
+    if (top3.length === 0) {
+      return null
+    }
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -206,9 +109,9 @@ export default function RankingUnidadesPage() {
           <h3 className="text-lg font-semibold">{titulo}</h3>
         </div>
         <div className="grid grid-cols-3 gap-4">
-          {top3.map((unidadeRank, index) => (
+          {top3.map((unidade, index) => (
             <div 
-              key={`${titulo}-podio-${unidadeRank.unidade.id}`}
+              key={`${titulo}-podio-${unidade.unidade_id}`}
               className={`
                 text-center p-4 rounded-lg border-2 shadow-lg transition-all duration-300 hover:scale-105
                 ${index === 0 ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20' : 
@@ -218,36 +121,25 @@ export default function RankingUnidadesPage() {
             >
               <div className="h-full flex flex-col justify-between">
                 <div className="flex justify-center mb-2">
-                  {getMedalIcon(unidadeRank.medalha)}
+                  {getMedalIcon(unidade.medalha)}
                 </div>
                 <div className="space-y-2 flex-1 flex flex-col justify-center">
                   <h4 className="font-bold text-sm">
-                    {unidadeRank.unidade.nome}
+                    {unidade.unidade_nome}
                   </h4>
                   <p className="text-xs text-muted-foreground">
-                    Gerente: {unidadeRank.unidade.gerente}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {unidadeRank.unidade.vendedores.length} vendedor{unidadeRank.unidade.vendedores.length !== 1 ? 'es' : ''}
+                    Responsável: {unidade.unidade_responsavel}
                   </p>
                   <div className="space-y-1">
                     <div className="text-lg font-bold text-green-600">
-                      {formatCurrency(unidadeRank.totalRealizado)}
+                      {formatCurrency(unidade.total_realizado)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {unidadeRank.totalOportunidades} oportunidade{unidadeRank.totalOportunidades !== 1 ? 's' : ''}
+                      {unidade.total_oportunidades} oportunidade{unidade.total_oportunidades !== 1 ? 's' : ''}
                     </div>
-                    {showGrowth && unidadeRank.crescimentoPercentual !== undefined && (
-                      <div className={`text-xs font-semibold ${
-                        unidadeRank.crescimentoPercentual > 0 
-                          ? 'text-green-600' 
-                          : unidadeRank.crescimentoPercentual < 0 
-                            ? 'text-red-600' 
-                            : 'text-gray-500'
-                      }`}>
-                        {unidadeRank.crescimentoPercentual > 0 ? '+' : ''}{unidadeRank.crescimentoPercentual.toFixed(1)}%
-                      </div>
-                    )}
+                    <div className="text-xs text-muted-foreground">
+                      {unidade.total_vendedores} vendedor{unidade.total_vendedores !== 1 ? 'es' : ''}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -265,90 +157,74 @@ export default function RankingUnidadesPage() {
           {icon}
           <h3 className="text-lg font-semibold">{titulo}</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border">
-            <thead>
-              <tr className="border-b">
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Posição
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Unidade
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Gerente
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Vendedores
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Total Realizado
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Oportunidades
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {ranking.map((unidadeRank) => (
-                <tr 
-                  key={`${titulo}-tabela-${unidadeRank.unidade.id}`}
-                  className="hover:bg-muted/50 transition-colors"
-                >
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="w-8 h-8 rounded-full flex items-center justify-center">
-                        {unidadeRank.posicao}
-                      </Badge>
-                      {unidadeRank.medalha && (
-                        <div className="flex-shrink-0">
-                          {getMedalIcon(unidadeRank.medalha)}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium">
-                      {unidadeRank.unidade.nome}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {unidadeRank.unidade.gerente}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {unidadeRank.unidade.vendedores.length}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="font-semibold text-green-600">
-                      {formatCurrency(unidadeRank.totalRealizado)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">
-                    {unidadeRank.totalOportunidades}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-center w-16">Pos</TableHead>
+              <TableHead>Unidade</TableHead>
+              <TableHead>Responsável</TableHead>
+              <TableHead className="text-center">Vendedores</TableHead>
+              <TableHead className="text-right">Total Vendas</TableHead>
+              <TableHead className="text-center">Oportunidades</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {ranking.map((unidade) => (
+              <TableRow 
+                key={`${titulo}-table-${unidade.unidade_id}`}
+                className={unidade.posicao <= 3 ? 'bg-muted/50' : ''}
+              >
+                <TableCell className="text-center">
+                  <div className="flex items-center justify-center">
+                    {unidade.posicao <= 3 ? (
+                      getMedalIcon(unidade.medalha)
+                    ) : (
+                      <span className="font-bold text-muted-foreground">
+                        #{unidade.posicao}
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <FaBuilding className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">
+                      {unidade.unidade_nome}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground">
+                    {unidade.unidade_responsavel}
+                  </span>
+                </TableCell>
+                <TableCell className="text-center">
+                  <span className="font-semibold">{unidade.total_vendedores}</span>
+                </TableCell>
+                <TableCell className="text-right font-mono text-sm font-bold text-green-600">
+                  {formatCurrency(unidade.total_realizado)}
+                </TableCell>
+                <TableCell className="text-center">
+                  <span className="font-semibold">{unidade.total_oportunidades}</span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     )
   }
 
+  useEffect(() => {
+    fetchData()
+  }, [mesAtual, anoAtual])
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Ranking de Unidades</h1>
-            <p className="text-muted-foreground">
-              Performance das unidades em {mesAtual}/{anoAtual}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <HiRefresh className="h-6 w-6 animate-spin mr-2" />
-          <span>Carregando dados...</span>
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <HiRefresh className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Carregando ranking...</span>
         </div>
       </div>
     )
@@ -356,22 +232,15 @@ export default function RankingUnidadesPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Ranking de Unidades</h1>
-            <p className="text-muted-foreground">
-              Performance das unidades em {mesAtual}/{anoAtual}
-            </p>
-          </div>
-        </div>
-        <Card>
-          <CardContent className="py-12">
+      <div className="p-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6">
             <div className="text-center">
-              <p className="text-muted-foreground mb-4">Erro ao carregar dados: {error}</p>
+              <h3 className="text-lg font-semibold text-red-800 mb-2">Erro ao carregar dados</h3>
+              <p className="text-red-600 mb-4">{error}</p>
               <Button onClick={fetchData} variant="outline">
                 <HiRefresh className="h-4 w-4 mr-2" />
-                Tentar Novamente
+                Tentar novamente
               </Button>
             </div>
           </CardContent>
@@ -381,123 +250,121 @@ export default function RankingUnidadesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-8">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ranking de Unidades</h1>
+          <h1 className="text-3xl font-bold">Ranking de Unidades</h1>
           <p className="text-muted-foreground">
-            Performance das unidades em {mesAtual}/{anoAtual}
+            Rankings mensal e anual baseados em vendas concluídas (status: gain)
           </p>
         </div>
-        <Button onClick={fetchData} variant="outline" size="sm">
+        <Button onClick={fetchData} variant="outline">
           <HiRefresh className="h-4 w-4 mr-2" />
           Atualizar
         </Button>
       </div>
 
-      {(rankingMensal.length === 0 && rankingAnual.length === 0) ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground">
-              Nenhum dado de ranking encontrado para este período.
+      {/* Rankings */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 xl:divide-x xl:divide-gray-200">
+        {/* Ranking Mensal */}
+        <div className="space-y-6">
+          {/* Filtro Mensal */}
+          <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Filtro Mensal:</span>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid lg:grid-cols-2 gap-8 lg:divide-x lg:divide-gray-200">
-          {/* Ranking Mensal */}
-          <div className="space-y-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FaCalendarAlt className="h-5 w-5 text-primary" />
-                  Pódio do Mês
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {rankingMensal.length > 0 ? (
-                  renderPodio(
-                    rankingMensal, 
-                    `Top 3 - ${mesAtual.toString().padStart(2, '0')}/${anoAtual}`,
-                    <FaCalendarAlt className="h-4 w-4 text-primary" />,
-                    true
-                  )
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    Nenhum dado mensal encontrado
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            
+            {/* Filtro de Mês */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-blue-700 dark:text-blue-300">Mês:</span>
+              <Select value={mesAtual.toString()} onValueChange={(value) => setMesAtual(parseInt(value))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => (
+                    <SelectItem key={mes} value={mes.toString()}>
+                      {new Date(2024, mes - 1).toLocaleString('pt-BR', { month: 'long' })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Ranking Completo - Mensal</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {rankingMensal.length > 0 ? (
-                  renderTabelaRanking(
-                    rankingMensal,
-                    `Todas as Unidades - ${mesAtual.toString().padStart(2, '0')}/${anoAtual}`,
-                    <FaCalendarAlt className="h-4 w-4 text-primary" />
-                  )
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    Nenhum dado mensal encontrado
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Filtro de Ano */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-blue-700 dark:text-blue-300">Ano:</span>
+              <Select value={anoAtual.toString()} onValueChange={(value) => setAnoAtual(parseInt(value))}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((ano) => (
+                    <SelectItem key={ano} value={ano.toString()}>
+                      {ano}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Separador em telas menores */}
-          <div className="lg:hidden border-t border-gray-200 my-6"></div>
-
-          {/* Ranking Anual */}
-          <div className="space-y-8 lg:pl-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FaChartLine className="h-5 w-5 text-primary" />
-                  Pódio do Ano
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {rankingAnual.length > 0 ? (
-                  renderPodio(
-                    rankingAnual, 
-                    `Top 3 - ${anoAtual}`,
-                    <FaChartLine className="h-4 w-4 text-primary" />
-                  )
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    Nenhum dado anual encontrado
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Ranking Completo - Anual</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {rankingAnual.length > 0 ? (
-                  renderTabelaRanking(
-                    rankingAnual,
-                    `Todas as Unidades - ${anoAtual}`,
-                    <FaChartLine className="h-4 w-4 text-primary" />
-                  )
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    Nenhum dado anual encontrado
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          {rankingMensal.length > 0 ? (
+            <>
+              {renderPodio(rankingMensal, `Pódio - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
+              {renderTabelaRanking(rankingMensal, `Ranking Completo - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaChartLine className="h-5 w-5 text-blue-500" />)}
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Nenhum dado encontrado para {new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/{anoAtual}</p>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Separador para telas menores */}
+        <div className="xl:hidden border-t border-gray-200 my-8"></div>
+
+        {/* Ranking Anual */}
+        <div className="space-y-6 xl:pl-8">
+          {/* Filtro Anual */}
+          <div className="flex items-center gap-4 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-green-600" />
+              <span className="text-sm font-medium text-green-800 dark:text-green-200">Filtro Anual:</span>
+            </div>
+            
+            {/* Filtro de Ano */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-green-700 dark:text-green-300">Ano:</span>
+              <Select value={anoAtual.toString()} onValueChange={(value) => setAnoAtual(parseInt(value))}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((ano) => (
+                    <SelectItem key={ano} value={ano.toString()}>
+                      {ano}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {rankingAnual.length > 0 ? (
+            <>
+              {renderPodio(rankingAnual, `Pódio - ${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
+              {renderTabelaRanking(rankingAnual, `Ranking Completo - ${anoAtual}`, <FaCalendarAlt className="h-5 w-5 text-green-500" />)}
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Nenhum dado encontrado para o ano {anoAtual}</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
