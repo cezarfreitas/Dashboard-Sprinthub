@@ -20,7 +20,7 @@ interface SprintHubOportunidade {
   title: string
   value: number | string
   crmColumn?: string
-  lead?: { id: number }
+  lead?: { id: number } | number
   sequence?: number
   status?: string
   lossReason?: string
@@ -194,7 +194,9 @@ export async function syncOportunidades(): Promise<{
                   id: oportunidades[0].id,
                   title: oportunidades[0].title,
                   status: oportunidades[0].status,
-                  value: oportunidades[0].value
+                  value: oportunidades[0].value,
+                  lead: oportunidades[0].lead,
+                  leadType: typeof oportunidades[0].lead
                 })
               }
 
@@ -216,7 +218,15 @@ export async function syncOportunidades(): Promise<{
                   const title = opp.title || 'Sem título'
                   const value = typeof opp.value === 'string' ? parseFloat(opp.value || '0') : (opp.value || 0)
                   const crmColumn = opp.crmColumn || null
-                  const leadId = opp.lead?.id || null
+                  
+                  // Lead pode vir como objeto {id: X} ou número direto
+                  let leadId = null
+                  if (typeof opp.lead === 'number') {
+                    leadId = opp.lead
+                  } else if (typeof opp.lead === 'object' && opp.lead?.id) {
+                    leadId = opp.lead.id
+                  }
+                  
                   const sequence = opp.sequence !== undefined ? opp.sequence : null
                   const status = opp.status || null
                   const lossReason = opp.lossReason || null
