@@ -30,7 +30,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Dashboard Inteli',
+  title: process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG',
   description: 'Dashboard com sidebar usando shadcn/ui',
 }
 
