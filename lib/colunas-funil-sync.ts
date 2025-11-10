@@ -102,6 +102,12 @@ export async function syncColunasFunil(): Promise<{
         const colunas: SprintHubColunaFunil[] = Array.isArray(data) ? data : []
 
         console.log(`  ✓ ${colunas.length} colunas recebidas para funil ${funil.id}`)
+        
+        // Log dos dados recebidos para debug
+        if (colunas.length > 0) {
+          console.log(`  📦 Primeira coluna (sample):`, JSON.stringify(colunas[0], null, 2))
+        }
+        
         totalColunas += colunas.length
 
         // Sincronizar cada coluna
