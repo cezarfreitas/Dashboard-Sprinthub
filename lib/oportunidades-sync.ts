@@ -128,6 +128,8 @@ export async function syncOportunidades(): Promise<{
               const sprintHubUrl = `${urlPatch}/crm/opportunities/${funil.id}?apitoken=${apiToken}&i=${groupId}`
               
               console.log(`    📄 Página ${page + 1}...`)
+              console.log(`    🌐 URL: ${sprintHubUrl.replace(apiToken, '***')}`)
+              console.log(`    📦 Payload:`, JSON.stringify(payload))
 
               const response = await fetch(sprintHubUrl, {
                 method: 'POST',
@@ -140,15 +142,38 @@ export async function syncOportunidades(): Promise<{
 
               if (!response.ok) {
                 console.error(`    ❌ Erro na API para coluna ${coluna.id}, página ${page}: ${response.status}`)
+                const errorText = await response.text()
+                console.error(`    📄 Resposta de erro:`, errorText.substring(0, 200))
                 erros++
                 break
               }
 
               const data = await response.json() as PaginatedResponse
 
+              // Log detalhado da resposta para debug
+              console.log(`    📦 Resposta da API:`, {
+                hasData: !!data.data,
+                dataLength: data.data?.length || 0,
+                total: data.total,
+                page: data.page,
+                totalPages: data.totalPages,
+                dataType: typeof data.data,
+                isArray: Array.isArray(data.data)
+              })
+
               const oportunidades = data.data || []
               
               console.log(`    ✓ ${oportunidades.length} oportunidades recebidas`)
+              
+              // Se recebeu oportunidades, mostrar amostra da primeira
+              if (oportunidades.length > 0) {
+                console.log(`    📄 Primeira oportunidade (sample):`, {
+                  id: oportunidades[0].id,
+                  title: oportunidades[0].title,
+                  status: oportunidades[0].status,
+                  value: oportunidades[0].value
+                })
+              }
 
               if (oportunidades.length === 0) {
                 hasMorePages = false
