@@ -1,12 +1,26 @@
 import mysql from 'mysql2/promise'
 
+// Validar variáveis de ambiente obrigatórias
+function validateEnvVariables() {
+  const required = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']
+  const missing = required.filter(key => !process.env[key])
+  
+  if (missing.length > 0) {
+    throw new Error(
+      `Variáveis de ambiente obrigatórias não configuradas: ${missing.join(', ')}\n` +
+      `Configure essas variáveis no arquivo .env.local`
+    )
+  }
+}
+
 // Configurações do banco de dados
+// IMPORTANTE: Todas as credenciais devem vir das variáveis de ambiente (.env.local)
 const dbConfig = {
-  host: process.env.DB_HOST || 'server.idenegociosdigitais.com.br',
-  port: parseInt(process.env.DB_PORT || '3359'),
-  user: process.env.DB_USER || 'inteli_db',
-  password: process.env.DB_PASSWORD || '20ab5823b8f45c747cb1',
-  database: process.env.DB_NAME || 'inteli_db',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '3306'),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -20,6 +34,7 @@ let pool: mysql.Pool | null = null
 // Função para obter o pool de conexões
 export function getConnectionPool(): mysql.Pool {
   if (!pool) {
+    validateEnvVariables()
     pool = mysql.createPool(dbConfig)
   }
   return pool

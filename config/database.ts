@@ -1,14 +1,15 @@
 // Configurações do Banco de Dados
+// IMPORTANTE: Todas as credenciais devem vir das variáveis de ambiente (.env.local)
 export const databaseConfig = {
   // URL completa do banco
-  url: process.env.DATABASE_URL || 'mysql://inteli_db:20ab5823b8f45c747cb1@server.idenegociosdigitais.com.br:3359/inteli_db',
+  url: process.env.DATABASE_URL,
   
   // Configurações separadas
-  host: process.env.DB_HOST || 'server.idenegociosdigitais.com.br',
-  port: parseInt(process.env.DB_PORT || '3359'),
-  database: process.env.DB_NAME || 'inteli_db',
-  username: process.env.DB_USER || 'inteli_db',
-  password: process.env.DB_PASSWORD || '20ab5823b8f45c747cb1',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '3306'),
+  database: process.env.DB_NAME,
+  username: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   
   // Configurações adicionais
   ssl: false,
@@ -26,6 +27,9 @@ export const databaseConfig = {
 
 // Função para obter a URL de conexão
 export function getDatabaseUrl(): string {
+  if (!databaseConfig.url) {
+    throw new Error('DATABASE_URL não está configurada nas variáveis de ambiente')
+  }
   return databaseConfig.url
 }
 
