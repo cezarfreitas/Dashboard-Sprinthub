@@ -49,6 +49,7 @@ export async function syncFunis(): Promise<{
     const funis: SprintHubFunil[] = Array.isArray(data) ? data : []
 
     console.log(`✅ ${funis.length} funis recebidos da API`)
+    console.log('📦 Dados recebidos:', JSON.stringify(funis, null, 2))
 
     if (funis.length === 0) {
       return {
@@ -83,6 +84,17 @@ export async function syncFunis(): Promise<{
     // Sincronizar cada funil
     for (const funil of funis) {
       try {
+        // Validar dados do funil
+        if (!funil.id) {
+          console.error('❌ Funil sem ID, pulando:', funil)
+          erros++
+          continue
+        }
+
+        // Garantir que funil_nome não seja undefined
+        // Se não tiver nome, usar o ID como fallback
+        const funilNome = funil.funil_nome || `Funil ${funil.id}`
+
         // Verificar se o funil já existe
         const existing = await executeQuery(
           'SELECT id FROM funis WHERE id = ?',
@@ -96,17 +108,19 @@ export async function syncFunis(): Promise<{
              SET funil_nome = ?,
                  updated_at = NOW()
              WHERE id = ?`,
-            [funil.funil_nome, funil.id]
+            [funilNome, funil.id]
           )
           atualizados++
+          console.log(`✓ Funil ${funil.id} atualizado`)
         } else {
           // Inserir novo funil
           await executeQuery(
             `INSERT INTO funis (id, funil_nome, created_at, updated_at)
              VALUES (?, ?, NOW(), NOW())`,
-            [funil.id, funil.funil_nome]
+            [funil.id, funilNome]
           )
           novos++
+          console.log(`✓ Funil ${funil.id} inserido`)
         }
       } catch (error) {
         console.error(`❌ Erro ao sincronizar funil ${funil.id}:`, error)

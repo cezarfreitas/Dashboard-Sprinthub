@@ -17,6 +17,8 @@ interface CronJob {
   isRunning: boolean
   lastRun: string | null
   nextRun: string | null
+  lastStatus?: 'success' | 'error' | null
+  lastError?: string | null
 }
 
 interface CronControlsProps {
@@ -170,11 +172,32 @@ export default function CronControls({ className, filterJobs, onSyncComplete }: 
     return schedule
   }
 
-  const getStatusIcon = (isRunning: boolean) => {
+  const getStatusIcon = (isRunning: boolean, lastStatus?: 'success' | 'error' | null) => {
     if (isRunning) {
       return <CheckCircle className="h-4 w-4 text-green-500" />
     }
+    if (lastStatus === 'error') {
+      return <AlertCircle className="h-4 w-4 text-red-500" />
+    }
     return <XCircle className="h-4 w-4 text-gray-400" />
+  }
+  
+  const getLastStatusBadge = (lastStatus?: 'success' | 'error' | null) => {
+    if (!lastStatus) return null
+    
+    if (lastStatus === 'success') {
+      return (
+        <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+          ✓ Sucesso
+        </Badge>
+      )
+    }
+    
+    return (
+      <Badge variant="destructive" className="text-xs">
+        ✗ Erro
+      </Badge>
+    )
   }
 
   const getStatusBadge = (isRunning: boolean) => {
@@ -210,18 +233,24 @@ export default function CronControls({ className, filterJobs, onSyncComplete }: 
       <div className="space-y-2">
         {jobs.map((job) => (
           <div key={job.name} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-            <div className="flex items-center space-x-3">
-              {getStatusIcon(job.isRunning)}
-              <div>
-                <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3 flex-1">
+              {getStatusIcon(job.isRunning, job.lastStatus)}
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-1">
                   <span className="font-medium capitalize text-sm">
                     {job.name.replace('-', ' ')}
                   </span>
                   {getStatusBadge(job.isRunning)}
+                  {getLastStatusBadge(job.lastStatus)}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {getScheduleDescription(job.schedule)} • Última: {formatDate(job.lastRun)}
                 </div>
+                {job.lastStatus === 'error' && job.lastError && (
+                  <div className="text-xs text-red-600 mt-1 max-w-md truncate" title={job.lastError}>
+                    ⚠️ {job.lastError}
+                  </div>
+                )}
               </div>
             </div>
             

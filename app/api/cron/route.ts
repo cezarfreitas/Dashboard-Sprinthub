@@ -11,7 +11,7 @@ export async function GET() {
     const jobsWithHistory = await Promise.all(jobs.map(async (job) => {
       try {
         const history = await executeQuery(`
-          SELECT started_at, completed_at, status, type, records_inserted, records_updated, records_errors
+          SELECT started_at, completed_at, status, type, records_inserted, records_updated, records_errors, error_message
           FROM cron_sync_history
           WHERE job_name = ?
           ORDER BY started_at DESC
@@ -28,6 +28,7 @@ export async function GET() {
           lastRun: lastExecution ? lastExecution.completed_at || lastExecution.started_at : null,
           nextRun: job.nextRun,
           lastStatus: lastExecution ? lastExecution.status : null,
+          lastError: lastExecution ? lastExecution.error_message : null,
           lastType: lastExecution ? lastExecution.type : null,
           lastStats: lastExecution ? {
             inserted: lastExecution.records_inserted,
