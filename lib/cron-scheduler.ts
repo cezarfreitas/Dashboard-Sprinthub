@@ -3,6 +3,7 @@ import { syncVendedoresFromSprintHub } from './vendedores-sync'
 import { syncUnidadesFromSprintHub } from './unidades-sync'
 import { syncFunis } from './funis-sync'
 import { syncMotivosPerda } from './motivos-perda-sync'
+import { syncColunasFunil } from './colunas-funil-sync'
 
 interface CronJob {
   name: string
@@ -28,6 +29,7 @@ class CronScheduler {
     const unidadesSyncSchedule = process.env.UNIDADES_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const funisSyncSchedule = process.env.FUNIS_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const motivosPerdaSyncSchedule = process.env.MOTIVOS_PERDA_SYNC_SCHEDULE || '0 8,14,20 * * *'
+    const colunasFunilSyncSchedule = process.env.COLUNAS_FUNIL_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const timezone = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
 
     // Sincronização de vendedores
@@ -74,11 +76,23 @@ class CronScheduler {
       }
     })
 
+    // Sincronização de colunas de funil
+    this.addJob('colunas-funil-sync', colunasFunilSyncSchedule, async () => {
+      console.log('🔄 [CRON] Iniciando sincronização automática de colunas de funil...')
+      try {
+        await syncColunasFunil()
+        console.log('✅ [CRON] Sincronização de colunas de funil concluída com sucesso')
+      } catch (error) {
+        console.error('❌ [CRON] Erro na sincronização de colunas de funil:', error)
+      }
+    })
+
     console.log(`📅 [CRON] Jobs configurados com timezone: ${timezone}`)
     console.log(`📅 [CRON] Sincronização vendedores: ${vendedoresSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização unidades: ${unidadesSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização funis: ${funisSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização motivos perda: ${motivosPerdaSyncSchedule}`)
+    console.log(`📅 [CRON] Sincronização colunas funil: ${colunasFunilSyncSchedule}`)
   }
 
   addJob(name: string, schedule: string, task: () => Promise<void> | void) {
@@ -218,6 +232,8 @@ class CronScheduler {
         await syncFunis()
       } else if (name === 'motivos-perda-sync') {
         await syncMotivosPerda()
+      } else if (name === 'colunas-funil-sync') {
+        await syncColunasFunil()
       } else {
         // Para outros jobs, você pode adicionar mais condições aqui
         throw new Error(`Função para job '${name}' não implementada`)
