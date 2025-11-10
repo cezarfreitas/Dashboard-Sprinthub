@@ -2,6 +2,7 @@ import cron from 'node-cron'
 import { syncVendedoresFromSprintHub } from './vendedores-sync'
 import { syncUnidadesFromSprintHub } from './unidades-sync'
 import { syncFunis } from './funis-sync'
+import { syncMotivosPerda } from './motivos-perda-sync'
 
 interface CronJob {
   name: string
@@ -26,6 +27,7 @@ class CronScheduler {
     const vendedoresSyncSchedule = process.env.VENDEDORES_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const unidadesSyncSchedule = process.env.UNIDADES_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const funisSyncSchedule = process.env.FUNIS_SYNC_SCHEDULE || '0 8,14,20 * * *'
+    const motivosPerdaSyncSchedule = process.env.MOTIVOS_PERDA_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const timezone = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
 
     // Sincronização de vendedores
@@ -61,10 +63,22 @@ class CronScheduler {
       }
     })
 
+    // Sincronização de motivos de perda
+    this.addJob('motivos-perda-sync', motivosPerdaSyncSchedule, async () => {
+      console.log('🔄 [CRON] Iniciando sincronização automática de motivos de perda...')
+      try {
+        await syncMotivosPerda()
+        console.log('✅ [CRON] Sincronização de motivos de perda concluída com sucesso')
+      } catch (error) {
+        console.error('❌ [CRON] Erro na sincronização de motivos de perda:', error)
+      }
+    })
+
     console.log(`📅 [CRON] Jobs configurados com timezone: ${timezone}`)
     console.log(`📅 [CRON] Sincronização vendedores: ${vendedoresSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização unidades: ${unidadesSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização funis: ${funisSyncSchedule}`)
+    console.log(`📅 [CRON] Sincronização motivos perda: ${motivosPerdaSyncSchedule}`)
   }
 
   addJob(name: string, schedule: string, task: () => Promise<void> | void) {
@@ -202,6 +216,8 @@ class CronScheduler {
         await syncUnidadesFromSprintHub('manual')
       } else if (name === 'funis-sync') {
         await syncFunis()
+      } else if (name === 'motivos-perda-sync') {
+        await syncMotivosPerda()
       } else {
         // Para outros jobs, você pode adicionar mais condições aqui
         throw new Error(`Função para job '${name}' não implementada`)
