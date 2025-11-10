@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import { syncVendedoresFromSprintHub } from './vendedores-sync'
 import { syncUnidadesFromSprintHub } from './unidades-sync'
+import { syncFunis } from './funis-sync'
 
 interface CronJob {
   name: string
@@ -24,6 +25,7 @@ class CronScheduler {
     // Obter configurações das variáveis de ambiente
     const vendedoresSyncSchedule = process.env.VENDEDORES_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const unidadesSyncSchedule = process.env.UNIDADES_SYNC_SCHEDULE || '0 8,14,20 * * *'
+    const funisSyncSchedule = process.env.FUNIS_SYNC_SCHEDULE || '0 8,14,20 * * *'
     const timezone = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
 
     // Sincronização de vendedores
@@ -48,9 +50,21 @@ class CronScheduler {
       }
     })
 
+    // Sincronização de funis
+    this.addJob('funis-sync', funisSyncSchedule, async () => {
+      console.log('🔄 [CRON] Iniciando sincronização automática de funis...')
+      try {
+        await syncFunis()
+        console.log('✅ [CRON] Sincronização de funis concluída com sucesso')
+      } catch (error) {
+        console.error('❌ [CRON] Erro na sincronização de funis:', error)
+      }
+    })
+
     console.log(`📅 [CRON] Jobs configurados com timezone: ${timezone}`)
     console.log(`📅 [CRON] Sincronização vendedores: ${vendedoresSyncSchedule}`)
     console.log(`📅 [CRON] Sincronização unidades: ${unidadesSyncSchedule}`)
+    console.log(`📅 [CRON] Sincronização funis: ${funisSyncSchedule}`)
   }
 
   addJob(name: string, schedule: string, task: () => Promise<void> | void) {
@@ -186,6 +200,8 @@ class CronScheduler {
         await syncVendedoresFromSprintHub('manual')
       } else if (name === 'unidades-sync') {
         await syncUnidadesFromSprintHub('manual')
+      } else if (name === 'funis-sync') {
+        await syncFunis()
       } else {
         // Para outros jobs, você pode adicionar mais condições aqui
         throw new Error(`Função para job '${name}' não implementada`)
