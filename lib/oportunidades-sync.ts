@@ -1,5 +1,20 @@
 import { executeQuery } from './database'
 
+// Helper para converter data ISO para formato MySQL
+function convertToMySQLDateTime(isoDate: string | null | undefined): string | null {
+  if (!isoDate) return null
+  try {
+    // Remove 'Z' e 'T', converte para formato MySQL
+    const date = new Date(isoDate)
+    if (isNaN(date.getTime())) return null
+    
+    // Formato: YYYY-MM-DD HH:MM:SS
+    return date.toISOString().slice(0, 19).replace('T', ' ')
+  } catch {
+    return null
+  }
+}
+
 interface SprintHubOportunidade {
   id: number
   title: string
@@ -210,19 +225,22 @@ export async function syncOportunidades(): Promise<{
                   const saleChannel = opp.saleChannel || null
                   const campaign = opp.campaign || null
                   const user = opp.user || null
-                  const lastColumnChange = opp.lastColumnChange || null
-                  const lastStatusChange = opp.lastStatusChange || null
-                  const gainDate = opp.gainDate || null
-                  const lostDate = opp.lostDate || null
-                  const reopenDate = opp.reopenDate || null
+                  
+                  // Converter datas ISO para formato MySQL
+                  const lastColumnChange = convertToMySQLDateTime(opp.lastColumnChange)
+                  const lastStatusChange = convertToMySQLDateTime(opp.lastStatusChange)
+                  const gainDate = convertToMySQLDateTime(opp.gainDate)
+                  const lostDate = convertToMySQLDateTime(opp.lostDate)
+                  const reopenDate = convertToMySQLDateTime(opp.reopenDate)
+                  const createDate = convertToMySQLDateTime(opp.createDate)
+                  const updateDate = convertToMySQLDateTime(opp.updateDate)
+                  
                   const awaitColumnApproved = opp.awaitColumnApproved ? 1 : 0
                   const awaitColumnApprovedUser = opp.awaitColumnApprovedUser || null
                   const rejectAppro = opp.rejectAppro ? 1 : 0
                   const rejectApproDesc = opp.rejectApproDesc || null
                   const confInstallment = opp.confInstallment ? JSON.stringify(opp.confInstallment) : null
                   const fields = opp.fields ? JSON.stringify(opp.fields) : null
-                  const createDate = opp.createDate || null
-                  const updateDate = opp.updateDate || null
                   const archived = opp.archived ? 1 : 0
                   const colunaFunilId = coluna.id
 
