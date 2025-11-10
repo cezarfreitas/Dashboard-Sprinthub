@@ -2,10 +2,11 @@ import { executeQuery } from './database'
 
 interface SprintHubColunaFunil {
   id: number
-  nome_coluna: string
-  total_oportunidades: number
-  valor_total: number
-  sequencia: number
+  name: string
+  sequence: number
+  crm: number
+  total: number
+  totalValue: string
 }
 
 export async function syncColunasFunil(): Promise<{
@@ -120,11 +121,12 @@ export async function syncColunasFunil(): Promise<{
               continue
             }
 
-            // Garantir valores obrigatórios (NOT NULL)
-            const nomeColuna = coluna.nome_coluna || `Coluna ${coluna.id}`
-            const totalOportunidades = coluna.total_oportunidades || 0
-            const valorTotal = coluna.valor_total || 0
-            const sequencia = coluna.sequencia !== undefined ? coluna.sequencia : 0
+            // Mapear campos da API para campos do banco
+            const nomeColuna = coluna.name || `Coluna ${coluna.id}`
+            const idFunil = coluna.crm || funil.id
+            const totalOportunidades = coluna.total || 0
+            const valorTotal = parseFloat(coluna.totalValue || '0')
+            const sequencia = coluna.sequence !== undefined ? coluna.sequence : 0
 
             // Verificar se a coluna já existe
             const existing = await executeQuery(
@@ -143,7 +145,7 @@ export async function syncColunasFunil(): Promise<{
                      sequencia = ?,
                      updated_at = NOW()
                  WHERE id = ?`,
-                [nomeColuna, funil.id, totalOportunidades, valorTotal, sequencia, coluna.id]
+                [nomeColuna, idFunil, totalOportunidades, valorTotal, sequencia, coluna.id]
               )
               atualizados++
             } else {
@@ -152,7 +154,7 @@ export async function syncColunasFunil(): Promise<{
                 `INSERT INTO colunas_funil 
                  (id, nome_coluna, id_funil, total_oportunidades, valor_total, sequencia, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-                [coluna.id, nomeColuna, funil.id, totalOportunidades, valorTotal, sequencia]
+                [coluna.id, nomeColuna, idFunil, totalOportunidades, valorTotal, sequencia]
               )
               novos++
             }
