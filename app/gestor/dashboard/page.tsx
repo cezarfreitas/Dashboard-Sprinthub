@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -110,28 +110,41 @@ export default function GestorDashboard() {
     }).format(value)
   }
 
-  const fetchStats = async () => {
-    if (!gestor || !unidadeSelecionada) return
+  const fetchStats = useCallback(async () => {
+    console.log('=== fetchStats chamada ===')
+    console.log('Gestor:', gestor)
+    console.log('Unidade Selecionada:', unidadeSelecionada)
+    
+    if (!gestor || !unidadeSelecionada) {
+      console.log('Gestor ou unidade não definidos, abortando fetchStats')
+      return
+    }
 
     try {
       setLoading(true)
-      const response = await fetch(
-        `/api/gestor/stats?gestorId=${gestor.id}&unidadeId=${unidadeSelecionada}`
-      )
+      const url = `/api/gestor/stats?gestorId=${gestor.id}&unidadeId=${unidadeSelecionada}`
+      console.log('Buscando stats:', url)
+      
+      const response = await fetch(url)
       const data = await response.json()
+
+      console.log('Resposta da API stats:', data)
 
       if (data.success) {
         setStats(data.stats)
         setError("")
+        console.log('Stats carregadas com sucesso:', data.stats)
       } else {
         setError(data.message || 'Erro ao carregar estatísticas')
+        console.error('Erro na resposta:', data.message)
       }
     } catch (err) {
+      console.error('Erro ao buscar stats:', err)
       setError('Erro de conexão')
     } finally {
       setLoading(false)
     }
-  }
+  }, [gestor, unidadeSelecionada])
 
   const handleLogout = () => {
     localStorage.removeItem('gestor')
@@ -219,28 +232,42 @@ export default function GestorDashboard() {
   }
 
   useEffect(() => {
+    console.log('=== useEffect inicial ===')
     // Verificar se gestor está logado
     const gestorData = localStorage.getItem('gestor')
+    console.log('gestorData do localStorage:', gestorData)
+    
     if (!gestorData) {
+      console.log('Nenhum gestor no localStorage, redirecionando...')
       router.push('/gestor')
       return
     }
 
     try {
       const parsedGestor = JSON.parse(gestorData)
+      console.log('Gestor parseado:', parsedGestor)
       setGestor(parsedGestor)
       // Definir unidade principal como padrão
       setUnidadeSelecionada(parsedGestor.unidade_principal.id)
+      console.log('Unidade principal selecionada:', parsedGestor.unidade_principal.id)
     } catch (err) {
+      console.error('Erro ao parsear gestor:', err)
       router.push('/gestor')
     }
   }, [router])
 
   useEffect(() => {
+    console.log('=== useEffect fetchStats ===')
+    console.log('Gestor:', gestor)
+    console.log('Unidade Selecionada:', unidadeSelecionada)
+    
     if (gestor && unidadeSelecionada) {
+      console.log('Chamando fetchStats...')
       fetchStats()
+    } else {
+      console.log('Não chamando fetchStats - gestor ou unidade undefined')
     }
-  }, [gestor, unidadeSelecionada])
+  }, [gestor, unidadeSelecionada, fetchStats])
 
   useEffect(() => {
     console.log('Estado do dialog mudou:', dialogOpen)
@@ -340,6 +367,7 @@ export default function GestorDashboard() {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="ml-2 text-muted-foreground">Carregando dados...</p>
           </div>
         ) : error ? (
           <Card className="border-red-200 bg-red-50">
@@ -353,7 +381,21 @@ export default function GestorDashboard() {
               </div>
             </CardContent>
           </Card>
-        ) : stats ? (
+        ) : !stats ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center text-muted-foreground py-12">
+                <p className="font-medium mb-2">Nenhum dado disponível</p>
+                <p className="text-sm">
+                  Gestor ID: {gestor?.id} | Unidade: {unidadeSelecionada}
+                </p>
+                <Button onClick={fetchStats} className="mt-4" variant="outline">
+                  Recarregar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
           <div className="space-y-6">
             {/* Resumo da Unidade */}
             <ResumoUnidades 
