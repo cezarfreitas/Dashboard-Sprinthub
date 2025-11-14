@@ -270,7 +270,7 @@ export function Header({ className }: HeaderProps) {
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full text-white hover:bg-white/10 hover:text-white">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      {(user.nome || user.name || 'U').charAt(0).toUpperCase()}
+                      {(user.nome || 'U').charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -279,11 +279,11 @@ export function Header({ className }: HeaderProps) {
                 <div className="flex items-center gap-3 p-3 mb-2">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                      {(user.nome || user.name || 'U').charAt(0).toUpperCase()}
+                      {(user.nome || 'U').charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium text-sm">{user.nome || user.name}</p>
+                    <p className="font-medium text-sm">{user.nome}</p>
                     {user.email && (
                       <p className="text-xs text-muted-foreground truncate max-w-[180px]">
                         {user.email}
