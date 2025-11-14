@@ -110,12 +110,33 @@ export default function GestorDashboard() {
     }).format(value)
   }
 
+  const getInicioMesAtual = () => {
+    const dataAtual = new Date()
+    const mes = dataAtual.getMonth() + 1
+    const ano = dataAtual.getFullYear()
+    return {
+      ano,
+      mes,
+      primeiraDataMes: `${ano}-${String(mes).padStart(2, '0')}-01`,
+    }
+  }
+
+  const escapeCsv = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return ''
+    const str = String(value)
+    // se tiver vírgula, aspas ou quebra de linha, envolve em aspas e escapa aspas internas
+    if (/[",\n]/.test(str)) {
+      return `"${str.replace(/"/g, '""')}"`
+    }
+    return str
+  }
+
   const fetchStats = useCallback(async () => {
     console.log('=== fetchStats chamada ===')
     console.log('Gestor:', gestor)
     console.log('Unidade Selecionada:', unidadeSelecionada)
     
-    if (!gestor || !unidadeSelecionada) {
+    if (!gestor || unidadeSelecionada == null) {
       console.log('Gestor ou unidade não definidos, abortando fetchStats')
       return
     }
@@ -126,6 +147,11 @@ export default function GestorDashboard() {
       console.log('Buscando stats:', url)
       
       const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`)
+      }
+
       const data = await response.json()
 
       console.log('Resposta da API stats:', data)
@@ -140,7 +166,7 @@ export default function GestorDashboard() {
       }
     } catch (err) {
       console.error('Erro ao buscar stats:', err)
-      setError('Erro de conexão')
+      setError(err instanceof Error ? err.message : 'Erro de conexão')
     } finally {
       setLoading(false)
     }
@@ -161,16 +187,18 @@ export default function GestorDashboard() {
     setLoadingOportunidades(true)
 
     try {
-      const dataAtual = new Date()
-      const mes = dataAtual.getMonth() + 1
-      const ano = dataAtual.getFullYear()
-      const primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
+      const { primeiraDataMes } = getInicioMesAtual()
 
       console.log('Buscando oportunidades:', `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`)
       
       const response = await fetch(
         `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`
       )
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`)
+      }
+
       const data = await response.json()
 
       console.log('Resposta da API:', data)
@@ -193,29 +221,31 @@ export default function GestorDashboard() {
 
   const handleExportarOportunidades = async (vendedor: VendedorStats) => {
     try {
-      const dataAtual = new Date()
-      const mes = dataAtual.getMonth() + 1
-      const ano = dataAtual.getFullYear()
-      const primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
+      const { primeiraDataMes, mes, ano } = getInicioMesAtual()
 
       const response = await fetch(
         `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`
       )
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`)
+      }
+
       const data = await response.json()
 
       if (data.success && data.oportunidades) {
         // Criar CSV
         const headers = ['ID', 'Título', 'Valor', 'Status', 'Etapa', 'Data Criação', 'Motivo Perda']
         const csvContent = [
-          headers.join(','),
+          headers.map(escapeCsv).join(','),
           ...data.oportunidades.map((op: Oportunidade) => [
-            op.id,
-            `"${op.titulo}"`,
-            op.valor,
-            op.ganho === 1 ? 'Ganha' : op.perda === 1 ? 'Perdida' : 'Aberta',
-            `"${op.coluna_nome || ''}"`,
-            new Date(op.created_date).toLocaleDateString('pt-BR'),
-            `"${op.motivo_perda || ''}"`
+            escapeCsv(op.id),
+            escapeCsv(op.titulo),
+            escapeCsv(op.valor),
+            escapeCsv(op.ganho === 1 ? 'Ganha' : op.perda === 1 ? 'Perdida' : 'Aberta'),
+            escapeCsv(op.coluna_nome || ''),
+            escapeCsv(new Date(op.created_date).toLocaleDateString('pt-BR')),
+            escapeCsv(op.motivo_perda || '')
           ].join(','))
         ].join('\n')
 
@@ -253,6 +283,7 @@ export default function GestorDashboard() {
     } catch (err) {
       console.error('Erro ao parsear gestor:', err)
       router.push('/gestor')
+      return
     }
   }, [router])
 
@@ -261,7 +292,7 @@ export default function GestorDashboard() {
     console.log('Gestor:', gestor)
     console.log('Unidade Selecionada:', unidadeSelecionada)
     
-    if (gestor && unidadeSelecionada) {
+    if (gestor && unidadeSelecionada != null) {
       console.log('Chamando fetchStats...')
       fetchStats()
     } else {
@@ -323,7 +354,6 @@ export default function GestorDashboard() {
                 <h3 className="text-sm font-medium text-gray-700">Minhas Unidades:</h3>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Visualizando:</span>
                 <Select
                   value={unidadeSelecionada?.toString()}
                   onValueChange={(value) => setUnidadeSelecionada(Number(value))}
@@ -608,7 +638,7 @@ export default function GestorDashboard() {
               </Card>
             )}
           </div>
-        ) : null}
+        )}
       </div>
 
       {/* Dialog de Oportunidades */}
@@ -659,7 +689,7 @@ export default function GestorDashboard() {
                   <Card>
                     <CardContent className="pt-4">
                       <div className="flex items-center gap-2">
-                        <Badge variant="destructive" className="h-4 w-4" />
+                        <div className="h-4 w-4 rounded-full bg-red-600"></div>
                         <div>
                           <p className="text-xs text-muted-foreground">Perdidas</p>
                           <p className="text-lg font-bold text-red-600">
