@@ -12,6 +12,8 @@ import CriacaoOportunidadesChart from "@/components/criacao-oportunidades-chart"
 import OportunidadesChart from "@/components/oportunidades-chart"
 import ResumoUnidades from "@/components/resumo-unidades"
 import RankingMotivosPerda from "@/components/ranking-motivos-perda"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { BarChart3, TrendingUp } from "lucide-react"
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth()
@@ -73,21 +75,37 @@ export default function Home() {
         />
       </div>
 
-      {/* Gráficos */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <CriacaoOportunidadesChart 
-          mes={mesSelecionado}
-          ano={anoSelecionado}
-          vendedorId={vendedorSelecionado}
-          unidadeId={unidadeSelecionada}
-        />
-        <OportunidadesChart 
-          mes={mesSelecionado}
-          ano={anoSelecionado}
-          vendedorId={vendedorSelecionado}
-          unidadeId={unidadeSelecionada}
-        />
-      </div>
+      {/* Gráficos em Tabs */}
+      <Tabs defaultValue="criacao" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="criacao" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Criação de Oportunidades
+          </TabsTrigger>
+          <TabsTrigger value="oportunidades" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Oportunidades Ganhas
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="criacao" className="space-y-4">
+          <CriacaoOportunidadesChart 
+            mes={mesSelecionado}
+            ano={anoSelecionado}
+            vendedorId={vendedorSelecionado}
+            unidadeId={unidadeSelecionada}
+          />
+        </TabsContent>
+
+        <TabsContent value="oportunidades" className="space-y-4">
+          <OportunidadesChart 
+            mes={mesSelecionado}
+            ano={anoSelecionado}
+            vendedorId={vendedorSelecionado}
+            unidadeId={unidadeSelecionada}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Resumo por Unidade */}
       <ResumoUnidades 

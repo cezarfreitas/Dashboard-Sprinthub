@@ -89,7 +89,18 @@ const menuItems = [
   {
     title: "Configurações",
     icon: Settings,
-    href: "/configuracoes"
+    href: "/configuracoes",
+    hasSubmenu: true,
+    submenu: [
+      {
+        title: "Usuários do Sistema",
+        href: "/configuracoes/usuarios-sistema"
+      },
+      {
+        title: "Geral",
+        href: "/configuracoes"
+      }
+    ]
   }
 ]
 

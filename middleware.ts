@@ -2,41 +2,48 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // TEMPORÁRIO: Login desabilitado para facilitar desenvolvimento
-  // TODO: Reativar autenticação quando necessário
-  return NextResponse.next()
-  
-  /* CÓDIGO ORIGINAL COMENTADO - DESATIVAR QUANDO PRECISAR DE LOGIN
   const { pathname } = request.nextUrl
   
-  // Rotas que não precisam de autenticação
-  const publicRoutes = [
-    '/login', 
-    '/api/auth/login', 
-    '/api/auth/refresh',
-    '/api/test-db',
-    '/_next',
-    '/favicon.ico'
+  // Rotas que pertencem ao SISTEMA e precisam de autenticação
+  const sistemaProtectedRoutes = [
+    '/sistema',
+    '/configuracoes',
+    '/unidades',
+    '/vendedores',
+    '/metas',
+    '/oportunidades'
   ]
   
-  // Se for uma rota pública, permitir acesso
-  if (publicRoutes.some(route => pathname.startsWith(route))) {
+  // Rotas públicas do SISTEMA
+  const sistemaPublicRoutes = [
+    '/sistema/login',
+    '/sistema/forgot-password',
+    '/sistema/reset-password'
+  ]
+  
+  // Verificar se é uma rota pública do sistema
+  if (sistemaPublicRoutes.some(route => pathname.startsWith(route))) {
     return NextResponse.next()
   }
+  
+  // Verificar se é uma rota protegida do sistema
+  const isSistemaRoute = sistemaProtectedRoutes.some(route => pathname.startsWith(route))
+  
+  if (isSistemaRoute) {
+    // Verificar token no cookie
+    const token = request.cookies.get('auth-token')?.value
 
-  // Verificar token no cookie
-  const token = request.cookies.get('auth-token')?.value
-
-  if (!token) {
-    // Redirecionar para login se não tiver token
-    const loginUrl = new URL('/login', request.url)
-    return NextResponse.redirect(loginUrl)
+    if (!token) {
+      // Redirecionar para login do sistema
+      const loginUrl = new URL('/sistema/login', request.url)
+      loginUrl.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
   }
 
-  // Para Edge Runtime, apenas verificar se o token existe
-  // A validação completa será feita nas APIs
+  // Para rotas do GESTOR e CONSULTOR, não aplicar middleware
+  // Elas têm sua própria lógica de autenticação via localStorage
   return NextResponse.next()
-  */
 }
 
 export const config = {

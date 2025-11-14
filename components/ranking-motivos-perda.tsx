@@ -260,3 +260,11 @@ export default function RankingMotivosPerda({ mes, ano, vendedorId, unidadeId }:
 
 
 
+
+
+
+
+
+
+
+

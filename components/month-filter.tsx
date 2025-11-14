@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Combobox, ComboboxOption } from "@/components/ui/combobox"
 import { Card } from "@/components/ui/card"
 import { Calendar, Users, Building2 } from "lucide-react"
 
@@ -79,9 +80,18 @@ export default function MonthFilter({
         const unidadesRes = await fetch('/api/unidades')
         if (unidadesRes.ok) {
           const unidadesData = await unidadesRes.json()
-          if (unidadesData.success) {
-            setUnidades(unidadesData.unidades || [])
+          console.log('📍 Unidades carregadas:', unidadesData)
+          if (unidadesData.success && Array.isArray(unidadesData.unidades)) {
+            // Garantir que cada unidade tem um nome
+            const unidadesComNome = unidadesData.unidades.map((u: any) => ({
+              ...u,
+              nome: u.nome || u.name || 'Sem nome'
+            }))
+            setUnidades(unidadesComNome)
+            console.log('✅ Unidades processadas:', unidadesComNome.length)
           }
+        } else {
+          console.error('❌ Erro ao buscar unidades:', unidadesRes.status)
         }
       } catch (error) {
         console.error('Erro ao buscar filtros:', error)
@@ -137,23 +147,22 @@ export default function MonthFilter({
         {onUnidadeChange && (
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-muted-foreground" />
-            <Select 
-              value={unidadeId?.toString() || "all"} 
+            <Combobox
+              options={[
+                { value: "all", label: "Todas Unidades" },
+                ...unidades.map((u) => ({
+                  value: u.id.toString(),
+                  label: u.nome
+                }))
+              ]}
+              value={unidadeId?.toString() || "all"}
               onValueChange={(value) => onUnidadeChange(value === "all" ? null : parseInt(value))}
+              placeholder="Todas Unidades"
+              searchPlaceholder="Pesquisar unidade..."
+              emptyMessage="Nenhuma unidade encontrada."
+              className="w-[180px]"
               disabled={loading}
-            >
-              <SelectTrigger className="w-[140px] h-9">
-                <SelectValue placeholder="Todas unidades" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas Unidades</SelectItem>
-                {unidades.map((u) => (
-                  <SelectItem key={u.id} value={u.id.toString()}>
-                    {u.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
         )}
 
@@ -161,23 +170,22 @@ export default function MonthFilter({
         {onVendedorChange && (
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <Select 
-              value={vendedorId?.toString() || "all"} 
+            <Combobox
+              options={[
+                { value: "all", label: "Todos Vendedores" },
+                ...vendedores.map((v) => ({
+                  value: v.id.toString(),
+                  label: `${v.name} ${v.lastName}`
+                }))
+              ]}
+              value={vendedorId?.toString() || "all"}
               onValueChange={(value) => onVendedorChange(value === "all" ? null : parseInt(value))}
+              placeholder="Todos Vendedores"
+              searchPlaceholder="Pesquisar vendedor..."
+              emptyMessage="Nenhum vendedor encontrado."
+              className="w-[200px]"
               disabled={loading}
-            >
-              <SelectTrigger className="w-[150px] h-9">
-                <SelectValue placeholder="Todos vendedores" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos Vendedores</SelectItem>
-                {vendedores.map((v) => (
-                  <SelectItem key={v.id} value={v.id.toString()}>
-                    {v.name} {v.lastName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
         )}
       </div>

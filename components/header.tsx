@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -88,7 +88,18 @@ const menuItems = [
   {
     title: "Configurações",
     icon: Settings,
-    href: "/configuracoes"
+    href: "/configuracoes",
+    hasSubmenu: true,
+    submenu: [
+      {
+        title: "Usuários do Sistema",
+        href: "/configuracoes/usuarios-sistema"
+      },
+      {
+        title: "Geral",
+        href: "/configuracoes"
+      }
+    ]
   }
 ]
 
@@ -96,7 +107,35 @@ export function Header({ className }: HeaderProps) {
   const { user, logout, loading } = useAuth()
   const { theme, toggleTheme, isLoading: themeLoading } = useTheme()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [userSistema, setUserSistema] = useState<any>(null)
   const pathname = usePathname()
+
+  // Carregar usuário do sistema
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user')
+    if (savedUser) {
+      try {
+        setUserSistema(JSON.parse(savedUser))
+      } catch {
+        setUserSistema(null)
+      }
+    }
+  }, [])
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/sistema', { method: 'DELETE' })
+      localStorage.removeItem('user')
+      window.location.href = '/sistema/login'
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+      localStorage.removeItem('user')
+      window.location.href = '/sistema/login'
+    }
+  }
+
+  // Usar usuário do sistema se disponível, senão usar o antigo
+  const currentUser = userSistema || user
 
   // Função para verificar se a rota está ativa
   const isActiveRoute = (href: string) => {
@@ -225,33 +264,45 @@ export function Header({ className }: HeaderProps) {
           </Button>
 
           {/* User Menu */}
-          {user && (
+          {currentUser && (
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full text-white hover:bg-white/10 hover:text-white">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      <User className="h-4 w-4" />
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {(currentUser.nome || currentUser.name || currentUser.username || 'U').charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-56 p-2" align="end">
-                <div className="flex items-center justify-start gap-2 p-2">
+              <PopoverContent className="w-64 p-2" align="end">
+                <div className="flex items-center gap-3 p-3 mb-2">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                      {(currentUser.nome || currentUser.name || currentUser.username || 'U').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user.name || user.username}</p>
-                    <p className="w-[200px] truncate text-sm text-muted-foreground capitalize">
-                      {user.role}
+                    <p className="font-medium text-sm">{currentUser.nome || currentUser.name || currentUser.username}</p>
+                    {currentUser.email && (
+                      <p className="text-xs text-muted-foreground truncate max-w-[180px]">
+                        {currentUser.email}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {currentUser.role || 'Usuário'}
                     </p>
                   </div>
                 </div>
                 <div className="border-t my-2"></div>
                 <div className="space-y-1">
-                  <Link href="/configuracoes" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Configurações</span>
-                  </Link>
-                  <button onClick={logout} className="flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer text-red-600">
+                  {userSistema && userSistema.permissoes?.includes('configuracoes') && (
+                    <Link href="/configuracoes" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Configurações</span>
+                    </Link>
+                  )}
+                  <button onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Sair</span>
                   </button>

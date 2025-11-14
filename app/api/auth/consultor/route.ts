@@ -26,13 +26,11 @@ export async function POST(request: NextRequest) {
         v.email,
         v.telephone,
         u.id as unidade_id,
-        u.nome as unidade_nome,
+        COALESCE(u.name, u.nome) as unidade_nome,
         u.responsavel as unidade_responsavel
       FROM vendedores v
-      JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
-      JOIN unidades u ON vu.unidade_id = u.id
-      WHERE v.username = ? 
-        AND vu.ativo = TRUE
+      LEFT JOIN unidades u ON v.unidade_id = u.id
+      WHERE v.username = ?
     `, [username]) as Array<{
       id: number
       name: string
@@ -95,6 +93,12 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+
+
+
+
+
 
 
 

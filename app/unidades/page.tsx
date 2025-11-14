@@ -28,7 +28,9 @@ import {
   Trash2,
   Plus,
   MapPin,
-  MessageCircle
+  MessageCircle,
+  Copy,
+  Check
 } from 'lucide-react'
 
 interface Vendedor {
@@ -88,6 +90,7 @@ export default function UnidadesPage() {
   const [editingFila, setEditingFila] = useState<Unidade | null>(null)
   const [filaAtual, setFilaAtual] = useState<VendedorFila[]>([])
   const [dialogFilaOpen, setDialogFilaOpen] = useState(false)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
 
   const fetchUnidades = async (showLoading = true) => {
     if (showLoading) setLoading(true)
@@ -211,6 +214,18 @@ export default function UnidadesPage() {
     } catch (err) {
       console.error('Erro ao salvar fila:', err)
       setError('Erro ao salvar fila de leads')
+    }
+  }
+
+  const copiarUrlUnidade = async (unidadeId: number) => {
+    const url = `http://localhost:3000/api/filav2?unidade=${unidadeId}&idlead={contactfield=id}`
+    
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedId(unidadeId)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch (err) {
+      console.error('Erro ao copiar URL:', err)
     }
   }
 
@@ -366,11 +381,29 @@ export default function UnidadesPage() {
                       )}
                     </div>
                     
-                    <Switch
-                      checked={unidade.ativo}
-                      onCheckedChange={() => toggleUnidadeStatus(unidade.id, unidade.ativo)}
-                      className="flex-shrink-0"
-                    />
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          copiarUrlUnidade(unidade.id)
+                        }}
+                        title="Copiar URL da fila"
+                      >
+                        {copiedId === unidade.id ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Switch
+                        checked={unidade.ativo}
+                        onCheckedChange={() => toggleUnidadeStatus(unidade.id, unidade.ativo)}
+                        className="flex-shrink-0"
+                      />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-0">

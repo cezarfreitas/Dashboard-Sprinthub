@@ -6,10 +6,12 @@ export const dynamic = 'force-dynamic'
 
 interface Unidade {
   id: number
-  nome: string
-  responsavel: string
+  nome: string | null
+  name?: string | null
+  responsavel: string | null
   created_at: string
   updated_at: string
+  ativo?: number
   users?: string | any[] // Campo JSON com IDs dos vendedores
 }
 
@@ -25,8 +27,15 @@ interface VendedorUnidade {
 // GET - Listar todas as unidades com seus vendedores
 export async function GET(request: NextRequest) {
   try {
-    // Buscar todas as unidades
-    const unidades = await executeQuery('SELECT * FROM unidades ORDER BY nome') as Unidade[]
+    // Buscar todas as unidades (usando COALESCE para pegar nome ou name)
+    const unidades = await executeQuery(`
+      SELECT *, 
+        COALESCE(nome, name) as nome_exibicao 
+      FROM unidades 
+      WHERE (nome IS NOT NULL OR name IS NOT NULL)
+        AND ativo = 1
+      ORDER BY COALESCE(nome, name)
+    `) as Unidade[]
 
     // Buscar todos os vendedores
     const vendedores = await executeQuery(`
@@ -73,10 +82,11 @@ export async function GET(request: NextRequest) {
 
       return {
         ...unidade,
+        nome: (unidade as any).nome_exibicao || unidade.nome || (unidade as any).name,
         vendedores: vendedoresUnidade,
         vendedores_na_fila: vendedoresNaFila,
         vendedores_fora_fila: vendedoresForaFila,
-        fila_roleta: filaVendedores
+        fila_roleta: vendedoresNaFila
       }
     }))
 

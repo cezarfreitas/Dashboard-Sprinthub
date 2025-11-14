@@ -103,7 +103,7 @@ export default function ConfiguracoesPage() {
       <div className="flex items-center space-x-3">
         <Settings className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-3xl font-bold">Configurações do Sistema</h1>
+          <h1 className="text-3xl font-bold">Configurações Gerais</h1>
           <p className="text-muted-foreground">
             Variáveis de ambiente e configurações ativas
           </p>

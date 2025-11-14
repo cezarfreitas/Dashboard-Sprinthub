@@ -12,16 +12,18 @@ interface AuthLayoutProps {
 export function AuthLayout({ children }: AuthLayoutProps) {
   const pathname = usePathname()
   
-  // TEMPORÁRIO: Login desabilitado - sempre mostrar conteúdo
+  // Páginas que não devem ter o header (todas as páginas de autenticação)
+  const isAuthPage = pathname.startsWith('/sistema/') // Todas as páginas /sistema/* (login, forgot-password, reset-password, etc)
   const isLoginPage = pathname === '/login'
   const isGestorPage = pathname.startsWith('/gestor')
+  const isConsultorPage = pathname.startsWith('/consultor')
 
-  // Se estiver na página de login ou gestor, mostrar apenas o conteúdo
-  if (isLoginPage || isGestorPage) {
+  // Se estiver nas páginas sem layout, mostrar apenas o conteúdo
+  if (isAuthPage || isLoginPage || isGestorPage || isConsultorPage) {
     return <>{children}</>
   }
 
-  // Mostrar o layout com header para todas as outras páginas
+  // Mostrar o layout com header para todas as outras páginas autenticadas
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
