@@ -10,9 +10,10 @@ import {
   Building2, 
   LogOut,
   RefreshCw,
-  ExternalLink,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  Eye,
+  Download
 } from "lucide-react"
 import {
   Select,
@@ -174,6 +175,46 @@ export default function GestorDashboard() {
     } finally {
       setLoadingOportunidades(false)
       console.log('Dialog aberto:', true)
+    }
+  }
+
+  const handleExportarOportunidades = async (vendedor: VendedorStats) => {
+    try {
+      const dataAtual = new Date()
+      const mes = dataAtual.getMonth() + 1
+      const ano = dataAtual.getFullYear()
+      const primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
+
+      const response = await fetch(
+        `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`
+      )
+      const data = await response.json()
+
+      if (data.success && data.oportunidades) {
+        // Criar CSV
+        const headers = ['ID', 'Título', 'Valor', 'Status', 'Etapa', 'Data Criação', 'Motivo Perda']
+        const csvContent = [
+          headers.join(','),
+          ...data.oportunidades.map((op: Oportunidade) => [
+            op.id,
+            `"${op.titulo}"`,
+            op.valor,
+            op.ganho === 1 ? 'Ganha' : op.perda === 1 ? 'Perdida' : 'Aberta',
+            `"${op.coluna_nome || ''}"`,
+            new Date(op.created_date).toLocaleDateString('pt-BR'),
+            `"${op.motivo_perda || ''}"`
+          ].join(','))
+        ].join('\n')
+
+        // Download do arquivo
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = `oportunidades_${vendedor.name}_${vendedor.lastName}_${mes}_${ano}.csv`
+        link.click()
+      }
+    } catch (err) {
+      console.error('Erro ao exportar oportunidades:', err)
     }
   }
 
@@ -372,6 +413,7 @@ export default function GestorDashboard() {
                           <th className="text-center py-3 px-2">Abertas</th>
                           <th className="text-right py-3 px-2">Meta</th>
                           <th className="text-center py-3 px-2">% Meta</th>
+                          <th className="text-center py-3 px-2">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -383,18 +425,7 @@ export default function GestorDashboard() {
                           return (
                             <tr key={vendedor.id} className="border-b hover:bg-gray-50">
                               <td className="py-3 px-2 font-medium">
-                                <a
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    console.log('Clicou no vendedor:', vendedor.name)
-                                    handleVerOportunidades(vendedor)
-                                  }}
-                                  className="flex items-center gap-1 text-purple-600 hover:text-purple-800 hover:underline transition-colors cursor-pointer"
-                                >
-                                  {vendedor.name} {vendedor.lastName}
-                                  <ExternalLink className="h-3 w-3" />
-                                </a>
+                                {vendedor.name} {vendedor.lastName}
                               </td>
                               <td className="text-center py-3 px-2">
                                 {vendedor.oportunidades_criadas}
@@ -429,6 +460,28 @@ export default function GestorDashboard() {
                                     {percentMeta.toFixed(0)}%
                                   </Badge>
                                 ) : '-'}
+                              </td>
+                              <td className="text-center py-3 px-2">
+                                <div className="flex items-center justify-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleVerOportunidades(vendedor)}
+                                    className="h-8 w-8 p-0 hover:bg-purple-50 hover:text-purple-600"
+                                    title="Ver oportunidades"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleExportarOportunidades(vendedor)}
+                                    className="h-8 w-8 p-0 hover:bg-emerald-50 hover:text-emerald-600"
+                                    title="Exportar para CSV"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           )
