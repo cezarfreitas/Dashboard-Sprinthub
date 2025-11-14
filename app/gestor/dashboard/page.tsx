@@ -138,7 +138,11 @@ export default function GestorDashboard() {
   }
 
   const handleVerOportunidades = async (vendedor: VendedorStats) => {
+    console.log('=== handleVerOportunidades chamada ===')
+    console.log('Vendedor:', vendedor)
+    
     setVendedorSelecionado(vendedor)
+    console.log('Abrindo dialog...')
     setDialogOpen(true)
     setLoadingOportunidades(true)
 
@@ -148,21 +152,28 @@ export default function GestorDashboard() {
       const ano = dataAtual.getFullYear()
       const primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
 
+      console.log('Buscando oportunidades:', `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`)
+      
       const response = await fetch(
         `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`
       )
       const data = await response.json()
 
+      console.log('Resposta da API:', data)
+
       if (data.success) {
         setOportunidades(data.oportunidades || [])
+        console.log('Oportunidades carregadas:', data.oportunidades?.length || 0)
       } else {
         setOportunidades([])
+        console.log('Nenhuma oportunidade encontrada')
       }
     } catch (err) {
       console.error('Erro ao buscar oportunidades:', err)
       setOportunidades([])
     } finally {
       setLoadingOportunidades(false)
+      console.log('Dialog aberto:', true)
     }
   }
 
@@ -189,6 +200,10 @@ export default function GestorDashboard() {
       fetchStats()
     }
   }, [gestor, unidadeSelecionada])
+
+  useEffect(() => {
+    console.log('Estado do dialog mudou:', dialogOpen)
+  }, [dialogOpen])
 
   if (!gestor) {
     return (
@@ -368,13 +383,18 @@ export default function GestorDashboard() {
                           return (
                             <tr key={vendedor.id} className="border-b hover:bg-gray-50">
                               <td className="py-3 px-2 font-medium">
-                                <button
-                                  onClick={() => handleVerOportunidades(vendedor)}
-                                  className="flex items-center gap-1 text-purple-600 hover:text-purple-800 hover:underline transition-colors"
+                                <a
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    console.log('Clicou no vendedor:', vendedor.name)
+                                    handleVerOportunidades(vendedor)
+                                  }}
+                                  className="flex items-center gap-1 text-purple-600 hover:text-purple-800 hover:underline transition-colors cursor-pointer"
                                 >
                                   {vendedor.name} {vendedor.lastName}
                                   <ExternalLink className="h-3 w-3" />
-                                </button>
+                                </a>
                               </td>
                               <td className="text-center py-3 px-2">
                                 {vendedor.oportunidades_criadas}
@@ -497,7 +517,10 @@ export default function GestorDashboard() {
       </div>
 
       {/* Dialog de Oportunidades */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        console.log('Dialog onOpenChange:', open)
+        setDialogOpen(open)
+      }}>
         <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>
