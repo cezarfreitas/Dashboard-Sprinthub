@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Combobox, ComboboxOption } from "@/components/ui/combobox"
 import { Card } from "@/components/ui/card"
 import { Calendar, Users, Building2 } from "lucide-react"
 
@@ -41,6 +40,7 @@ export default function MonthFilter({
   const [vendedores, setVendedores] = useState<Vendedor[]>([])
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingVendedores, setLoadingVendedores] = useState(false)
 
   const meses = [
     { value: 1, label: 'Janeiro' },
@@ -61,22 +61,12 @@ export default function MonthFilter({
   const anoAtual = new Date().getFullYear()
   const anos = [anoAtual, anoAtual - 1, anoAtual - 2]
 
-  // Buscar vendedores e unidades
+  // Buscar unidades (apenas uma vez)
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchUnidades = async () => {
       try {
         setLoading(true)
         
-        // Buscar vendedores do MySQL
-        const vendedoresRes = await fetch('/api/vendedores/mysql')
-        if (vendedoresRes.ok) {
-          const vendedoresData = await vendedoresRes.json()
-          if (vendedoresData.success) {
-            setVendedores(vendedoresData.vendedores || [])
-          }
-        }
-
-        // Buscar unidades
         const unidadesRes = await fetch('/api/unidades')
         if (unidadesRes.ok) {
           const unidadesData = await unidadesRes.json()
@@ -94,14 +84,80 @@ export default function MonthFilter({
           console.error('❌ Erro ao buscar unidades:', unidadesRes.status)
         }
       } catch (error) {
-        console.error('Erro ao buscar filtros:', error)
+        console.error('Erro ao buscar unidades:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchData()
+    fetchUnidades()
   }, [])
+
+  // Buscar vendedores filtrados por unidade
+  useEffect(() => {
+    const fetchVendedores = async () => {
+      try {
+        setLoadingVendedores(true)
+        
+        if (unidadeId) {
+          // Se uma unidade foi selecionada, buscar apenas vendedores dessa unidade
+          // Buscar a unidade para pegar os users
+          const unidadeRes = await fetch(`/api/unidades/${unidadeId}`)
+          if (unidadeRes.ok) {
+            const unidadeData = await unidadeRes.json()
+            if (unidadeData.success && unidadeData.unidade?.users) {
+              try {
+                const users = typeof unidadeData.unidade.users === 'string'
+                  ? JSON.parse(unidadeData.unidade.users)
+                  : unidadeData.unidade.users
+                
+                if (Array.isArray(users)) {
+                  const userIds = users
+                    .map((u: any) => typeof u === 'object' ? u.id : u)
+                    .filter((id: any) => typeof id === 'number')
+                  
+                  // Buscar todos os vendedores
+                  const vendedoresRes = await fetch('/api/vendedores/mysql')
+                  if (vendedoresRes.ok) {
+                    const vendedoresData = await vendedoresRes.json()
+                    if (vendedoresData.success) {
+                      // Filtrar apenas os vendedores da unidade
+                      const vendedoresFiltrados = (vendedoresData.vendedores || []).filter(
+                        (v: Vendedor) => userIds.includes(v.id)
+                      )
+                      setVendedores(vendedoresFiltrados)
+                    }
+                  }
+                } else {
+                  setVendedores([])
+                }
+              } catch (e) {
+                console.warn('Erro ao parsear users da unidade:', e)
+                setVendedores([])
+              }
+            } else {
+              setVendedores([])
+            }
+          }
+        } else {
+          // Se nenhuma unidade selecionada, buscar todos os vendedores
+          const vendedoresRes = await fetch('/api/vendedores/mysql')
+          if (vendedoresRes.ok) {
+            const vendedoresData = await vendedoresRes.json()
+            if (vendedoresData.success) {
+              setVendedores(vendedoresData.vendedores || [])
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar vendedores:', error)
+      } finally {
+        setLoadingVendedores(false)
+      }
+    }
+
+    fetchVendedores()
+  }, [unidadeId]) // Recarregar vendedores quando unidade mudar
 
   return (
     <Card className="p-3">
@@ -147,22 +203,30 @@ export default function MonthFilter({
         {onUnidadeChange && (
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-muted-foreground" />
-            <Combobox
-              options={[
-                { value: "all", label: "Todas Unidades" },
-                ...unidades.map((u) => ({
-                  value: u.id.toString(),
-                  label: u.nome
-                }))
-              ]}
+            <Select
               value={unidadeId?.toString() || "all"}
-              onValueChange={(value) => onUnidadeChange(value === "all" ? null : parseInt(value))}
-              placeholder="Todas Unidades"
-              searchPlaceholder="Pesquisar unidade..."
-              emptyMessage="Nenhuma unidade encontrada."
-              className="w-[180px]"
+              onValueChange={(value) => {
+                const newUnidadeId = value === "all" ? null : parseInt(value)
+                onUnidadeChange(newUnidadeId)
+                // Resetar vendedor quando mudar a unidade
+                if (onVendedorChange) {
+                  onVendedorChange(null)
+                }
+              }}
               disabled={loading}
-            />
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Todas Unidades" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas Unidades</SelectItem>
+                {unidades.map((u) => (
+                  <SelectItem key={u.id} value={u.id.toString()}>
+                    {u.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
@@ -170,22 +234,23 @@ export default function MonthFilter({
         {onVendedorChange && (
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <Combobox
-              options={[
-                { value: "all", label: "Todos Vendedores" },
-                ...vendedores.map((v) => ({
-                  value: v.id.toString(),
-                  label: `${v.name} ${v.lastName}`
-                }))
-              ]}
+            <Select
               value={vendedorId?.toString() || "all"}
               onValueChange={(value) => onVendedorChange(value === "all" ? null : parseInt(value))}
-              placeholder="Todos Vendedores"
-              searchPlaceholder="Pesquisar vendedor..."
-              emptyMessage="Nenhum vendedor encontrado."
-              className="w-[200px]"
-              disabled={loading}
-            />
+              disabled={loading || loadingVendedores}
+            >
+              <SelectTrigger className="w-[200px] h-9">
+                <SelectValue placeholder={loadingVendedores ? "Carregando..." : "Todos Vendedores"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Vendedores</SelectItem>
+                {vendedores.map((v) => (
+                  <SelectItem key={v.id} value={v.id.toString()}>
+                    {v.name} {v.lastName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>

@@ -6,6 +6,7 @@ export function middleware(request: NextRequest) {
   
   // Rotas que pertencem ao SISTEMA e precisam de autenticação
   const sistemaProtectedRoutes = [
+    '/',
     '/sistema',
     '/configuracoes',
     '/unidades',
@@ -25,13 +26,23 @@ export function middleware(request: NextRequest) {
     '/sistema/reset-password'
   ]
   
+  // Rotas do GESTOR e CONSULTOR (não aplicar middleware - têm sua própria lógica)
+  if (pathname.startsWith('/gestor') || pathname.startsWith('/consultor')) {
+    return NextResponse.next()
+  }
+
   // Verificar se é uma rota pública do sistema
   if (sistemaPublicRoutes.some(route => pathname.startsWith(route))) {
     return NextResponse.next()
   }
   
   // Verificar se é uma rota protegida do sistema
-  const isSistemaRoute = sistemaProtectedRoutes.some(route => pathname.startsWith(route))
+  // Tratar rota raiz '/' separadamente
+  const isRootRoute = pathname === '/'
+  const isOtherProtectedRoute = sistemaProtectedRoutes
+    .filter(route => route !== '/')
+    .some(route => pathname.startsWith(route))
+  const isSistemaRoute = isRootRoute || isOtherProtectedRoute
   
   if (isSistemaRoute) {
     // Verificar token no cookie
@@ -45,8 +56,6 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Para rotas do GESTOR e CONSULTOR, não aplicar middleware
-  // Elas têm sua própria lógica de autenticação via localStorage
   return NextResponse.next()
 }
 

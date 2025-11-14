@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, requiredPermission }: ProtectedRouteP
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center justify-center gap-4">
           <RefreshCw className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Carregando...</p>
         </div>

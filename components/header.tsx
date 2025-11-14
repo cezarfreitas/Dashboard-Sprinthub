@@ -23,7 +23,7 @@ import {
   Menu,
   X
 } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuthSistema } from "@/hooks/use-auth-sistema"
 import { useTheme } from "@/hooks/use-theme"
 import {
   Popover,
@@ -104,23 +104,10 @@ const menuItems = [
 ]
 
 export function Header({ className }: HeaderProps) {
-  const { user, logout, loading } = useAuth()
+  const { user, loading, hasPermission } = useAuthSistema()
   const { theme, toggleTheme, isLoading: themeLoading } = useTheme()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [userSistema, setUserSistema] = useState<any>(null)
   const pathname = usePathname()
-
-  // Carregar usuário do sistema
-  useEffect(() => {
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
-      try {
-        setUserSistema(JSON.parse(savedUser))
-      } catch {
-        setUserSistema(null)
-      }
-    }
-  }, [])
 
   const handleLogout = async () => {
     try {
@@ -134,8 +121,19 @@ export function Header({ className }: HeaderProps) {
     }
   }
 
-  // Usar usuário do sistema se disponível, senão usar o antigo
-  const currentUser = userSistema || user
+  // Função para verificar se um item do menu deve ser exibido baseado em permissões
+  const shouldShowMenuItem = (item: any) => {
+    // Se não há usuário autenticado, não mostrar nada
+    if (!user) return false
+    
+    // Itens que precisam de permissão específica
+    if (item.requiredPermission) {
+      return hasPermission(item.requiredPermission)
+    }
+    
+    // Por padrão, mostrar todos os itens para usuários autenticados
+    return true
+  }
 
   // Função para verificar se a rota está ativa
   const isActiveRoute = (href: string) => {
@@ -190,9 +188,10 @@ export function Header({ className }: HeaderProps) {
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex flex-1 justify-center">
-          <div className="flex items-center space-x-1">
-            {menuItems.map((item) => (
+        {user && (
+          <nav className="hidden md:flex flex-1 justify-center">
+            <div className="flex items-center space-x-1">
+              {menuItems.filter(shouldShowMenuItem).map((item) => (
               <div key={item.title}>
                 {item.hasSubmenu ? (
                   <Popover>
@@ -241,9 +240,10 @@ export function Header({ className }: HeaderProps) {
                   </Link>
                 )}
               </div>
-            ))}
-          </div>
-        </nav>
+              ))}
+            </div>
+          </nav>
+        )}
 
         {/* Right Side - User Menu & Theme Toggle */}
         <div className="flex items-center space-x-2 ml-auto">
@@ -264,13 +264,13 @@ export function Header({ className }: HeaderProps) {
           </Button>
 
           {/* User Menu */}
-          {currentUser && (
+          {user && (
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full text-white hover:bg-white/10 hover:text-white">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      {(currentUser.nome || currentUser.name || currentUser.username || 'U').charAt(0).toUpperCase()}
+                      {(user.nome || user.name || 'U').charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -279,24 +279,24 @@ export function Header({ className }: HeaderProps) {
                 <div className="flex items-center gap-3 p-3 mb-2">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                      {(currentUser.nome || currentUser.name || currentUser.username || 'U').charAt(0).toUpperCase()}
+                      {(user.nome || user.name || 'U').charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium text-sm">{currentUser.nome || currentUser.name || currentUser.username}</p>
-                    {currentUser.email && (
+                    <p className="font-medium text-sm">{user.nome || user.name}</p>
+                    {user.email && (
                       <p className="text-xs text-muted-foreground truncate max-w-[180px]">
-                        {currentUser.email}
+                        {user.email}
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground capitalize">
-                      {currentUser.role || 'Usuário'}
+                      {user.role || 'Usuário'}
                     </p>
                   </div>
                 </div>
                 <div className="border-t my-2"></div>
                 <div className="space-y-1">
-                  {userSistema && userSistema.permissoes?.includes('configuracoes') && (
+                  {hasPermission('configuracoes') && (
                     <Link href="/configuracoes" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Configurações</span>
@@ -312,28 +312,30 @@ export function Header({ className }: HeaderProps) {
           )}
 
           {/* Mobile Menu Toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="md:hidden h-8 w-8 p-0 text-white hover:bg-white/10 hover:text-white"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <Menu className="h-4 w-4" />
-            )}
-            <span className="sr-only">Toggle menu</span>
-          </Button>
+          {user && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden h-8 w-8 p-0 text-white hover:bg-white/10 hover:text-white"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
+              <span className="sr-only">Toggle menu</span>
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Mobile Menu */}
-      {isMobileMenuOpen && (
+      {isMobileMenuOpen && user && (
         <div className="md:hidden border-t border-gray-800 bg-black">
           <div className="container py-4">
             <nav className="flex flex-col space-y-2">
-              {menuItems.map((item) => (
+              {menuItems.filter(shouldShowMenuItem).map((item) => (
                 <div key={item.title}>
                   {item.hasSubmenu ? (
                     <div className="space-y-2">

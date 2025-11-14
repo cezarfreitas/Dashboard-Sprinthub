@@ -2,23 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users, Download, ArrowUp, ArrowDown, Plus, X } from "lucide-react"
+import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface VendedorMatriz {
   id: number
@@ -261,10 +247,6 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filaDialogOpen, setFilaDialogOpen] = useState(false)
-  const [unidadeFilaSelecionada, setUnidadeFilaSelecionada] = useState<UnidadeResumo | null>(null)
-  const [filaEditando, setFilaEditando] = useState<VendedorFila[]>([])
-  const [vendedorParaAdicionar, setVendedorParaAdicionar] = useState<string>('')
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
@@ -292,88 +274,6 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
     return str
   }
 
-  const handleGerenciarFila = (unidade: UnidadeResumo) => {
-    setUnidadeFilaSelecionada(unidade)
-    setFilaEditando(unidade.fila_leads ? [...unidade.fila_leads] : [])
-    setFilaDialogOpen(true)
-  }
-
-  const handleSalvarFila = async () => {
-    if (!unidadeFilaSelecionada) return
-
-    try {
-      // Reordenar sequências - API espera formato { id, sequencia }
-      const filaReordenada = filaEditando.map((item, index) => ({
-        id: item.vendedor_id,
-        sequencia: index + 1
-      }))
-
-      const response = await fetch(`/api/unidades/list?id=${unidadeFilaSelecionada.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fila_leads: filaReordenada
-        })
-      })
-
-      if (response.ok) {
-        setFilaDialogOpen(false)
-        fetchData() // Recarregar dados
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Erro ao salvar fila:', errorData)
-        alert(`Erro ao salvar fila: ${errorData.message || 'Erro desconhecido'}`)
-      }
-    } catch (err) {
-      console.error('Erro ao salvar fila:', err)
-      alert(`Erro ao salvar fila: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
-    }
-  }
-
-  const handleAdicionarVendedorFila = () => {
-    if (!vendedorParaAdicionar || !unidadeFilaSelecionada) return
-
-    const vendedorId = parseInt(vendedorParaAdicionar)
-    const vendedor = unidadeFilaSelecionada.vendedores.find(v => v.id === vendedorId)
-    
-    if (!vendedor) return
-
-    // Permitir adicionar o mesmo vendedor múltiplas vezes
-    const novaSequencia = filaEditando.length > 0 
-      ? Math.max(...filaEditando.map(item => item.sequencia || 0)) + 1 
-      : 1
-
-    setFilaEditando([...filaEditando, {
-      vendedor_id: vendedorId,
-      sequencia: novaSequencia,
-      nome: vendedor.nome
-    }])
-    setVendedorParaAdicionar('')
-  }
-
-  const handleRemoverVendedorFila = (index: number) => {
-    setFilaEditando(filaEditando.filter((_, i) => i !== index))
-  }
-
-  const handleMoverFila = (index: number, direcao: 'up' | 'down') => {
-    const novaFila = [...filaEditando]
-    const novoIndex = direcao === 'up' ? index - 1 : index + 1
-
-    if (novoIndex < 0 || novoIndex >= novaFila.length) return
-
-    // Trocar posições
-    [novaFila[index], novaFila[novoIndex]] = [novaFila[novoIndex], novaFila[index]]
-
-    // Reordenar sequências
-    const filaReordenada = novaFila.map((item, idx) => ({
-      ...item,
-      sequencia: idx + 1
-    }))
-
-    setFilaEditando(filaReordenada)
-  }
 
   const handleExportarOportunidades = async (unidadeId: number, mesAtual?: number, anoAtual?: number) => {
     try {
@@ -509,7 +409,9 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Resumo por Unidade</h2>
-          <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+          <div className="flex items-center">
+            <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
         </div>
         <div className="grid gap-4 grid-cols-1">
           {[1, 2, 3].map((i) => (
@@ -937,195 +839,12 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
                     )}
                   </div>
                 </div>
-
-                {/* Gestão de Fila de Atendimento */}
-                <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-base font-bold text-gray-800">
-                      <Clock className="h-5 w-5 text-blue-600" />
-                      Fila de Atendimento
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleGerenciarFila(unidade)}
-                      className="h-7 text-xs"
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Gerenciar
-                    </Button>
-                  </div>
-                  
-                  {unidade.fila_leads && unidade.fila_leads.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="text-xs text-gray-600 mb-2">
-                        {unidade.vendedores_na_fila} vendedor{unidade.vendedores_na_fila !== 1 ? 'es' : ''} na fila
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {unidade.fila_leads
-                          .sort((a, b) => (a.sequencia || 0) - (b.sequencia || 0))
-                          .map((item, index) => {
-                            const vendedor = unidade.vendedores.find(v => v.id === item.vendedor_id)
-                            return (
-                              <div
-                                key={item.vendedor_id}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
-                                  index === 0
-                                    ? 'bg-green-100 text-green-800 border border-green-300'
-                                    : 'bg-white text-gray-700 border border-gray-300'
-                                }`}
-                              >
-                                <span className="font-bold text-[10px] w-4 text-center">
-                                  {index + 1}º
-                                </span>
-                                <span>{vendedor?.nome || item.nome || `Vendedor ${item.vendedor_id}`}</span>
-                                {item.total_distribuicoes !== undefined && (
-                                  <span className="text-[10px] text-gray-500">
-                                    ({item.total_distribuicoes})
-                                  </span>
-                                )}
-                              </div>
-                            )
-                          })}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-500 text-center py-4">
-                      Nenhum vendedor configurado na fila de atendimento
-                    </div>
-                  )}
-                </div>
               </CardContent>
             </Card>
           )
         })}
       </div>
 
-      {/* Dialog de Gestão de Fila */}
-      <Dialog open={filaDialogOpen} onOpenChange={setFilaDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>
-              Gerenciar Fila de Atendimento - {unidadeFilaSelecionada?.nome}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-4">
-              {/* Adicionar Vendedor */}
-              <div className="flex gap-2">
-                <Select value={vendedorParaAdicionar} onValueChange={setVendedorParaAdicionar}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Selecione um vendedor para adicionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {unidadeFilaSelecionada?.vendedores.map((vendedor) => (
-                      <SelectItem key={vendedor.id} value={vendedor.id.toString()}>
-                        {vendedor.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  onClick={handleAdicionarVendedorFila}
-                  disabled={!vendedorParaAdicionar}
-                  size="sm"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Adicionar
-                </Button>
-              </div>
-
-              {/* Lista da Fila */}
-              <div className="space-y-2">
-                <div className="text-sm font-semibold text-gray-700">
-                  Ordem da Fila ({filaEditando.length} vendedor{filaEditando.length !== 1 ? 'es' : ''})
-                </div>
-                {filaEditando.length > 0 ? (
-                  <div className="space-y-2">
-                    {filaEditando.map((item, index) => {
-                      const vendedor = unidadeFilaSelecionada?.vendedores.find(v => v.id === item.vendedor_id)
-                      // Contar quantas vezes este vendedor aparece antes desta posição
-                      const ocorrenciasAnteriores = filaEditando.slice(0, index).filter(f => f.vendedor_id === item.vendedor_id).length
-                      const nomeExibido = vendedor?.nome || item.nome || `Vendedor ${item.vendedor_id}`
-                      return (
-                        <div
-                          key={`${item.vendedor_id}-${index}`}
-                          className={`flex items-center gap-2 p-3 rounded-lg border ${
-                            index === 0
-                              ? 'bg-green-50 border-green-300'
-                              : 'bg-white border-gray-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 flex-1">
-                            <span className="font-bold text-sm w-8 text-center">
-                              {index + 1}º
-                            </span>
-                            <span className="flex-1 font-medium">
-                              {nomeExibido}
-                              {ocorrenciasAnteriores > 0 && (
-                                <span className="text-xs text-gray-500 ml-1">
-                                  ({ocorrenciasAnteriores + 1}ª vez)
-                                </span>
-                              )}
-                            </span>
-                            {item.total_distribuicoes !== undefined && (
-                              <span className="text-xs text-gray-500">
-                                {item.total_distribuicoes} distribuições
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleMoverFila(index, 'up')}
-                              disabled={index === 0}
-                              className="h-7 w-7 p-0"
-                            >
-                              <ArrowUp className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleMoverFila(index, 'down')}
-                              disabled={index === filaEditando.length - 1}
-                              className="h-7 w-7 p-0"
-                            >
-                              <ArrowDown className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoverVendedorFila(index)}
-                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500 text-center py-4 border border-dashed rounded-lg">
-                    Nenhum vendedor na fila. Adicione vendedores acima.
-                  </div>
-                )}
-              </div>
-            </div>
-          </ScrollArea>
-
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => setFilaDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSalvarFila}>
-              Salvar Fila
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -21,12 +21,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="relative mx-auto">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <div className="relative">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted"></div>
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent absolute top-0 left-0"></div>
           </div>
-          <p className="mt-2 text-muted-foreground">Carregando tema...</p>
+          <p className="text-muted-foreground">Carregando tema...</p>
         </div>
       </div>
     )

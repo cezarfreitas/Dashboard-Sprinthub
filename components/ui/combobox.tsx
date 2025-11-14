@@ -69,8 +69,12 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-        <Command>
+      <PopoverContent 
+        className="w-[var(--radix-popover-trigger-width)] p-0" 
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <Command shouldFilter={true}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
@@ -78,12 +82,22 @@ export function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label}
-                  keywords={[option.label.toLowerCase()]}
-                  onSelect={() => {
+                  value={option.value}
+                  keywords={[option.label.toLowerCase(), option.value.toLowerCase()]}
+                  onSelect={(selectedValue) => {
+                    // O onSelect recebe o value que foi definido no CommandItem
+                    if (selectedValue === option.value) {
+                      onValueChange(selectedValue)
+                      setOpen(false)
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    // Garantir que o clique funcione
+                    e.preventDefault()
                     onValueChange(option.value)
                     setOpen(false)
                   }}
+                  className="cursor-pointer !cursor-pointer pointer-events-auto"
                 >
                   <Check
                     className={cn(
