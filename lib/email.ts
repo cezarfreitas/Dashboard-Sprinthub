@@ -1,15 +1,19 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 interface SendEmailParams {
   to: string
   subject: string
   html: string
 }
 
+// Lazy initialization para evitar erros durante o build
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
+
 export async function sendEmail({ to, subject, html }: SendEmailParams) {
   try {
+    const resend = getResendClient()
     const data = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'Sistema <onboarding@resend.dev>',
       to,
@@ -84,4 +88,3 @@ export function getPasswordResetEmailTemplate(resetLink: string, userName: strin
     </html>
   `
 }
-
