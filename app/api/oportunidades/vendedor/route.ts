@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const vendedor_id = searchParams.get('vendedor_id')
     const data_inicio = searchParams.get('data_inicio')
+    const data_fim = searchParams.get('data_fim')
 
     if (!vendedor_id) {
       return NextResponse.json(
@@ -34,9 +35,19 @@ export async function GET(request: NextRequest) {
     const params: any[] = [parseInt(vendedor_id)]
 
     if (data_inicio) {
-      query += ` AND o.created_date >= ?`
+      query += ` AND DATE(o.created_date) >= DATE(?)`
       params.push(data_inicio)
     }
+
+    if (data_fim) {
+      query += ` AND DATE(o.created_date) <= DATE(?)`
+      params.push(data_fim)
+    }
+    
+    console.log('=== API oportunidades/vendedor ===')
+    console.log('Vendedor ID:', vendedor_id)
+    console.log('Data Início:', data_inicio)
+    console.log('Data Fim:', data_fim)
 
     query += ` ORDER BY o.created_date DESC`
 

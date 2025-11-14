@@ -2,7 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users } from "lucide-react"
+import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users, Download, ArrowUp, ArrowDown, Plus, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface VendedorMatriz {
   id: number
@@ -28,6 +44,13 @@ interface VendedorMatriz {
   }
 }
 
+interface VendedorFila {
+  vendedor_id: number
+  sequencia: number
+  nome?: string
+  total_distribuicoes?: number
+}
+
 interface UnidadeResumo {
   id: number
   nome: string
@@ -43,6 +66,7 @@ interface UnidadeResumo {
   vendedores: VendedorMatriz[]
   comparacao_mes_anterior?: number
   comparacao_ano_anterior?: number
+  fila_leads?: VendedorFila[]
 }
 
 interface ApiResponse {
@@ -57,12 +81,190 @@ interface ResumoUnidadesProps {
   ano?: number
   vendedorId?: number | null
   unidadeId?: number | null
+  dataInicio?: string
+  dataFim?: string
 }
 
-export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId }: ResumoUnidadesProps) {
+// Componente Pie Chart With Needle
+function PieChartWithNeedle({ value, meta, realizado }: { value: number; meta: number; realizado: number }) {
+  // Determinar a cor baseada no percentual
+  const getColor = () => {
+    if (value >= 100) return '#10b981' // Verde
+    if (value >= 75) return '#f59e0b'  // Laranja
+    return '#ef4444' // Vermelho
+  }
+
+  // Normalizar para o range 0-200% com 100% no centro
+  const maxValue = 200
+  const normalizedValue = Math.min(Math.max(value, 0), maxValue)
+  
+  // Criar segmentos do gauge com 100% no centro (topo)
+  const segments = [
+    { value: 50, fill: '#ef4444' },   // 0-50% Vermelho
+    { value: 25, fill: '#f59e0b' },   // 50-75% Laranja  
+    { value: 25, fill: '#fbbf24' },   // 75-100% Amarelo
+    { value: 50, fill: '#10b981' },   // 100-150% Verde claro
+    { value: 50, fill: '#059669' }    // 150-200% Verde escuro
+  ]
+
+  // Função de formatação de moeda
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value)
+  }
+
+  const RADIAN = Math.PI / 180
+  const width = 240
+  const gaugeHeight = 140
+  const dataHeight = 25
+  const height = gaugeHeight + dataHeight - 10
+  const cx = width / 2
+  const cy = gaugeHeight - 12
+  const innerRadius = 60
+  const outerRadius = 85
+  const needleLength = 72
+  const needleBaseRadius = 6
+  
+  // Calcular o ângulo da agulha
+  // Semicírculo: 180° (esquerda) até 0° (direita)
+  // 0% deve estar em 180° (esquerda)
+  // 100% deve estar em 90° (topo/centro)
+  // 200% deve estar em 0° (direita)
+  const startAngle = 180
+  const endAngle = 0
+  const totalAngle = startAngle - endAngle // 180°
+  const angleForValue = startAngle - (normalizedValue / maxValue) * totalAngle
+  
+  // Converter para radianos e ajustar para sistema de coordenadas SVG
+  // No SVG: 0° = direita (3h), 90° = baixo (6h), 180° = esquerda (9h), 270° = cima (12h)
+  // Mapeamento: SVG angle = 360° - angleForValue
+  // 0%: angleForValue=180° → SVG=180° (esquerda horizontal)
+  // 100%: angleForValue=90° → SVG=270° (cima vertical)
+  // 200%: angleForValue=0° → SVG=0° (direita horizontal)
+  const svgAngle = 360 - angleForValue
+  const needleAngleRad = svgAngle * RADIAN
+  const needleX = cx + needleLength * Math.cos(needleAngleRad)
+  const needleY = cy + needleLength * Math.sin(needleAngleRad)
+
+  return (
+    <div className="relative -mt-2" style={{ width: width, height: height }}>
+      <div className="absolute top-0 left-0" style={{ marginTop: '-10px' }}>
+        <PieChart width={width} height={gaugeHeight}>
+          <Pie
+            data={segments}
+            cx={cx}
+            cy={cy}
+            startAngle={180}
+            endAngle={0}
+            innerRadius={innerRadius}
+            outerRadius={outerRadius}
+            paddingAngle={0}
+            dataKey="value"
+          >
+            {segments.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.fill} />
+            ))}
+          </Pie>
+        </PieChart>
+      </div>
+      
+      {/* Agulha sobreposta */}
+      <svg
+        className="absolute left-0 pointer-events-none"
+        width={width}
+        height={gaugeHeight}
+        style={{ top: '-10px', zIndex: 10 }}
+      >
+        {/* Sombra da agulha */}
+        <line
+          x1={cx}
+          y1={cy}
+          x2={needleX + 1.5}
+          y2={needleY + 1.5}
+          stroke="#00000020"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        {/* Agulha */}
+        <line
+          x1={cx}
+          y1={cy}
+          x2={needleX}
+          y2={needleY}
+          stroke="#1f2937"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        {/* Base da agulha */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={needleBaseRadius}
+          fill="#1f2937"
+          stroke="#ffffff"
+          strokeWidth="2"
+        />
+      </svg>
+      
+      {/* Marcadores de porcentagem */}
+      <div 
+        className="absolute flex justify-between text-[10px] font-medium text-gray-600 pointer-events-none"
+        style={{
+          top: (gaugeHeight - 10) + 'px',
+          left: '10px',
+          right: '10px',
+          zIndex: 20
+        }}
+      >
+        <span className="text-red-600">0%</span>
+        <span className="text-amber-600">50%</span>
+        <span className="text-green-600 font-bold">100%</span>
+        <span className="text-emerald-600">150%</span>
+        <span>200%</span>
+      </div>
+      
+      {/* Dados abaixo do gráfico em uma linha */}
+      <div 
+        className="absolute w-full text-center pointer-events-none"
+        style={{
+          top: (gaugeHeight + 5) + 'px',
+          zIndex: 20
+        }}
+      >
+        <div className="flex items-center justify-center gap-2 text-[10px]">
+          <div className="flex items-center gap-1">
+            <span className="text-purple-700 font-medium">Meta:</span>
+            <span className="font-bold text-purple-900">{formatCurrency(meta)}</span>
+          </div>
+          <span className="text-gray-400">•</span>
+          <div className="flex items-center gap-1">
+            <span className="text-purple-700 font-medium">Realizado:</span>
+            <span className="font-bold text-purple-900">{formatCurrency(realizado)}</span>
+          </div>
+          <span className="text-gray-400">•</span>
+          <div className="flex items-center gap-1">
+            <span className={`font-bold ${value >= 100 ? 'text-green-600' : value >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
+              {value.toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataInicio, dataFim }: ResumoUnidadesProps) {
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [filaDialogOpen, setFilaDialogOpen] = useState(false)
+  const [unidadeFilaSelecionada, setUnidadeFilaSelecionada] = useState<UnidadeResumo | null>(null)
+  const [filaEditando, setFilaEditando] = useState<VendedorFila[]>([])
+  const [vendedorParaAdicionar, setVendedorParaAdicionar] = useState<string>('')
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
@@ -79,6 +281,189 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId }: Resu
       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
     ]
     return meses[mes - 1] || ''
+  }
+
+  const escapeCsv = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return ''
+    const str = String(value)
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`
+    }
+    return str
+  }
+
+  const handleGerenciarFila = (unidade: UnidadeResumo) => {
+    setUnidadeFilaSelecionada(unidade)
+    setFilaEditando(unidade.fila_leads ? [...unidade.fila_leads] : [])
+    setFilaDialogOpen(true)
+  }
+
+  const handleSalvarFila = async () => {
+    if (!unidadeFilaSelecionada) return
+
+    try {
+      // Reordenar sequências - API espera formato { id, sequencia }
+      const filaReordenada = filaEditando.map((item, index) => ({
+        id: item.vendedor_id,
+        sequencia: index + 1
+      }))
+
+      const response = await fetch(`/api/unidades/list?id=${unidadeFilaSelecionada.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fila_leads: filaReordenada
+        })
+      })
+
+      if (response.ok) {
+        setFilaDialogOpen(false)
+        fetchData() // Recarregar dados
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Erro ao salvar fila:', errorData)
+        alert(`Erro ao salvar fila: ${errorData.message || 'Erro desconhecido'}`)
+      }
+    } catch (err) {
+      console.error('Erro ao salvar fila:', err)
+      alert(`Erro ao salvar fila: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+    }
+  }
+
+  const handleAdicionarVendedorFila = () => {
+    if (!vendedorParaAdicionar || !unidadeFilaSelecionada) return
+
+    const vendedorId = parseInt(vendedorParaAdicionar)
+    const vendedor = unidadeFilaSelecionada.vendedores.find(v => v.id === vendedorId)
+    
+    if (!vendedor) return
+
+    // Permitir adicionar o mesmo vendedor múltiplas vezes
+    const novaSequencia = filaEditando.length > 0 
+      ? Math.max(...filaEditando.map(item => item.sequencia || 0)) + 1 
+      : 1
+
+    setFilaEditando([...filaEditando, {
+      vendedor_id: vendedorId,
+      sequencia: novaSequencia,
+      nome: vendedor.nome
+    }])
+    setVendedorParaAdicionar('')
+  }
+
+  const handleRemoverVendedorFila = (index: number) => {
+    setFilaEditando(filaEditando.filter((_, i) => i !== index))
+  }
+
+  const handleMoverFila = (index: number, direcao: 'up' | 'down') => {
+    const novaFila = [...filaEditando]
+    const novoIndex = direcao === 'up' ? index - 1 : index + 1
+
+    if (novoIndex < 0 || novoIndex >= novaFila.length) return
+
+    // Trocar posições
+    [novaFila[index], novaFila[novoIndex]] = [novaFila[novoIndex], novaFila[index]]
+
+    // Reordenar sequências
+    const filaReordenada = novaFila.map((item, idx) => ({
+      ...item,
+      sequencia: idx + 1
+    }))
+
+    setFilaEditando(filaReordenada)
+  }
+
+  const handleExportarOportunidades = async (unidadeId: number, mesAtual?: number, anoAtual?: number) => {
+    try {
+      // Usar período do filtro se disponível, senão usar mês/ano
+      let primeiraData: string
+      let ultimaData: string
+      
+      if (dataInicio && dataFim) {
+        primeiraData = dataInicio
+        ultimaData = dataFim
+      } else {
+        // Obter período atual se não fornecido
+        const mesPeriodo = mesAtual || mes || new Date().getMonth() + 1
+        const anoPeriodo = anoAtual || ano || new Date().getFullYear()
+        primeiraData = `${anoPeriodo}-${String(mesPeriodo).padStart(2, '0')}-01`
+        ultimaData = new Date(anoPeriodo, mesPeriodo, 0).toISOString().split('T')[0]
+      }
+      
+      // Buscar unidade nos dados já carregados
+      const unidade = data?.unidades.find((u: any) => u.id === unidadeId)
+      if (!unidade || !unidade.vendedores || unidade.vendedores.length === 0) {
+        alert('Nenhum vendedor encontrado para esta unidade')
+        return
+      }
+
+      // Buscar oportunidades de todos os vendedores da unidade no período
+      const todasOportunidades = []
+      
+      for (const vendedor of unidade.vendedores) {
+        const response = await fetch(
+          `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraData}&data_fim=${ultimaData}`
+        )
+        
+        if (response.ok) {
+          const responseData = await response.json()
+          if (responseData.success && responseData.oportunidades) {
+            todasOportunidades.push(...responseData.oportunidades.map((op: any) => ({
+              ...op,
+              vendedor_nome: `${vendedor.nome}`.trim()
+            })))
+          }
+        }
+      }
+
+      if (todasOportunidades.length === 0) {
+        alert('Nenhuma oportunidade encontrada para o período selecionado')
+        return
+      }
+
+      // Criar CSV
+      const headers = [
+        'ID',
+        'Título',
+        'Vendedor',
+        'Valor',
+        'Status',
+        'Etapa',
+        'Data Criação',
+        'Motivo Perda'
+      ]
+      
+      const csvContent = [
+        headers.map(escapeCsv).join(','),
+        ...todasOportunidades.map((op: any) => [
+          escapeCsv(op.id),
+          escapeCsv(op.titulo),
+          escapeCsv(op.vendedor_nome),
+          escapeCsv(op.valor),
+          escapeCsv(op.ganho === 1 ? 'Ganha' : op.perda === 1 ? 'Perdida' : 'Aberta'),
+          escapeCsv(op.coluna_nome || ''),
+          escapeCsv(new Date(op.created_date).toLocaleDateString('pt-BR')),
+          escapeCsv(op.motivo_perda || '')
+        ].join(','))
+      ].join('\n')
+
+      // Adicionar BOM para Excel reconhecer UTF-8
+      const BOM = '\uFEFF'
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      
+      // Nome do arquivo
+      const mesPeriodo = mes || new Date().getMonth() + 1
+      const anoPeriodo = ano || new Date().getFullYear()
+      link.download = `oportunidades_${unidade.nome}_${getMesNome(mesPeriodo)}_${anoPeriodo}.csv`
+      link.click()
+    } catch (err) {
+      console.error('Erro ao exportar oportunidades:', err)
+      alert('Erro ao exportar oportunidades. Tente novamente.')
+    }
   }
 
   const fetchData = async () => {
@@ -218,16 +603,17 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId }: Resu
           return (
             <Card key={unidade.id} className="hover:shadow-xl transition-all">
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500 rounded-lg">
+                <div className="flex items-start justify-between gap-6">
+                  {/* Nome da unidade e informações */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="p-2 bg-blue-500 rounded-lg flex-shrink-0">
                       <Building2 className="h-5 w-5 text-white" />
                     </div>
-                    <div>
-                      <CardTitle className="text-xl font-bold text-gray-900">{unidade.nome}</CardTitle>
-                      <div className="flex items-center gap-3 text-xs text-gray-600 mt-1">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-xl font-bold text-gray-900 mb-2">{unidade.nome}</CardTitle>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
                         <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
+                          <Users className="h-3 w-3 flex-shrink-0" />
                           <span className="font-medium">{unidade.total_vendedores} vendedor{unidade.total_vendedores !== 1 ? 'es' : ''}</span>
                         </div>
                         <span className="text-green-600 font-semibold">• {unidade.vendedores_na_fila} na fila</span>
@@ -237,61 +623,35 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId }: Resu
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Botão Exportar e Gráfico */}
+                  <div className="flex flex-col items-end gap-3 flex-shrink-0">
+                    {/* Botão Exportar */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportarOportunidades(unidade.id, mes, ano)}
+                      className="h-8 text-xs whitespace-nowrap"
+                    >
+                      <Download className="h-3 w-3 mr-1.5" />
+                      Exportar
+                    </Button>
+                    
+                    {/* Gráfico */}
+                    {unidade.meta_mes > 0 && (
+                      <div className="flex items-center justify-end">
+                        <PieChartWithNeedle 
+                          value={percentualMeta}
+                          meta={unidade.meta_mes}
+                          realizado={unidade.valor_ganho}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               
               <CardContent className="space-y-4">
-                {/* Meta do Mês */}
-                {unidade.meta_mes > 0 && (
-                  <div className="p-4 rounded-xl border-2 border-purple-300">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 bg-purple-500 rounded-lg">
-                          <Target className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="flex items-center gap-6 text-sm">
-                          <div>
-                            <span className="text-purple-700 font-medium">Meta: </span>
-                            <span className="font-bold text-purple-900 text-base">{formatCurrency(unidade.meta_mes)}</span>
-                          </div>
-                          <div>
-                            <span className="text-purple-700 font-medium">Realizado: </span>
-                            <span className="font-bold text-purple-900 text-base">{formatCurrency(unidade.valor_ganho)}</span>
-                            <span className={`ml-2 text-sm font-semibold ${
-                              percentualMeta >= 100 ? 'text-green-600' : 'text-orange-600'
-                            }`}>
-                              ({percentualMeta.toFixed(1)}%)
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {/* Comparação com mês anterior */}
-                        {unidade.comparacao_mes_anterior !== undefined && (
-                          <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                            unidade.comparacao_mes_anterior >= 0 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-red-100 text-red-700'
-                          }`}>
-                            {unidade.comparacao_mes_anterior >= 0 ? '↑' : '↓'} {Math.abs(unidade.comparacao_mes_anterior).toFixed(1)}%
-                            <div className="text-[10px] font-normal opacity-75">vs mês ant.</div>
-                          </div>
-                        )}
-                        {/* Comparação com ano anterior */}
-                        {unidade.comparacao_ano_anterior !== undefined && (
-                          <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                            unidade.comparacao_ano_anterior >= 0 
-                              ? 'bg-blue-100 text-blue-700' 
-                              : 'bg-orange-100 text-orange-700'
-                          }`}>
-                            {unidade.comparacao_ano_anterior >= 0 ? '↑' : '↓'} {Math.abs(unidade.comparacao_ano_anterior).toFixed(1)}%
-                            <div className="text-[10px] font-normal opacity-75">vs ano ant.</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="grid grid-cols-2 gap-6">
                   {/* COLUNA 1: Performance */}
@@ -577,11 +937,195 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId }: Resu
                     )}
                   </div>
                 </div>
+
+                {/* Gestão de Fila de Atendimento */}
+                <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2 text-base font-bold text-gray-800">
+                      <Clock className="h-5 w-5 text-blue-600" />
+                      Fila de Atendimento
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleGerenciarFila(unidade)}
+                      className="h-7 text-xs"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Gerenciar
+                    </Button>
+                  </div>
+                  
+                  {unidade.fila_leads && unidade.fila_leads.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-xs text-gray-600 mb-2">
+                        {unidade.vendedores_na_fila} vendedor{unidade.vendedores_na_fila !== 1 ? 'es' : ''} na fila
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {unidade.fila_leads
+                          .sort((a, b) => (a.sequencia || 0) - (b.sequencia || 0))
+                          .map((item, index) => {
+                            const vendedor = unidade.vendedores.find(v => v.id === item.vendedor_id)
+                            return (
+                              <div
+                                key={item.vendedor_id}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                                  index === 0
+                                    ? 'bg-green-100 text-green-800 border border-green-300'
+                                    : 'bg-white text-gray-700 border border-gray-300'
+                                }`}
+                              >
+                                <span className="font-bold text-[10px] w-4 text-center">
+                                  {index + 1}º
+                                </span>
+                                <span>{vendedor?.nome || item.nome || `Vendedor ${item.vendedor_id}`}</span>
+                                {item.total_distribuicoes !== undefined && (
+                                  <span className="text-[10px] text-gray-500">
+                                    ({item.total_distribuicoes})
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 text-center py-4">
+                      Nenhum vendedor configurado na fila de atendimento
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )
         })}
       </div>
+
+      {/* Dialog de Gestão de Fila */}
+      <Dialog open={filaDialogOpen} onOpenChange={setFilaDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              Gerenciar Fila de Atendimento - {unidadeFilaSelecionada?.nome}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-4">
+              {/* Adicionar Vendedor */}
+              <div className="flex gap-2">
+                <Select value={vendedorParaAdicionar} onValueChange={setVendedorParaAdicionar}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Selecione um vendedor para adicionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unidadeFilaSelecionada?.vendedores.map((vendedor) => (
+                      <SelectItem key={vendedor.id} value={vendedor.id.toString()}>
+                        {vendedor.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={handleAdicionarVendedorFila}
+                  disabled={!vendedorParaAdicionar}
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Adicionar
+                </Button>
+              </div>
+
+              {/* Lista da Fila */}
+              <div className="space-y-2">
+                <div className="text-sm font-semibold text-gray-700">
+                  Ordem da Fila ({filaEditando.length} vendedor{filaEditando.length !== 1 ? 'es' : ''})
+                </div>
+                {filaEditando.length > 0 ? (
+                  <div className="space-y-2">
+                    {filaEditando.map((item, index) => {
+                      const vendedor = unidadeFilaSelecionada?.vendedores.find(v => v.id === item.vendedor_id)
+                      // Contar quantas vezes este vendedor aparece antes desta posição
+                      const ocorrenciasAnteriores = filaEditando.slice(0, index).filter(f => f.vendedor_id === item.vendedor_id).length
+                      const nomeExibido = vendedor?.nome || item.nome || `Vendedor ${item.vendedor_id}`
+                      return (
+                        <div
+                          key={`${item.vendedor_id}-${index}`}
+                          className={`flex items-center gap-2 p-3 rounded-lg border ${
+                            index === 0
+                              ? 'bg-green-50 border-green-300'
+                              : 'bg-white border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="font-bold text-sm w-8 text-center">
+                              {index + 1}º
+                            </span>
+                            <span className="flex-1 font-medium">
+                              {nomeExibido}
+                              {ocorrenciasAnteriores > 0 && (
+                                <span className="text-xs text-gray-500 ml-1">
+                                  ({ocorrenciasAnteriores + 1}ª vez)
+                                </span>
+                              )}
+                            </span>
+                            {item.total_distribuicoes !== undefined && (
+                              <span className="text-xs text-gray-500">
+                                {item.total_distribuicoes} distribuições
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMoverFila(index, 'up')}
+                              disabled={index === 0}
+                              className="h-7 w-7 p-0"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMoverFila(index, 'down')}
+                              disabled={index === filaEditando.length - 1}
+                              className="h-7 w-7 p-0"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoverVendedorFila(index)}
+                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 text-center py-4 border border-dashed rounded-lg">
+                    Nenhum vendedor na fila. Adicione vendedores acima.
+                  </div>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setFilaDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSalvarFila}>
+              Salvar Fila
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

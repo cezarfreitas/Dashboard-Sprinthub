@@ -181,6 +181,36 @@ export async function GET(request: NextRequest) {
       // Vendedores na fila (contar do campo fila_leads)
       const parsedFilaLeads = parseJSON(unidade.fila_leads)
       const vendedoresNaFila = parsedFilaLeads.length
+      
+      // Processar fila de leads com nomes dos vendedores
+      let filaLeadsArray: any[] = []
+      if (parsedFilaLeads.length > 0) {
+        // Buscar distribuições por vendedor
+        const distribuicoesResult = await executeQuery(`
+          SELECT vendedor_id, COUNT(*) as total_distribuicoes
+          FROM fila_leads_log
+          WHERE unidade_id = ?
+          GROUP BY vendedor_id
+        `, [unidade.id]) as any[]
+        
+        const distribuicoesMap = new Map(
+          distribuicoesResult.map(d => [d.vendedor_id, d.total_distribuicoes])
+        )
+        
+        filaLeadsArray = parsedFilaLeads
+          .map((item: any) => {
+            const vendedorId = item.vendedor_id || item.id
+            const vendedor = vendedoresMap.get(vendedorId)
+            
+            return {
+              vendedor_id: vendedorId,
+              sequencia: item.sequencia || item.ordem || 0,
+              nome: vendedor ? `${vendedor.name} ${vendedor.lastName || ''}`.trim() : undefined,
+              total_distribuicoes: distribuicoesMap.get(vendedorId) || 0
+            }
+          })
+          .sort((a, b) => a.sequencia - b.sequencia)
+      }
 
       // Nome do gestor
       let nomeGestor = null
@@ -258,7 +288,8 @@ export async function GET(request: NextRequest) {
         meta_mes: metaUnidade[0]?.meta_total || 0,
         vendedores: matrizVendedores,
         comparacao_mes_anterior: comparacaoMesAnterior,
-        comparacao_ano_anterior: comparacaoAnoAnterior
+        comparacao_ano_anterior: comparacaoAnoAnterior,
+        fila_leads: filaLeadsArray
       }
     }))
 

@@ -13,15 +13,15 @@ import {
   TrendingUp,
   DollarSign,
   Eye,
-  Download
+  Download,
+  Calendar
 } from "lucide-react"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogContent,
@@ -89,6 +89,8 @@ interface Oportunidade {
   motivo_perda?: string
 }
 
+type PeriodoFiltro = 'hoje' | 'ontem' | 'esta-semana' | 'semana-passada' | 'este-mes' | 'mes-passado' | 'personalizado'
+
 export default function GestorDashboard() {
   const [gestor, setGestor] = useState<GestorData | null>(null)
   const [unidadeSelecionada, setUnidadeSelecionada] = useState<number | null>(null)
@@ -99,6 +101,10 @@ export default function GestorDashboard() {
   const [vendedorSelecionado, setVendedorSelecionado] = useState<VendedorStats | null>(null)
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
   const [loadingOportunidades, setLoadingOportunidades] = useState(false)
+  const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('este-mes')
+  const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState<Date | undefined>(undefined)
+  const [dataFimPersonalizada, setDataFimPersonalizada] = useState<Date | undefined>(undefined)
+  const [popoverPersonalizadoOpen, setPopoverPersonalizadoOpen] = useState(false)
   const router = useRouter()
 
   const formatCurrency = (value: number): string => {
@@ -110,14 +116,102 @@ export default function GestorDashboard() {
     }).format(value)
   }
 
-  const getInicioMesAtual = () => {
-    const dataAtual = new Date()
-    const mes = dataAtual.getMonth() + 1
-    const ano = dataAtual.getFullYear()
+  const getPeriodoDatas = () => {
+    const agora = new Date()
+    const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
+    
+    let dataInicio: Date
+    let dataFim: Date
+
+    switch (periodoFiltro) {
+      case 'hoje':
+        dataInicio = new Date(hoje)
+        dataFim = new Date(hoje)
+        break
+      
+      case 'ontem':
+        dataInicio = new Date(hoje)
+        dataInicio.setDate(dataInicio.getDate() - 1)
+        dataFim = new Date(hoje)
+        dataFim.setDate(dataFim.getDate() - 1)
+        break
+      
+      case 'esta-semana':
+        // Domingo = 0, Segunda = 1, etc.
+        const diaSemana = hoje.getDay()
+        dataInicio = new Date(hoje)
+        dataInicio.setDate(hoje.getDate() - diaSemana) // Vai para domingo
+        dataFim = new Date(hoje) // Até hoje
+        break
+      
+      case 'semana-passada':
+        const diaSemanaAtual = hoje.getDay()
+        // Domingo da semana passada
+        dataInicio = new Date(hoje)
+        dataInicio.setDate(hoje.getDate() - diaSemanaAtual - 7)
+        // Sábado da semana passada
+        dataFim = new Date(hoje)
+        dataFim.setDate(hoje.getDate() - diaSemanaAtual - 1)
+        break
+      
+      case 'este-mes':
+        dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+        dataFim = new Date(hoje)
+        break
+      
+      case 'mes-passado':
+        dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
+        dataFim = new Date(hoje.getFullYear(), hoje.getMonth(), 0) // Último dia do mês passado
+        break
+      
+      case 'personalizado':
+        if (dataInicioPersonalizada && dataFimPersonalizada) {
+          dataInicio = new Date(dataInicioPersonalizada)
+          dataInicio.setHours(0, 0, 0, 0)
+          dataFim = new Date(dataFimPersonalizada)
+          dataFim.setHours(23, 59, 59, 999)
+        } else {
+          // Fallback para este mês se não houver datas personalizadas
+          dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+          dataFim = new Date(hoje)
+        }
+        break
+      
+      default:
+        dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+        dataFim = new Date(hoje)
+    }
+
+    const formatarData = (data: Date) => {
+      const ano = data.getFullYear()
+      const mes = String(data.getMonth() + 1).padStart(2, '0')
+      const dia = String(data.getDate()).padStart(2, '0')
+      return `${ano}-${mes}-${dia}`
+    }
+
+    const dataInicioStr = formatarData(dataInicio)
+    const dataFimStr = formatarData(dataFim)
+
+    console.log('=== getPeriodoDatas ===')
+    console.log('Período:', periodoFiltro)
+    console.log('Data Início:', dataInicioStr, dataInicio)
+    console.log('Data Fim:', dataFimStr, dataFim)
+
     return {
-      ano,
-      mes,
-      primeiraDataMes: `${ano}-${String(mes).padStart(2, '0')}-01`,
+      dataInicio: dataInicioStr,
+      dataFim: dataFimStr,
+      dataInicioObj: dataInicio,
+      dataFimObj: dataFim
+    }
+  }
+
+  const getInicioMesAtual = () => {
+    const { dataInicio } = getPeriodoDatas()
+    const dataInicioObj = new Date(dataInicio)
+    return {
+      ano: dataInicioObj.getFullYear(),
+      mes: dataInicioObj.getMonth() + 1,
+      primeiraDataMes: dataInicio,
     }
   }
 
@@ -143,7 +237,8 @@ export default function GestorDashboard() {
 
     try {
       setLoading(true)
-      const url = `/api/gestor/stats?gestorId=${gestor.id}&unidadeId=${unidadeSelecionada}`
+      const { dataInicio, dataFim } = getPeriodoDatas()
+      const url = `/api/gestor/stats?gestorId=${gestor.id}&unidadeId=${unidadeSelecionada}&dataInicio=${dataInicio}&dataFim=${dataFim}`
       console.log('Buscando stats:', url)
       
       const response = await fetch(url)
@@ -170,7 +265,7 @@ export default function GestorDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [gestor, unidadeSelecionada])
+  }, [gestor, unidadeSelecionada, periodoFiltro, dataInicioPersonalizada, dataFimPersonalizada])
 
   const handleLogout = () => {
     localStorage.removeItem('gestor')
@@ -187,12 +282,12 @@ export default function GestorDashboard() {
     setLoadingOportunidades(true)
 
     try {
-      const { primeiraDataMes } = getInicioMesAtual()
+      const { dataInicio, dataFim } = getPeriodoDatas()
 
-      console.log('Buscando oportunidades:', `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`)
+      console.log('Buscando oportunidades:', `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${dataInicio}&data_fim=${dataFim}`)
       
       const response = await fetch(
-        `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`
+        `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${dataInicio}&data_fim=${dataFim}`
       )
 
       if (!response.ok) {
@@ -221,10 +316,11 @@ export default function GestorDashboard() {
 
   const handleExportarOportunidades = async (vendedor: VendedorStats) => {
     try {
-      const { primeiraDataMes, mes, ano } = getInicioMesAtual()
+      const { dataInicio, dataFim } = getPeriodoDatas()
+      const { mes, ano } = getInicioMesAtual()
 
       const response = await fetch(
-        `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`
+        `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${dataInicio}&data_fim=${dataFim}`
       )
 
       if (!response.ok) {
@@ -291,6 +387,7 @@ export default function GestorDashboard() {
     console.log('=== useEffect fetchStats ===')
     console.log('Gestor:', gestor)
     console.log('Unidade Selecionada:', unidadeSelecionada)
+    console.log('Período Filtro:', periodoFiltro)
     
     if (gestor && unidadeSelecionada != null) {
       console.log('Chamando fetchStats...')
@@ -298,7 +395,7 @@ export default function GestorDashboard() {
     } else {
       console.log('Não chamando fetchStats - gestor ou unidade undefined')
     }
-  }, [gestor, unidadeSelecionada, fetchStats])
+  }, [gestor, unidadeSelecionada, periodoFiltro, dataInicioPersonalizada, dataFimPersonalizada, fetchStats])
 
   useEffect(() => {
     console.log('Estado do dialog mudou:', dialogOpen)
@@ -345,48 +442,134 @@ export default function GestorDashboard() {
         </div>
       </div>
 
-      {/* Seletor de Unidades e Badges */}
+      {/* Badges de Unidades */}
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Minhas Unidades:</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={unidadeSelecionada?.toString()}
-                  onValueChange={(value) => setUnidadeSelecionada(Number(value))}
-                >
-                  <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="Selecione uma unidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {gestor.unidades.map((unidade) => (
-                      <SelectItem key={unidade.id} value={unidade.id.toString()}>
-                        {unidade.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {gestor.unidades.map((unidade) => (
-                <Badge 
-                  key={unidade.id}
-                  variant={unidade.id === unidadeSelecionada ? "default" : "outline"}
-                  className={`flex items-center gap-1 cursor-pointer transition-all ${
-                    unidade.id === unidadeSelecionada 
-                      ? "bg-purple-600 text-white border-purple-600" 
-                      : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                  }`}
-                  onClick={() => setUnidadeSelecionada(unidade.id)}
-                >
-                  <Building2 className="h-3 w-3" />
-                  {unidade.nome}
-                </Badge>
-              ))}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">Unidades:</span>
+            {gestor.unidades.map((unidade) => (
+              <Badge 
+                key={unidade.id}
+                variant={unidade.id === unidadeSelecionada ? "default" : "outline"}
+                className={`flex items-center gap-1 cursor-pointer transition-all ${
+                  unidade.id === unidadeSelecionada 
+                    ? "bg-purple-600 text-white border-purple-600" 
+                    : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                }`}
+                onClick={() => setUnidadeSelecionada(unidade.id)}
+              >
+                <Building2 className="h-3 w-3" />
+                {unidade.nome}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Filtro de Período */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">Período:</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant={periodoFiltro === 'hoje' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodoFiltro('hoje')}
+              >
+                Hoje
+              </Button>
+              <Button
+                variant={periodoFiltro === 'ontem' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodoFiltro('ontem')}
+              >
+                Ontem
+              </Button>
+              <Button
+                variant={periodoFiltro === 'esta-semana' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodoFiltro('esta-semana')}
+              >
+                Esta Semana
+              </Button>
+              <Button
+                variant={periodoFiltro === 'semana-passada' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodoFiltro('semana-passada')}
+              >
+                Semana Passada
+              </Button>
+              <Button
+                variant={periodoFiltro === 'este-mes' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodoFiltro('este-mes')}
+              >
+                Este Mês
+              </Button>
+              <Button
+                variant={periodoFiltro === 'mes-passado' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriodoFiltro('mes-passado')}
+              >
+                Mês Passado
+              </Button>
+              <Popover open={popoverPersonalizadoOpen} onOpenChange={setPopoverPersonalizadoOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={periodoFiltro === 'personalizado' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setPeriodoFiltro('personalizado')}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Personalizado
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Data Início:</label>
+                      <CalendarComponent
+                        mode="single"
+                        selected={dataInicioPersonalizada}
+                        onSelect={(date) => {
+                          setDataInicioPersonalizada(date)
+                          if (date && dataFimPersonalizada && date > dataFimPersonalizada) {
+                            setDataFimPersonalizada(undefined)
+                          }
+                        }}
+                        className="rounded-md border"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Data Fim:</label>
+                      <CalendarComponent
+                        mode="single"
+                        selected={dataFimPersonalizada}
+                        onSelect={(date) => {
+                          if (date && dataInicioPersonalizada && date < dataInicioPersonalizada) {
+                            return
+                          }
+                          setDataFimPersonalizada(date)
+                        }}
+                        disabled={(date) => dataInicioPersonalizada ? date < dataInicioPersonalizada : false}
+                        className="rounded-md border"
+                      />
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (dataInicioPersonalizada && dataFimPersonalizada) {
+                          setPopoverPersonalizadoOpen(false)
+                        }
+                      }}
+                      disabled={!dataInicioPersonalizada || !dataFimPersonalizada}
+                      className="w-full"
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
@@ -429,10 +612,12 @@ export default function GestorDashboard() {
           <div className="space-y-6">
             {/* Resumo da Unidade */}
             <ResumoUnidades 
-              mes={new Date().getMonth() + 1}
-              ano={new Date().getFullYear()}
+              mes={getInicioMesAtual().mes}
+              ano={getInicioMesAtual().ano}
               vendedorId={null}
               unidadeId={unidadeSelecionada}
+              dataInicio={getPeriodoDatas().dataInicio}
+              dataFim={getPeriodoDatas().dataFim}
             />
 
             {/* Meta Total */}

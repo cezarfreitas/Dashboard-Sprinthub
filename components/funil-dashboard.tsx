@@ -137,9 +137,14 @@ export default function FunilDashboard({ vendedorId, unidadeId }: FunilDashboard
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Target className="h-3.5 w-3.5 text-primary" />
-              <span className="font-medium">{funilData.periodo.descricao}</span>
+              <span className="font-medium">
+                {funilData.periodo?.descricao || 
+                 (funilData.periodo?.mes && funilData.periodo?.ano 
+                   ? `${funilData.periodo.mes}/${funilData.periodo.ano}` 
+                   : 'Período não definido')}
+              </span>
               <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary font-semibold">
-                {funilData.totais_periodo.total_oportunidades} ops
+                {funilData.totais_periodo?.total_oportunidades || 0} ops
               </span>
             </div>
             <Button 
@@ -158,7 +163,7 @@ export default function FunilDashboard({ vendedorId, unidadeId }: FunilDashboard
               {/* Total inicial */}
               <div className="w-[50px] text-center">
                 <div className="text-sm font-bold text-primary">
-                  {funilData.totais_periodo.total_oportunidades}
+                  {funilData.totais_periodo?.total_oportunidades || 0}
                 </div>
               </div>
               
@@ -166,7 +171,7 @@ export default function FunilDashboard({ vendedorId, unidadeId }: FunilDashboard
             
               {funilData.colunas.map((coluna, index) => {
                 const nextColuna = funilData.colunas[index + 1]
-                const totalInicial = funilData.totais_periodo.total_oportunidades
+                const totalInicial = funilData.totais_periodo?.total_oportunidades || 0
                 
                 let taxaAcumulada = 0
                 let taxaRelativa = 0

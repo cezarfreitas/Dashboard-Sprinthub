@@ -33,11 +33,30 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Data atual e primeira data do mês
-    const dataAtual = new Date()
-    const ano = dataAtual.getFullYear()
-    const mes = dataAtual.getMonth() + 1
-    const primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
+    // Obter período das query params ou usar mês atual como padrão
+    const dataInicio = searchParams.get('dataInicio')
+    const dataFim = searchParams.get('dataFim')
+    
+    let primeiraDataMes: string
+    let ultimaDataMes: string
+    
+    if (dataInicio && dataFim) {
+      primeiraDataMes = dataInicio
+      ultimaDataMes = dataFim
+      console.log('=== API gestor/stats - Período ===')
+      console.log('Data Início:', primeiraDataMes)
+      console.log('Data Fim:', ultimaDataMes)
+    } else {
+      // Fallback para mês atual
+      const dataAtual = new Date()
+      const ano = dataAtual.getFullYear()
+      const mes = dataAtual.getMonth() + 1
+      primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
+      ultimaDataMes = dataAtual.toISOString().split('T')[0]
+      console.log('=== API gestor/stats - Usando mês atual ===')
+      console.log('Data Início:', primeiraDataMes)
+      console.log('Data Fim:', ultimaDataMes)
+    }
 
     // Buscar vendedores da unidade (exceto o gestor)
     // Buscar tanto pela coluna unidade_id (se existir) quanto pelo campo users da unidade
@@ -77,6 +96,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Estatísticas gerais da equipe
+    console.log('Executando query stats com:', { primeiraDataMes, ultimaDataMes, vendedorIds })
     const stats = await executeQuery(`
       SELECT 
         COUNT(*) as oportunidades_criadas,
@@ -86,8 +106,10 @@ export async function GET(request: NextRequest) {
         SUM(CASE WHEN o.ganho = 0 AND o.perda = 0 THEN 1 ELSE 0 END) as oportunidades_abertas
       FROM oportunidades o
       WHERE o.vendedor_id IN (${vendedorIds.join(',')})
-        AND o.created_date >= ?
-    `, [primeiraDataMes]) as any[]
+        AND DATE(o.created_date) >= DATE(?)
+        AND DATE(o.created_date) <= DATE(?)
+    `, [primeiraDataMes, ultimaDataMes]) as any[]
+    console.log('Resultado stats:', stats)
 
     // Estatísticas por vendedor
     const vendedoresStats = await Promise.all(
@@ -101,8 +123,9 @@ export async function GET(request: NextRequest) {
             SUM(CASE WHEN o.ganho = 0 AND o.perda = 0 THEN 1 ELSE 0 END) as oportunidades_abertas
           FROM oportunidades o
           WHERE o.vendedor_id = ?
-            AND o.created_date >= ?
-        `, [vendedor.id, primeiraDataMes]) as any[]
+            AND DATE(o.created_date) >= DATE(?)
+            AND DATE(o.created_date) <= DATE(?)
+        `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
 
         // Buscar meta do vendedor
         const meta = await executeQuery(`
@@ -141,12 +164,13 @@ export async function GET(request: NextRequest) {
       FROM oportunidades o
       JOIN colunas c ON o.coluna_id = c.id
       WHERE o.vendedor_id IN (${vendedorIds.join(',')})
-        AND o.created_date >= ?
+        AND DATE(o.created_date) >= DATE(?)
+        AND DATE(o.created_date) <= DATE(?)
         AND o.ganho = 0
         AND o.perda = 0
       GROUP BY c.id, c.nome_coluna, c.sequencia
       ORDER BY c.sequencia
-    `, [primeiraDataMes]) as any[]
+    `, [primeiraDataMes, ultimaDataMes]) as any[]
 
     return NextResponse.json({
       success: true,
