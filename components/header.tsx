@@ -21,7 +21,8 @@ import {
   Moon,
   CircleDot,
   Menu,
-  X
+  X,
+  LayoutDashboard
 } from "lucide-react"
 import { useAuthSistema } from "@/hooks/use-auth-sistema"
 import { useTheme } from "@/hooks/use-theme"
@@ -34,6 +35,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 interface HeaderProps {
   className?: string
+  hideOnScroll?: boolean
 }
 
 const menuItems = [
@@ -41,6 +43,12 @@ const menuItems = [
     title: "Dashboard",
     icon: Activity,
     href: "/"
+  },
+  {
+    title: "Painel",
+    icon: LayoutDashboard,
+    href: "/painel",
+    openInNewWindow: true
   },
   {
     title: "Analytics",
@@ -103,11 +111,52 @@ const menuItems = [
   }
 ]
 
-export function Header({ className }: HeaderProps) {
+export function Header({ className, hideOnScroll = false }: HeaderProps) {
   const { user, loading, hasPermission } = useAuthSistema()
   const { theme, toggleTheme, isLoading: themeLoading } = useTheme()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [lastScrollY, setLastScrollY] = useState(0)
+  const [isVisible, setIsVisible] = useState(true)
   const pathname = usePathname()
+
+  // Efeito para controlar visibilidade do header com scroll
+  useEffect(() => {
+    if (!hideOnScroll) {
+      setIsVisible(true)
+      return
+    }
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+
+      // Se estiver no topo, esconder o header
+      if (currentScrollY === 0) {
+        setIsVisible(false)
+        setIsScrolled(false)
+      } else {
+        setIsScrolled(true)
+        // Se estiver rolando para baixo, esconder
+        // Se estiver rolando para cima, mostrar
+        if (currentScrollY > lastScrollY && currentScrollY > 100) {
+          setIsVisible(false)
+        } else {
+          setIsVisible(true)
+        }
+      }
+
+      setLastScrollY(currentScrollY)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
+    // Inicialmente escondido se estiver no topo
+    if (window.scrollY === 0) {
+      setIsVisible(false)
+    }
+
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [hideOnScroll, lastScrollY])
 
   const handleLogout = async () => {
     try {
@@ -175,7 +224,8 @@ export function Header({ className }: HeaderProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-50 w-full border-b border-gray-800 bg-black",
+      "sticky top-0 z-50 w-full border-b border-gray-800 bg-black transition-transform duration-300 ease-in-out",
+      hideOnScroll && !isVisible && "-translate-y-full",
       className
     )}>
       <div className="container flex h-14 items-center">
@@ -226,7 +276,7 @@ export function Header({ className }: HeaderProps) {
                     </PopoverContent>
                   </Popover>
                 ) : (
-                  <Link href={item.href}>
+                  <Link href={item.href} target={item.openInNewWindow ? "_blank" : undefined} rel={item.openInNewWindow ? "noopener noreferrer" : undefined}>
                     <Button
                       variant="ghost"
                       className={cn(
@@ -362,6 +412,8 @@ export function Header({ className }: HeaderProps) {
                   ) : (
                     <Link
                       href={item.href}
+                      target={item.openInNewWindow ? "_blank" : undefined}
+                      rel={item.openInNewWindow ? "noopener noreferrer" : undefined}
                       className={cn(
                         "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white",
                         isActiveRoute(item.href) && "bg-white/10 text-white"

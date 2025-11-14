@@ -22,7 +22,8 @@ import {
   Clock,
   Sun,
   Moon,
-  CircleDot
+  CircleDot,
+  LayoutDashboard
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { useTheme } from "@/hooks/use-theme"
@@ -42,6 +43,12 @@ const menuItems = [
     title: "Dashboard",
     icon: Activity,
     href: "/"
+  },
+  {
+    title: "Painel",
+    icon: LayoutDashboard,
+    href: "/painel",
+    openInNewWindow: true
   },
   {
     title: "Analytics",
@@ -262,7 +269,7 @@ export function Sidebar({ className }: SidebarProps) {
                   </Button>
                 ) : (
                   // Item sem submenu
-                  <Link href={item.href} className="w-full">
+                  <Link href={item.href} target={item.openInNewWindow ? "_blank" : undefined} rel={item.openInNewWindow ? "noopener noreferrer" : undefined} className="w-full">
                     <Button
                       variant="ghost"
                       className={cn(

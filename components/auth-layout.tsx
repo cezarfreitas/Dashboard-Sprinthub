@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { cn } from '@/lib/utils'
 import { Header } from './header'
 import { LoginForm } from './login-form'
 
@@ -17,9 +18,10 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   const isLoginPage = pathname === '/login'
   const isGestorPage = pathname.startsWith('/gestor')
   const isConsultorPage = pathname.startsWith('/consultor')
+  const isPainelPage = pathname === '/painel'
 
   // Se estiver nas páginas sem layout, mostrar apenas o conteúdo
-  if (isAuthPage || isLoginPage || isGestorPage || isConsultorPage) {
+  if (isAuthPage || isLoginPage || isGestorPage || isConsultorPage || isPainelPage) {
     return <>{children}</>
   }
 
