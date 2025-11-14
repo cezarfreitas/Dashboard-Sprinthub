@@ -9,7 +9,10 @@ import {
   UserCircle, 
   Building2, 
   LogOut,
-  RefreshCw
+  RefreshCw,
+  ExternalLink,
+  TrendingUp,
+  DollarSign
 } from "lucide-react"
 import {
   Select,
@@ -18,6 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import ResumoUnidades from "@/components/resumo-unidades"
 
 interface GestorData {
@@ -67,12 +77,27 @@ interface GestorStats {
   }>
 }
 
+interface Oportunidade {
+  id: number
+  titulo: string
+  valor: number
+  coluna_nome: string
+  ganho: number
+  perda: number
+  created_date: string
+  motivo_perda?: string
+}
+
 export default function GestorDashboard() {
   const [gestor, setGestor] = useState<GestorData | null>(null)
   const [unidadeSelecionada, setUnidadeSelecionada] = useState<number | null>(null)
   const [stats, setStats] = useState<GestorStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [vendedorSelecionado, setVendedorSelecionado] = useState<VendedorStats | null>(null)
+  const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
+  const [loadingOportunidades, setLoadingOportunidades] = useState(false)
   const router = useRouter()
 
   const formatCurrency = (value: number): string => {
@@ -110,6 +135,35 @@ export default function GestorDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('gestor')
     router.push('/gestor')
+  }
+
+  const handleVerOportunidades = async (vendedor: VendedorStats) => {
+    setVendedorSelecionado(vendedor)
+    setDialogOpen(true)
+    setLoadingOportunidades(true)
+
+    try {
+      const dataAtual = new Date()
+      const mes = dataAtual.getMonth() + 1
+      const ano = dataAtual.getFullYear()
+      const primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
+
+      const response = await fetch(
+        `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraDataMes}`
+      )
+      const data = await response.json()
+
+      if (data.success) {
+        setOportunidades(data.oportunidades || [])
+      } else {
+        setOportunidades([])
+      }
+    } catch (err) {
+      console.error('Erro ao buscar oportunidades:', err)
+      setOportunidades([])
+    } finally {
+      setLoadingOportunidades(false)
+    }
   }
 
   useEffect(() => {
@@ -314,7 +368,13 @@ export default function GestorDashboard() {
                           return (
                             <tr key={vendedor.id} className="border-b hover:bg-gray-50">
                               <td className="py-3 px-2 font-medium">
-                                {vendedor.name} {vendedor.lastName}
+                                <button
+                                  onClick={() => handleVerOportunidades(vendedor)}
+                                  className="flex items-center gap-1 text-purple-600 hover:text-purple-800 hover:underline transition-colors"
+                                >
+                                  {vendedor.name} {vendedor.lastName}
+                                  <ExternalLink className="h-3 w-3" />
+                                </button>
                               </td>
                               <td className="text-center py-3 px-2">
                                 {vendedor.oportunidades_criadas}
@@ -435,6 +495,115 @@ export default function GestorDashboard() {
           </div>
         ) : null}
       </div>
+
+      {/* Dialog de Oportunidades */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              Oportunidades de {vendedorSelecionado?.name} {vendedorSelecionado?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingOportunidades ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : oportunidades.length > 0 ? (
+            <ScrollArea className="h-[500px] pr-4">
+              <div className="space-y-3">
+                {/* Resumo */}
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-blue-600" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Total</p>
+                          <p className="text-lg font-bold">{oportunidades.length}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-emerald-600" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Ganhas</p>
+                          <p className="text-lg font-bold text-emerald-600">
+                            {oportunidades.filter(o => o.ganho === 1).length}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="destructive" className="h-4 w-4" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Perdidas</p>
+                          <p className="text-lg font-bold text-red-600">
+                            {oportunidades.filter(o => o.perda === 1).length}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Lista de Oportunidades */}
+                <div className="space-y-2">
+                  {oportunidades.map((oportunidade) => (
+                    <Card key={oportunidade.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h4 className="font-semibold text-sm">{oportunidade.titulo}</h4>
+                              {oportunidade.ganho === 1 && (
+                                <Badge className="bg-emerald-600">Ganha</Badge>
+                              )}
+                              {oportunidade.perda === 1 && (
+                                <Badge variant="destructive">Perdida</Badge>
+                              )}
+                              {oportunidade.ganho === 0 && oportunidade.perda === 0 && (
+                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                                  Aberta
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <DollarSign className="h-3 w-3" />
+                                {formatCurrency(oportunidade.valor)}
+                              </span>
+                              <span>Etapa: {oportunidade.coluna_nome}</span>
+                              <span>
+                                Criada: {new Date(oportunidade.created_date).toLocaleDateString('pt-BR')}
+                              </span>
+                            </div>
+                            {oportunidade.motivo_perda && (
+                              <p className="text-xs text-red-600 mt-1">
+                                Motivo: {oportunidade.motivo_perda}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              Nenhuma oportunidade encontrada para este vendedor no mês atual.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
