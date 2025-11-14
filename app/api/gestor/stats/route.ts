@@ -39,18 +39,24 @@ export async function GET(request: NextRequest) {
     
     let primeiraDataMes: string
     let ultimaDataMes: string
+    let mes: number
+    let ano: number
     
     if (dataInicio && dataFim) {
       primeiraDataMes = dataInicio
       ultimaDataMes = dataFim
+      // Extrair mês e ano da data de início para a query de meta
+      const dataInicioObj = new Date(dataInicio)
+      mes = dataInicioObj.getMonth() + 1
+      ano = dataInicioObj.getFullYear()
       console.log('=== API gestor/stats - Período ===')
       console.log('Data Início:', primeiraDataMes)
       console.log('Data Fim:', ultimaDataMes)
     } else {
       // Fallback para mês atual
       const dataAtual = new Date()
-      const ano = dataAtual.getFullYear()
-      const mes = dataAtual.getMonth() + 1
+      ano = dataAtual.getFullYear()
+      mes = dataAtual.getMonth() + 1
       primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
       ultimaDataMes = dataAtual.toISOString().split('T')[0]
       console.log('=== API gestor/stats - Usando mês atual ===')
