@@ -8,14 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { 
   UserCircle, 
   Building2, 
-  TrendingUp, 
-  DollarSign, 
-  XCircle, 
-  Clock, 
   LogOut,
-  RefreshCw,
-  Users,
-  ChevronDown
+  RefreshCw
 } from "lucide-react"
 import {
   Select,
@@ -24,10 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import NovasOportunidadesCard from "@/components/novas-oportunidades-card"
-import GanhosCard from "@/components/ganhos-card"
-import PerdidosCard from "@/components/perdidos-card"
-import AbertosCard from "@/components/abertos-card"
+import ResumoUnidades from "@/components/resumo-unidades"
 
 interface GestorData {
   id: number
@@ -91,17 +82,6 @@ export default function GestorDashboard() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value)
-  }
-
-  const getMesNome = (): string => {
-    const dataAtual = new Date()
-    const mes = dataAtual.getMonth() + 1
-    const ano = dataAtual.getFullYear()
-    const meses = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ]
-    return `${meses[mes - 1]} ${ano}`
   }
 
   const fetchStats = async () => {
@@ -247,13 +227,6 @@ export default function GestorDashboard() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold">Dashboard da Equipe</h2>
-          <p className="text-muted-foreground">
-            {getMesNome()}
-          </p>
-        </div>
-
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -272,91 +245,13 @@ export default function GestorDashboard() {
           </Card>
         ) : stats ? (
           <div className="space-y-6">
-            {/* Cards Principais do Dashboard */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <NovasOportunidadesCard 
-                unidadeId={unidadeSelecionada}
-                refreshInterval={60000}
-              />
-              <GanhosCard 
-                unidadeId={unidadeSelecionada}
-                refreshInterval={60000}
-              />
-              <PerdidosCard 
-                unidadeId={unidadeSelecionada}
-                refreshInterval={60000}
-              />
-              <AbertosCard 
-                unidadeId={unidadeSelecionada}
-                refreshInterval={60000}
-              />
-            </div>
-
-            {/* Cards de Estatísticas da Equipe */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Vendedores</CardTitle>
-                  <Users className="h-4 w-4 text-purple-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">
-                    {stats.total_vendedores}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Oportunidades Criadas</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {stats.oportunidades_criadas}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Oportunidades Ganhas</CardTitle>
-                  <DollarSign className="h-4 w-4 text-emerald-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-emerald-600">
-                    {stats.oportunidades_ganhas}
-                  </div>
-                  <p className="text-xs text-emerald-500">
-                    {formatCurrency(stats.valor_ganho)}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Oportunidades Perdidas</CardTitle>
-                  <XCircle className="h-4 w-4 text-red-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-600">
-                    {stats.oportunidades_perdidas}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Oportunidades Abertas</CardTitle>
-                  <Clock className="h-4 w-4 text-yellow-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-yellow-600">
-                    {stats.oportunidades_abertas}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Resumo da Unidade */}
+            <ResumoUnidades 
+              mes={new Date().getMonth() + 1}
+              ano={new Date().getFullYear()}
+              vendedorId={null}
+              unidadeId={unidadeSelecionada}
+            />
 
             {/* Meta Total */}
             {stats.meta_total > 0 && (
