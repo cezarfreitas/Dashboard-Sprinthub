@@ -11,7 +11,11 @@ export function middleware(request: NextRequest) {
     '/unidades',
     '/vendedores',
     '/metas',
-    '/oportunidades'
+    '/oportunidades',
+    '/sprinthub',
+    '/analytics',
+    '/funil',
+    '/ranking'
   ]
   
   // Rotas públicas do SISTEMA
