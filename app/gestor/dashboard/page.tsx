@@ -14,8 +14,16 @@ import {
   Clock, 
   LogOut,
   RefreshCw,
-  Users
+  Users,
+  ChevronDown
 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import NovasOportunidadesCard from "@/components/novas-oportunidades-card"
 import GanhosCard from "@/components/ganhos-card"
 import PerdidosCard from "@/components/perdidos-card"
@@ -70,6 +78,7 @@ interface GestorStats {
 
 export default function GestorDashboard() {
   const [gestor, setGestor] = useState<GestorData | null>(null)
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState<number | null>(null)
   const [stats, setStats] = useState<GestorStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -96,12 +105,12 @@ export default function GestorDashboard() {
   }
 
   const fetchStats = async () => {
-    if (!gestor) return
+    if (!gestor || !unidadeSelecionada) return
 
     try {
       setLoading(true)
       const response = await fetch(
-        `/api/gestor/stats?gestorId=${gestor.id}&unidadeId=${gestor.unidade_principal.id}`
+        `/api/gestor/stats?gestorId=${gestor.id}&unidadeId=${unidadeSelecionada}`
       )
       const data = await response.json()
 
@@ -134,16 +143,18 @@ export default function GestorDashboard() {
     try {
       const parsedGestor = JSON.parse(gestorData)
       setGestor(parsedGestor)
+      // Definir unidade principal como padrão
+      setUnidadeSelecionada(parsedGestor.unidade_principal.id)
     } catch (err) {
       router.push('/gestor')
     }
   }, [router])
 
   useEffect(() => {
-    if (gestor) {
+    if (gestor && unidadeSelecionada) {
       fetchStats()
     }
-  }, [gestor])
+  }, [gestor, unidadeSelecionada])
 
   if (!gestor) {
     return (
@@ -168,15 +179,11 @@ export default function GestorDashboard() {
                   {gestor.name} {gestor.lastName}
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Gestor - {gestor.unidade_principal.nome}
+                  Gestor de {gestor.unidades.length} {gestor.unidades.length === 1 ? 'unidade' : 'unidades'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <Badge variant="outline" className="flex items-center gap-1 bg-purple-50 text-purple-700 border-purple-200">
-                <Building2 className="h-3 w-3" />
-                {gestor.unidade_principal.nome}
-              </Badge>
               <Button 
                 variant="outline" 
                 onClick={handleLogout} 
@@ -185,6 +192,54 @@ export default function GestorDashboard() {
                 <LogOut className="h-4 w-4" />
                 Sair
               </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Seletor de Unidades e Badges */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700">Minhas Unidades:</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Visualizando:</span>
+                <Select
+                  value={unidadeSelecionada?.toString()}
+                  onValueChange={(value) => setUnidadeSelecionada(Number(value))}
+                >
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Selecione uma unidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {gestor.unidades.map((unidade) => (
+                      <SelectItem key={unidade.id} value={unidade.id.toString()}>
+                        {unidade.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {gestor.unidades.map((unidade) => (
+                <Badge 
+                  key={unidade.id}
+                  variant={unidade.id === unidadeSelecionada ? "default" : "outline"}
+                  className={`flex items-center gap-1 cursor-pointer transition-all ${
+                    unidade.id === unidadeSelecionada 
+                      ? "bg-purple-600 text-white border-purple-600" 
+                      : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                  }`}
+                  onClick={() => setUnidadeSelecionada(unidade.id)}
+                >
+                  <Building2 className="h-3 w-3" />
+                  {unidade.nome}
+                </Badge>
+              ))}
             </div>
           </div>
         </div>
@@ -220,19 +275,19 @@ export default function GestorDashboard() {
             {/* Cards Principais do Dashboard */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               <NovasOportunidadesCard 
-                unidadeId={gestor.unidade_principal.id}
+                unidadeId={unidadeSelecionada}
                 refreshInterval={60000}
               />
               <GanhosCard 
-                unidadeId={gestor.unidade_principal.id}
+                unidadeId={unidadeSelecionada}
                 refreshInterval={60000}
               />
               <PerdidosCard 
-                unidadeId={gestor.unidade_principal.id}
+                unidadeId={unidadeSelecionada}
                 refreshInterval={60000}
               />
               <AbertosCard 
-                unidadeId={gestor.unidade_principal.id}
+                unidadeId={unidadeSelecionada}
                 refreshInterval={60000}
               />
             </div>
