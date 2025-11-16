@@ -26,8 +26,6 @@ interface SprintHubUser {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 Iniciando sincronização de vendedores...')
-
     // Obter variáveis de ambiente
     const apiToken = process.env.APITOKEN
     const groupId = process.env.I
@@ -55,7 +53,6 @@ export async function POST(request: NextRequest) {
     })
 
     if (!response.ok) {
-      console.error('❌ Erro na API SprintHub:', response.status, response.statusText)
       return NextResponse.json(
         { 
           success: false, 
@@ -66,7 +63,6 @@ export async function POST(request: NextRequest) {
     }
 
     const vendedoresSprintHub: SprintHubUser[] = await response.json()
-    console.log('✅ Dados recebidos da SprintHub:', vendedoresSprintHub.length, 'vendedores')
 
     if (!Array.isArray(vendedoresSprintHub) || vendedoresSprintHub.length === 0) {
       return NextResponse.json({
@@ -142,7 +138,6 @@ export async function POST(request: NextRequest) {
         }
 
       } catch (vendedorError) {
-        console.error(`❌ Erro ao sincronizar vendedor ${vendedor.id}:`, vendedorError)
         errors++
       }
     }
@@ -158,8 +153,6 @@ export async function POST(request: NextRequest) {
     `) as any[]
     const recentSync = recentSyncResult[0]?.recent || 0
 
-    console.log(`✅ Sincronização concluída: ${inserted} inseridos, ${updated} atualizados, ${errors} erros`)
-
     return NextResponse.json({
       success: true,
       message: 'Sincronização concluída com sucesso',
@@ -174,8 +167,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro na sincronização:', error)
-    
     return NextResponse.json(
       { 
         success: false, 
@@ -238,8 +229,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao verificar status:', error)
-    
     return NextResponse.json(
       { 
         success: false, 

@@ -61,9 +61,8 @@ export default function NovasOportunidadesCard({
       } else {
         setError(result.message || 'Erro ao carregar dados')
       }
-    } catch (err) {
+    } catch {
       setError('Erro de conexão')
-      console.error('Erro ao buscar novas oportunidades:', err)
     } finally {
       setLoading(false)
     }

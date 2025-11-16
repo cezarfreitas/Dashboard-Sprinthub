@@ -196,8 +196,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao buscar metas:', error)
-    
     // Fallback com dados mockup mesmo em caso de erro
     const currentDate = new Date()
     const targetMes = currentDate.getMonth() + 1
@@ -294,8 +292,6 @@ export async function POST(request: NextRequest) {
       [vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao || null]
     ) as any
 
-    console.log('✅ Meta criada com sucesso:', result.insertId)
-
     return NextResponse.json({
       success: true,
       message: 'Meta criada com sucesso',
@@ -303,8 +299,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao criar meta:', error)
-    
     return NextResponse.json(
       { 
         success: false, 
@@ -351,13 +345,10 @@ export async function PUT(request: NextRequest) {
 
     const meta = currentMeta[0]
 
-    // Atualizar meta
     await executeQuery(
       'UPDATE metas_mensais SET meta_valor = ?, meta_descricao = ? WHERE id = ?',
       [meta_valor, meta_descricao || null, id]
     )
-
-    console.log('✅ Meta atualizada com sucesso:', id)
 
     return NextResponse.json({
       success: true,
@@ -365,8 +356,6 @@ export async function PUT(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao atualizar meta:', error)
-    
     return NextResponse.json(
       { 
         success: false, 
@@ -406,13 +395,10 @@ export async function DELETE(request: NextRequest) {
 
     const meta = currentMeta[0]
 
-    // Soft delete - marcar como cancelada
     await executeQuery(
       'UPDATE metas_mensais SET status = "cancelada" WHERE id = ?',
       [id]
     )
-
-    console.log('✅ Meta cancelada com sucesso:', id)
 
     return NextResponse.json({
       success: true,
@@ -420,8 +406,6 @@ export async function DELETE(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao remover meta:', error)
-    
     return NextResponse.json(
       { 
         success: false, 

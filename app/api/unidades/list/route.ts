@@ -10,7 +10,6 @@ function parseJSON(value: any, unidadeId: number, fieldName: string): any[] {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value
     return Array.isArray(parsed) ? parsed : []
   } catch (e) {
-    console.warn(`Erro ao parsear ${fieldName} da unidade ${unidadeId}:`, e)
     return []
   }
 }
@@ -29,6 +28,8 @@ export async function GET(request: NextRequest) {
         u.id, 
         u.name, 
         u.nome,
+        u.grupo_id,
+        g.nome as grupo_nome,
         u.department_id, 
         u.show_sac360, 
         u.show_crm,
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
         u.created_at, 
         u.updated_at
       FROM unidades u
+      LEFT JOIN unidade_grupos g ON g.id = u.grupo_id
       WHERE (u.name IS NOT NULL OR u.nome IS NOT NULL)
     `
     const params: any[] = []
@@ -55,7 +57,7 @@ export async function GET(request: NextRequest) {
       params.push(`%${search}%`, `%${search}%`)
     }
 
-    // Use string interpolation for LIMIT/OFFSET as they are validated integers
+    // LIMIT/OFFSET safe to interpolate as they're validated integers
     query += ` ORDER BY COALESCE(u.nome, u.name) ASC LIMIT ${limit} OFFSET ${offset}`
 
     const unidades = await executeQuery(query, params) as any[]
@@ -66,119 +68,131 @@ export async function GET(request: NextRequest) {
     `) as any[]
     const vendedoresMap = new Map(todosVendedores.map(v => [v.id, v]))
     
-    // Para cada unidade, extrair vendedores do campo JSON users
-    const unidadesComVendedores = await Promise.all(
-      unidades.map(async (unidade) => {
-        let vendedores: any[] = []
-        let userIds: number[] = []
-
-        // Extrair IDs do campo JSON users
-        const parsedUsers = parseJSON(unidade.users, unidade.id, 'users')
-        userIds = parsedUsers
-          .map((u: any) => typeof u === 'object' ? u.id : u)
-          .filter((id: any) => typeof id === 'number')
-
-        // Buscar vendedores do Map ao invés de fazer query
-        vendedores = userIds
-          .map(id => vendedoresMap.get(id))
-          .filter(v => v !== undefined) as any[]
-
-        // Processar campos JSON
-        const accsArray = parseJSON(unidade.accs, unidade.id, 'accs')
-        const branchesArray = parseJSON(unidade.branches, unidade.id, 'branches')
-        const subsArray = parseJSON(unidade.subs, unidade.id, 'subs')
-
-        // Processar campo fila_leads com contagem de distribuições
-        const parsedFilaLeads = parseJSON(unidade.fila_leads, unidade.id, 'fila_leads')
-        let filaLeadsArray: any[] = []
-        
-        if (parsedFilaLeads.length > 0) {
-          const distribuicoesResult = await executeQuery(`
-            SELECT vendedor_id, COUNT(*) as total_distribuicoes
-            FROM fila_leads_log
-            WHERE unidade_id = ?
-            GROUP BY vendedor_id
-          `, [unidade.id]) as any[]
-          
-          const distribuicoesMap = new Map(
-            distribuicoesResult.map(d => [d.vendedor_id, d.total_distribuicoes])
-          )
-          
-          filaLeadsArray = parsedFilaLeads
-            .map((item: any) => {
-              const vendedorId = item.vendedor_id || item.id
-              const vendedor = vendedores.find(v => v.id === vendedorId)
-              
-              return {
-                id: vendedorId,
-                sequencia: item.sequencia || item.ordem,
-                nome: vendedor ? `${vendedor.name} ${vendedor.lastName}` : '',
-                total_distribuicoes: distribuicoesMap.get(vendedorId) || 0
-              }
-            })
-            .sort((a, b) => a.sequencia - b.sequencia)
+    // Buscar distribuições de todas as unidades de uma vez para evitar N+1
+    const unidadeIds = unidades.map(u => u.id)
+    let distribuicoesMap = new Map<number, Map<number, number>>()
+    
+    if (unidadeIds.length > 0) {
+      const placeholders = unidadeIds.map(() => '?').join(',')
+      const distribuicoesResult = await executeQuery(`
+        SELECT unidade_id, vendedor_id, COUNT(*) as total_distribuicoes
+        FROM fila_leads_log
+        WHERE unidade_id IN (${placeholders})
+        GROUP BY unidade_id, vendedor_id
+      `, unidadeIds) as any[]
+      
+      distribuicoesResult.forEach((d: any) => {
+        if (!distribuicoesMap.has(d.unidade_id)) {
+          distribuicoesMap.set(d.unidade_id, new Map())
         }
-
-        // Remover o campo users da resposta (não precisa enviar JSON grande)
-        const { users, ...unidadeSemUsers } = unidade
-
-        // Extrair ID do subs (primeiro elemento se for array)
-        let subsId = null
-        if (subsArray && subsArray.length > 0) {
-          const primeiroSub = subsArray[0]
-          subsId = typeof primeiroSub === 'object' ? primeiroSub.id : primeiroSub
-        }
-
-        // Buscar nome do usuário de gestão se existir
-        let nomeUserGestao = null
-        if (unidade.user_gestao) {
-          try {
-            const userGestaoResult = await executeQuery(`
-              SELECT name, lastName 
-              FROM vendedores 
-              WHERE id = ?
-            `, [unidade.user_gestao]) as any[]
-            
-            if (userGestaoResult.length > 0) {
-              const user = userGestaoResult[0]
-              nomeUserGestao = `${user.name} ${user.lastName}`
-            }
-          } catch (e) {
-            console.warn(`❌ Erro ao buscar usuário de gestão ${unidade.user_gestao}:`, e)
-          }
-        }
-
-        // Preparar listas distintas: detalhes completos e equipe (sem gestor)
-        const vendedoresDetalhes = vendedores.map(v => ({ ...v }))
-        let equipeVendedores = vendedores
-        if (unidade.user_gestao) {
-          // Marcar o gestor nos detalhes
-          const gestorIdx = vendedoresDetalhes.findIndex(v => v.id === unidade.user_gestao)
-          if (gestorIdx !== -1) {
-            ;(vendedoresDetalhes[gestorIdx] as any).isGestor = true
-          }
-          // Remover gestor somente da lista exibida como "Equipe"
-          equipeVendedores = vendedores.filter(v => v.id !== unidade.user_gestao)
-        }
-
-        const resultado = {
-          ...unidadeSemUsers,
-          total_vendedores: equipeVendedores.length,
-          vendedores: equipeVendedores.map(v => `${v.name} ${v.lastName}`),
-          vendedores_detalhes: vendedoresDetalhes,
-          accs: accsArray,
-          branches: branchesArray,
-          subs: subsArray,
-          subs_id: subsId,
-          fila_leads: filaLeadsArray,
-          dpto_gestao: unidade.dpto_gestao,
-          user_gestao: unidade.user_gestao,
-          nome_user_gestao: nomeUserGestao
-        }
-        
-        return resultado
+        distribuicoesMap.get(d.unidade_id)!.set(d.vendedor_id, d.total_distribuicoes)
       })
-    )
+    }
+    
+    // Buscar nomes de gestores de uma vez
+    const gestorIds = unidades
+      .map(u => u.user_gestao)
+      .filter((id): id is number => typeof id === 'number')
+    
+    let gestoresMap = new Map<number, string>()
+    if (gestorIds.length > 0) {
+      const uniqueGestorIds = [...new Set(gestorIds)]
+      const placeholders = uniqueGestorIds.map(() => '?').join(',')
+      const gestoresResult = await executeQuery(`
+        SELECT id, name, lastName 
+        FROM vendedores 
+        WHERE id IN (${placeholders})
+      `, uniqueGestorIds) as any[]
+      
+      gestoresResult.forEach((g: any) => {
+        gestoresMap.set(g.id, `${g.name} ${g.lastName}`)
+      })
+    }
+    
+    // Para cada unidade, extrair vendedores do campo JSON users
+    const unidadesComVendedores = unidades.map((unidade) => {
+      let vendedores: any[] = []
+      let userIds: number[] = []
+
+      // Extrair IDs do campo JSON users
+      const parsedUsers = parseJSON(unidade.users, unidade.id, 'users')
+      userIds = parsedUsers
+        .map((u: any) => typeof u === 'object' ? u.id : u)
+        .filter((id: any) => typeof id === 'number')
+
+      // Buscar vendedores do Map ao invés de fazer query
+      vendedores = userIds
+        .map(id => vendedoresMap.get(id))
+        .filter(v => v !== undefined) as any[]
+
+      // Processar campos JSON
+      const accsArray = parseJSON(unidade.accs, unidade.id, 'accs')
+      const branchesArray = parseJSON(unidade.branches, unidade.id, 'branches')
+      const subsArray = parseJSON(unidade.subs, unidade.id, 'subs')
+
+      // Processar campo fila_leads com contagem de distribuições
+      const parsedFilaLeads = parseJSON(unidade.fila_leads, unidade.id, 'fila_leads')
+      let filaLeadsArray: any[] = []
+      
+      if (parsedFilaLeads.length > 0) {
+        const unidadeDistribuicoes = distribuicoesMap.get(unidade.id) || new Map()
+        
+        filaLeadsArray = parsedFilaLeads
+          .map((item: any) => {
+            const vendedorId = item.vendedor_id || item.id
+            const vendedor = vendedores.find(v => v.id === vendedorId)
+            
+            return {
+              id: vendedorId,
+              sequencia: item.sequencia || item.ordem,
+              nome: vendedor ? `${vendedor.name} ${vendedor.lastName}` : '',
+              total_distribuicoes: unidadeDistribuicoes.get(vendedorId) || 0
+            }
+          })
+          .sort((a, b) => a.sequencia - b.sequencia)
+      }
+
+      // Remover o campo users da resposta (não precisa enviar JSON grande)
+      const { users, ...unidadeSemUsers } = unidade
+
+      // Extrair ID do subs (primeiro elemento se for array)
+      let subsId = null
+      if (subsArray && subsArray.length > 0) {
+        const primeiroSub = subsArray[0]
+        subsId = typeof primeiroSub === 'object' ? primeiroSub.id : primeiroSub
+      }
+
+      // Buscar nome do usuário de gestão do Map
+      const nomeUserGestao = unidade.user_gestao ? gestoresMap.get(unidade.user_gestao) || null : null
+
+      // Preparar listas distintas: detalhes completos e equipe (sem gestor)
+      const vendedoresDetalhes = vendedores.map(v => ({ ...v }))
+      let equipeVendedores = vendedores
+      if (unidade.user_gestao) {
+        // Marcar o gestor nos detalhes
+        const gestorIdx = vendedoresDetalhes.findIndex(v => v.id === unidade.user_gestao)
+        if (gestorIdx !== -1) {
+          (vendedoresDetalhes[gestorIdx] as any).isGestor = true
+        }
+        // Remover gestor somente da lista exibida como "Equipe"
+        equipeVendedores = vendedores.filter(v => v.id !== unidade.user_gestao)
+      }
+
+      return {
+        ...unidadeSemUsers,
+        total_vendedores: equipeVendedores.length,
+        vendedores: equipeVendedores.map(v => `${v.name} ${v.lastName}`),
+        vendedores_detalhes: vendedoresDetalhes,
+        accs: accsArray,
+        branches: branchesArray,
+        subs: subsArray,
+        subs_id: subsId,
+        fila_leads: filaLeadsArray,
+        dpto_gestao: unidade.dpto_gestao,
+        user_gestao: unidade.user_gestao,
+        nome_user_gestao: nomeUserGestao
+      }
+    })
 
     // Contar total
     let countQuery = 'SELECT COUNT(*) as total FROM unidades WHERE (name IS NOT NULL OR nome IS NOT NULL)'
@@ -222,8 +236,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao listar unidades:', error)
-    
     return NextResponse.json(
       { 
         success: false, 
@@ -277,8 +289,6 @@ export async function PATCH(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao atualizar unidade:', error)
-    
     return NextResponse.json(
       { 
         success: false, 
@@ -289,4 +299,3 @@ export async function PATCH(request: NextRequest) {
     )
   }
 }
-

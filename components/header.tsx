@@ -86,7 +86,18 @@ const menuItems = [
   {
     title: "Unidades",
     icon: Building2,
-    href: "/unidades"
+    href: "/unidades",
+    hasSubmenu: true,
+    submenu: [
+      {
+        title: "Gestão Unidades",
+        href: "/unidades"
+      },
+      {
+        title: "Grupos de Unidades",
+        href: "/unidades/grupos"
+      }
+    ]
   },
   {
     title: "Vendedores",

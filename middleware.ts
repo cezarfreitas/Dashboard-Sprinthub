@@ -1,8 +1,46 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { applySecurityHeaders } from '@/lib/security/headers'
+import { checkMultipleRateLimits, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limit-advanced'
+import { logSecurityEvent, SecurityEventType, SecurityEventSeverity, extractRequestContext } from '@/lib/security/audit-log'
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  
+  // Aplicar rate limiting em rotas de API
+  if (pathname.startsWith('/api/')) {
+    const rateLimitType = pathname.includes('/login') ? 'login' :
+                          pathname.includes('/auth') ? 'sensitive' :
+                          ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) ? 'mutation' :
+                          'api'
+    
+    const rateLimitResult = checkMultipleRateLimits(request, rateLimitType)
+    
+    if (!rateLimitResult.allowed) {
+      const context = extractRequestContext(request)
+      logSecurityEvent({
+        type: SecurityEventType.RATE_LIMIT_EXCEEDED,
+        severity: SecurityEventSeverity.WARNING,
+        ...context,
+        message: 'Rate limit exceeded',
+        details: { retryAfter: rateLimitResult.retryAfter }
+      })
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': rateLimitResult.retryAfter?.toString() || '60'
+          }
+        }
+      )
+    }
+  }
   
   // Rotas que pertencem ao SISTEMA e precisam de autenticação
   const sistemaProtectedRoutes = [
@@ -16,7 +54,8 @@ export function middleware(request: NextRequest) {
     '/sprinthub',
     '/analytics',
     '/funil',
-    '/ranking'
+    '/ranking',
+    '/painel'
   ]
   
   // Rotas públicas do SISTEMA
@@ -28,16 +67,17 @@ export function middleware(request: NextRequest) {
   
   // Rotas do GESTOR e CONSULTOR (não aplicar middleware - têm sua própria lógica)
   if (pathname.startsWith('/gestor') || pathname.startsWith('/consultor')) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    return applySecurityHeaders(response)
   }
 
   // Verificar se é uma rota pública do sistema
   if (sistemaPublicRoutes.some(route => pathname.startsWith(route))) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    return applySecurityHeaders(response)
   }
   
   // Verificar se é uma rota protegida do sistema
-  // Tratar rota raiz '/' separadamente
   const isRootRoute = pathname === '/'
   const isOtherProtectedRoute = sistemaProtectedRoutes
     .filter(route => route !== '/')
@@ -49,14 +89,22 @@ export function middleware(request: NextRequest) {
     const token = request.cookies.get('auth-token')?.value
 
     if (!token) {
-      // Redirecionar para login do sistema
+      const context = extractRequestContext(request)
+      logSecurityEvent({
+        type: SecurityEventType.UNAUTHORIZED_ACCESS,
+        severity: SecurityEventSeverity.INFO,
+        ...context,
+        message: 'Unauthorized access attempt - no token'
+      })
+      
       const loginUrl = new URL('/sistema/login', request.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
     }
   }
 
-  return NextResponse.next()
+  const response = NextResponse.next()
+  return applySecurityHeaders(response)
 }
 
 export const config = {

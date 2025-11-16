@@ -16,6 +16,10 @@ module.exports = {
       },
     },
     extend: {
+      screens: {
+        '2xl': '1920px', // Full HD
+        '4k': '2560px',  // 4K
+      },
       fontFamily: {
         'sans': ['var(--font-inter)', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         'inter': ['var(--font-inter)', 'system-ui', 'sans-serif'],

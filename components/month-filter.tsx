@@ -1,20 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo, useEffect, memo } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card } from "@/components/ui/card"
 import { Calendar, Users, Building2 } from "lucide-react"
-
-interface Vendedor {
-  id: number
-  name: string
-  lastName: string
-}
-
-interface Unidade {
-  id: number
-  nome: string
-}
+import { useDashboardFiltersData } from "@/hooks/use-dashboard-filters-data"
 
 interface MonthFilterProps {
   mes: number
@@ -27,7 +17,22 @@ interface MonthFilterProps {
   onUnidadeChange?: (unidadeId: number | null) => void
 }
 
-export default function MonthFilter({ 
+const MESES = [
+  { value: 1, label: 'Janeiro' },
+  { value: 2, label: 'Fevereiro' },
+  { value: 3, label: 'Março' },
+  { value: 4, label: 'Abril' },
+  { value: 5, label: 'Maio' },
+  { value: 6, label: 'Junho' },
+  { value: 7, label: 'Julho' },
+  { value: 8, label: 'Agosto' },
+  { value: 9, label: 'Setembro' },
+  { value: 10, label: 'Outubro' },
+  { value: 11, label: 'Novembro' },
+  { value: 12, label: 'Dezembro' },
+]
+
+function MonthFilterComponent({ 
   mes, 
   ano, 
   vendedorId, 
@@ -37,127 +42,16 @@ export default function MonthFilter({
   onVendedorChange,
   onUnidadeChange
 }: MonthFilterProps) {
-  const [vendedores, setVendedores] = useState<Vendedor[]>([])
-  const [unidades, setUnidades] = useState<Unidade[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loadingVendedores, setLoadingVendedores] = useState(false)
+  const { vendedores, unidades, loading, loadingVendedores, fetchVendedoresByUnidade } = useDashboardFiltersData()
 
-  const meses = [
-    { value: 1, label: 'Janeiro' },
-    { value: 2, label: 'Fevereiro' },
-    { value: 3, label: 'Março' },
-    { value: 4, label: 'Abril' },
-    { value: 5, label: 'Maio' },
-    { value: 6, label: 'Junho' },
-    { value: 7, label: 'Julho' },
-    { value: 8, label: 'Agosto' },
-    { value: 9, label: 'Setembro' },
-    { value: 10, label: 'Outubro' },
-    { value: 11, label: 'Novembro' },
-    { value: 12, label: 'Dezembro' },
-  ]
-
-  // Gerar anos (ano atual e últimos 2 anos)
-  const anoAtual = new Date().getFullYear()
-  const anos = [anoAtual, anoAtual - 1, anoAtual - 2]
-
-  // Buscar unidades (apenas uma vez)
-  useEffect(() => {
-    const fetchUnidades = async () => {
-      try {
-        setLoading(true)
-        
-        const unidadesRes = await fetch('/api/unidades')
-        if (unidadesRes.ok) {
-          const unidadesData = await unidadesRes.json()
-          console.log('📍 Unidades carregadas:', unidadesData)
-          if (unidadesData.success && Array.isArray(unidadesData.unidades)) {
-            // Garantir que cada unidade tem um nome
-            const unidadesComNome = unidadesData.unidades.map((u: any) => ({
-              ...u,
-              nome: u.nome || u.name || 'Sem nome'
-            }))
-            setUnidades(unidadesComNome)
-            console.log('✅ Unidades processadas:', unidadesComNome.length)
-          }
-        } else {
-          console.error('❌ Erro ao buscar unidades:', unidadesRes.status)
-        }
-      } catch (error) {
-        console.error('Erro ao buscar unidades:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchUnidades()
+  const anos = useMemo(() => {
+    const anoAtual = new Date().getFullYear()
+    return [anoAtual, anoAtual - 1, anoAtual - 2]
   }, [])
 
-  // Buscar vendedores filtrados por unidade
   useEffect(() => {
-    const fetchVendedores = async () => {
-      try {
-        setLoadingVendedores(true)
-        
-        if (unidadeId) {
-          // Se uma unidade foi selecionada, buscar apenas vendedores dessa unidade
-          // Buscar a unidade para pegar os users
-          const unidadeRes = await fetch(`/api/unidades/${unidadeId}`)
-          if (unidadeRes.ok) {
-            const unidadeData = await unidadeRes.json()
-            if (unidadeData.success && unidadeData.unidade?.users) {
-              try {
-                const users = typeof unidadeData.unidade.users === 'string'
-                  ? JSON.parse(unidadeData.unidade.users)
-                  : unidadeData.unidade.users
-                
-                if (Array.isArray(users)) {
-                  const userIds = users
-                    .map((u: any) => typeof u === 'object' ? u.id : u)
-                    .filter((id: any) => typeof id === 'number')
-                  
-                  // Buscar todos os vendedores
-                  const vendedoresRes = await fetch('/api/vendedores/mysql')
-                  if (vendedoresRes.ok) {
-                    const vendedoresData = await vendedoresRes.json()
-                    if (vendedoresData.success) {
-                      // Filtrar apenas os vendedores da unidade
-                      const vendedoresFiltrados = (vendedoresData.vendedores || []).filter(
-                        (v: Vendedor) => userIds.includes(v.id)
-                      )
-                      setVendedores(vendedoresFiltrados)
-                    }
-                  }
-                } else {
-                  setVendedores([])
-                }
-              } catch (e) {
-                console.warn('Erro ao parsear users da unidade:', e)
-                setVendedores([])
-              }
-            } else {
-              setVendedores([])
-            }
-          }
-        } else {
-          // Se nenhuma unidade selecionada, buscar todos os vendedores
-          const vendedoresRes = await fetch('/api/vendedores/mysql')
-          if (vendedoresRes.ok) {
-            const vendedoresData = await vendedoresRes.json()
-            if (vendedoresData.success) {
-              setVendedores(vendedoresData.vendedores || [])
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao buscar vendedores:', error)
-      } finally {
-        setLoadingVendedores(false)
-      }
-    }
-
-    fetchVendedores()
-  }, [unidadeId]) // Recarregar vendedores quando unidade mudar
+    fetchVendedoresByUnidade(unidadeId || null)
+  }, [unidadeId, fetchVendedoresByUnidade])
 
   return (
     <Card className="p-3">
@@ -174,7 +68,7 @@ export default function MonthFilter({
               <SelectValue placeholder="Selecione o mês" />
             </SelectTrigger>
             <SelectContent>
-              {meses.map((m) => (
+              {MESES.map((m) => (
                 <SelectItem key={m.value} value={m.value.toString()}>
                   {m.label}
                 </SelectItem>
@@ -258,3 +152,4 @@ export default function MonthFilter({
   )
 }
 
+export default memo(MonthFilterComponent)

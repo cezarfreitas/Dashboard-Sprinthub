@@ -10,7 +10,8 @@
     "setup-db": "tsx scripts/setup-database.ts",
     "setup-usuarios": "tsx scripts/setup-usuarios-sistema.ts",
     "setup-password-reset": "tsx scripts/setup-password-reset.ts",
-    "gerar-hash": "tsx scripts/gerar-hash-senha.ts"
+    "gerar-hash": "tsx scripts/gerar-hash-senha.ts",
+    "generate-secrets": "tsx scripts/generate-security-secrets.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -55,6 +56,7 @@
     "resend": "^6.4.2",
     "tailwind-merge": "^2.0.0",
     "tailwindcss-animate": "^1.0.7",
+    "validator": "^13.15.23",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -63,6 +65,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/validator": "^13.11.7",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.0.4",

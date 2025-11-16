@@ -32,8 +32,8 @@ interface VendedorMySQL {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+    const limit = Math.min(1000, Math.max(1, parseInt(searchParams.get('limit') || '50') || 50))
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
     const unidade_id = searchParams.get('unidade_id') || ''
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       queryParams.push(status)
     }
 
-    // Filtro por unidade - agora usando a tabela de relacionamento
+    // Filtro por unidade - usando a tabela de relacionamento
     if (unidade_id) {
       whereClause += ` AND id IN (
         SELECT vendedor_id 
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
     const total = countResult[0]?.total || 0
     const pages = Math.ceil(total / limit)
 
-    // Buscar vendedores com paginação
+    // Buscar vendedores com paginação - LIMIT/OFFSET safe to interpolate as validated integers
     const vendedoresQuery = `
       SELECT 
         id, name, lastName, email, cpf, username, birthDate, telephone,
@@ -112,25 +112,29 @@ export async function GET(request: NextRequest) {
     
     const vendedores = await executeQuery(vendedoresQuery, queryParams) as VendedorMySQL[]
 
-    // Estatísticas adicionais - consultas separadas para evitar problemas
-    const totalResult = await executeQuery('SELECT COUNT(*) as total FROM vendedores') as any[]
-    const activeResult = await executeQuery("SELECT COUNT(*) as active FROM vendedores WHERE status = 'active'") as any[]
-    const inactiveResult = await executeQuery("SELECT COUNT(*) as inactive FROM vendedores WHERE status = 'inactive'") as any[]
-    const blockedResult = await executeQuery("SELECT COUNT(*) as blocked FROM vendedores WHERE status = 'blocked'") as any[]
-    const phoneResult = await executeQuery("SELECT COUNT(*) as com_telefone FROM vendedores WHERE telephone IS NOT NULL AND telephone != ''") as any[]
-    const cpfResult = await executeQuery("SELECT COUNT(*) as com_cpf FROM vendedores WHERE cpf IS NOT NULL AND cpf != ''") as any[]
-    const adminResult = await executeQuery("SELECT COUNT(*) as admins FROM vendedores WHERE admin = 1") as any[]
-    const syncResult = await executeQuery("SELECT MAX(synced_at) as ultima_sincronizacao FROM vendedores") as any[]
+    // Estatísticas - Uma única query agregada ao invés de 8 queries separadas
+    const statsResult = await executeQuery(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+        SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as inactive,
+        SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) as blocked,
+        SUM(CASE WHEN telephone IS NOT NULL AND telephone != '' THEN 1 ELSE 0 END) as com_telefone,
+        SUM(CASE WHEN cpf IS NOT NULL AND cpf != '' THEN 1 ELSE 0 END) as com_cpf,
+        SUM(CASE WHEN admin = 1 THEN 1 ELSE 0 END) as admins,
+        MAX(synced_at) as ultima_sincronizacao
+      FROM vendedores
+    `) as any[]
 
-    const stats = {
-      total: totalResult[0]?.total || 0,
-      active: activeResult[0]?.active || 0,
-      inactive: inactiveResult[0]?.inactive || 0,
-      blocked: blockedResult[0]?.blocked || 0,
-      com_telefone: phoneResult[0]?.com_telefone || 0,
-      com_cpf: cpfResult[0]?.com_cpf || 0,
-      admins: adminResult[0]?.admins || 0,
-      ultima_sincronizacao: syncResult[0]?.ultima_sincronizacao || null
+    const stats = statsResult[0] || {
+      total: 0,
+      active: 0,
+      inactive: 0,
+      blocked: 0,
+      com_telefone: 0,
+      com_cpf: 0,
+      admins: 0,
+      ultima_sincronizacao: null
     }
 
     return NextResponse.json({
@@ -145,13 +149,13 @@ export async function GET(request: NextRequest) {
         has_prev: page > 1
       },
       stats: {
-        total: stats.total || 0,
-        active: stats.active || 0,
-        inactive: stats.inactive || 0,
-        blocked: stats.blocked || 0,
-        com_telefone: stats.com_telefone || 0,
-        com_cpf: stats.com_cpf || 0,
-        admins: stats.admins || 0,
+        total: Number(stats.total) || 0,
+        active: Number(stats.active) || 0,
+        inactive: Number(stats.inactive) || 0,
+        blocked: Number(stats.blocked) || 0,
+        com_telefone: Number(stats.com_telefone) || 0,
+        com_cpf: Number(stats.com_cpf) || 0,
+        admins: Number(stats.admins) || 0,
         ultima_sincronizacao: stats.ultima_sincronizacao
       },
       filters: {

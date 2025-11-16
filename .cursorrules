@@ -1,0 +1,318 @@
+# REGRA: OTIMIZAÇÃO COMPLETA DE PÁGINA
+
+Quando solicitado "otimize esta página", "@[caminho]" ou análise de rota específica, execute:
+
+---
+
+## 1. IDENTIFICAR E CORRIGIR BUGS
+
+**Prioridade CRÍTICA:**
+- ❌ SQL Injection vulnerabilities
+- ❌ N+1 query problems
+- ❌ Race conditions e memory leaks
+- ❌ Event handlers incorretos ou duplicados
+- ❌ Estados inconsistentes ou não sincronizados
+
+**Prioridade ALTA:**
+- ❌ Erros de tipagem TypeScript
+- ❌ Null/undefined não tratados
+- ❌ Promises não aguardadas (missing await)
+- ❌ Error handling silencioso (catch vazio)
+- ❌ Validação de entrada faltando
+
+**Prioridade MÉDIA:**
+- ❌ Dependências faltando em useEffect/useCallback
+- ❌ Keys inadequadas em listas
+- ❌ Debounce não implementado em buscas
+
+---
+
+## 2. LIMPAR CÓDIGO
+
+**Obrigatório:**
+- 🧹 Remover TODOS console.logs/console.error/console.warn
+- 🧹 Eliminar código comentado
+- 🧹 Remover imports não utilizados
+- 🧹 Eliminar duplicações de código
+- 🧹 Organizar imports: React → Next.js → Libs externas → Locais
+
+**Padronização:**
+- camelCase: variáveis, funções
+- PascalCase: componentes, types, interfaces
+- UPPER_CASE: constantes globais
+- kebab-case: arquivos (exceto componentes)
+
+---
+
+## 3. OTIMIZAR PERFORMANCE
+
+**React Memoization:**
+```typescript
+// Componentes que recebem props
+export const Component = memo(function Component({ prop }) { ... })
+
+// Cálculos pesados ou derivações
+const expensiveValue = useMemo(() => compute(data), [data])
+
+// Funções passadas como props
+const handleClick = useCallback(() => action(), [deps])
+```
+
+**API Optimization:**
+- ⚡ Batch queries: N queries → 1 query com JOIN/GROUP BY
+- ⚡ Otimizar N+1: buscar todos de uma vez, mapear em memória
+- ⚡ Usar índices apropriados no banco
+- ⚡ SELECT específico (não SELECT *)
+
+**Frontend Optimization:**
+- ⚡ Debounce (300ms) em inputs de busca
+- ⚡ AbortController para cancelar requests
+- ⚡ Evitar re-renders: mover estados para baixo
+- ⚡ Lazy loading: dynamic imports quando apropriado
+- ⚡ next/image para imagens
+
+---
+
+## 4. COMPONENTIZAR (ESTRUTURA FLEXÍVEL)
+
+**Adaptar à estrutura existente do projeto:**
+
+### Se a página já tem estrutura modular:
+```
+app/[rota]/
+├── page.tsx
+└── components/         # Manter estrutura existente
+    ├── Component1.tsx
+    └── Component2.tsx
+```
+
+### Se a página é monolítica (criar estrutura):
+```
+app/[rota]/
+└── page.tsx           # Refatorar
+
+Criar:
+components/[rota]/     # Componentes isolados
+├── [Rota]Card.tsx
+├── [Rota]Filters.tsx
+├── [Rota]List.tsx
+└── [Rota]Dialog.tsx
+
+hooks/[rota]/          # Lógica isolada
+└── use[Rota].ts
+
+types/ (opcional)
+└── [rota].types.ts
+```
+
+**Regras de componentização:**
+- ✅ Componentes < 250 linhas (guideline, não regra rígida)
+- ✅ Props tipadas com TypeScript
+- ✅ Separar UI de lógica (hooks customizados)
+- ✅ Escopo isolado: zero conflitos com outras páginas
+- ✅ Prefixar componentes com nome da rota (ex: VendedorRow, UnidadeCard)
+- ❌ NÃO forçar componentização prematura
+- ❌ NÃO criar abstrações genéricas sem necessidade
+
+**Quando NÃO componentizar:**
+- Componente usado uma única vez
+- Componente muito simples (< 50 linhas)
+- Lógica intimamente acoplada
+
+---
+
+## 5. OTIMIZAR APIs (se aplicável)
+
+### Route Handlers (app/api/*/route.ts):
+
+**Validação e Segurança:**
+```typescript
+// Validar e sanitizar inputs
+const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+const limit = Math.min(1000, Math.max(1, parseInt(searchParams.get('limit') || '50') || 50))
+
+// Usar prepared statements
+const query = 'SELECT * FROM table WHERE id = ?'
+await executeQuery(query, [id])
+
+// LIMIT/OFFSET seguros (valores validados)
+query += ` LIMIT ${limit} OFFSET ${offset}`
+```
+
+**Error Handling:**
+```typescript
+try {
+  // Operação
+  return NextResponse.json({ success: true, data })
+} catch (error) {
+  return NextResponse.json(
+    { 
+      success: false, 
+      message: 'Mensagem amigável',
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    },
+    { status: 500 }
+  )
+}
+```
+
+**Response Patterns:**
+- 200: Sucesso
+- 201: Criado
+- 400: Bad request (validação)
+- 404: Not found
+- 500: Server error
+
+### Server Actions:
+```typescript
+'use server'
+
+export async function myAction(data: FormData) {
+  try {
+    // Validação
+    // Operação
+    revalidatePath('/path')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: 'message' }
+  }
+}
+```
+
+---
+
+## 6. PADRÕES DE CÓDIGO
+
+**TypeScript:**
+- Strict mode habilitado
+- Evitar `any` (usar `unknown` se necessário)
+- Interfaces exportadas para reutilização
+- Types inline para uso único
+
+**Next.js/React:**
+- Server Components por padrão
+- "use client" apenas quando necessário:
+  - useState, useEffect, hooks
+  - Event handlers (onClick, onChange)
+  - Browser APIs
+- Async/await (não .then/.catch)
+
+**Estilização:**
+- Tailwind CSS
+- Classes organizadas: layout → spacing → colors → typography
+- Componentes shadcn/ui quando disponível
+
+---
+
+## 7. TRATAMENTO DE ERROS E LOADING
+
+**Loading States:**
+```typescript
+if (loading && data.length === 0) {
+  return <Skeleton />
+}
+```
+
+**Error States:**
+```typescript
+{error && (
+  <Alert variant="destructive">
+    <AlertDescription>{error}</AlertDescription>
+  </Alert>
+)}
+```
+
+**Empty States:**
+```typescript
+{data.length === 0 && !loading && (
+  <EmptyState message="Nenhum item encontrado" />
+)}
+```
+
+---
+
+## 8. ACESSIBILIDADE BÁSICA
+
+- Labels em todos inputs (`<label>` ou `aria-label`)
+- Botões descritivos (texto ou aria-label)
+- Feedback visual: loading, errors, success
+- Cores com contraste adequado
+- Navegação por teclado funcional
+
+---
+
+## ENTREGA OBRIGATÓRIA
+
+Ao finalizar otimização, fornecer:
+
+1. **📊 Relatório de Bugs** (Markdown)
+   - Bugs críticos encontrados
+   - Bugs médios encontrados
+   - Code smells corrigidos
+   - Antes/Depois de cada correção
+
+2. **⚡ Relatório de Performance**
+   - Queries antes/depois
+   - Componentes memoizados
+   - Otimizações implementadas
+   - Métricas de impacto
+
+3. **📁 Estrutura Final**
+   - Arquivos criados
+   - Arquivos refatorados
+   - Arquivos removidos
+   - Árvore de diretórios
+
+4. **✅ Checklist de Qualidade**
+   - [ ] Zero console.logs
+   - [ ] Zero código comentado
+   - [ ] Zero imports não usados
+   - [ ] Zero erros TypeScript
+   - [ ] Error handling presente
+   - [ ] Props tipadas
+   - [ ] Performance otimizada
+   - [ ] Race conditions corrigidas
+   - [ ] Memory leaks corrigidas
+   - [ ] SQL injection prevenida
+
+---
+
+## FLEXIBILIDADE CONTEXTUAL
+
+**Adaptar às necessidades:**
+- Páginas simples: menos componentização
+- Páginas complexas: mais componentização
+- APIs performáticas: manter estrutura
+- APIs problemáticas: refatorar completamente
+
+**Priorizar:**
+1. Bugs críticos (segurança, data integrity)
+2. Performance (N+1, memory leaks)
+3. Manutenibilidade (componentização, tipos)
+4. DX (Developer Experience)
+
+**Comunicar decisões:**
+- Explicar por que componentizar ou não
+- Justificar escolhas de otimização
+- Documentar trade-offs
+
+---
+
+## EXEMPLO DE WORKFLOW
+
+1. **Análise inicial**: Ler toda a página e APIs relacionadas
+2. **Identificar problemas**: Bugs, performance, código sujo
+3. **Planejar refatoração**: Decidir estrutura e componentes
+4. **Executar**: Corrigir bugs → Limpar → Otimizar → Componentizar
+5. **Verificar**: Rodar checklist de qualidade
+6. **Documentar**: Criar relatórios completos
+
+---
+
+**IMPORTANTE:** 
+- Zero conflitos com outras páginas
+- Isolamento total de componentes/hooks
+- Manter compatibilidade com APIs existentes
+- Não quebrar funcionalidades existentes
+- Testar mentalmente cada mudança
+

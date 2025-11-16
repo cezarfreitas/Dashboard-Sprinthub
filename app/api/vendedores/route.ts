@@ -30,8 +30,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('🔍 Buscando vendedores na SprintHub...')
-
     const sprintHubUrl = `${urlPatch}/user?apitoken=${apiToken}&i=${groupId}`
     
     const response = await fetch(sprintHubUrl, {
@@ -45,7 +43,6 @@ export async function GET(request: NextRequest) {
     })
 
     if (!response.ok) {
-      console.error('❌ Erro na API SprintHub:', response.status, response.statusText)
       return NextResponse.json(
         { 
           success: false, 
@@ -57,7 +54,6 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json()
     const vendedores = Array.isArray(data) ? data : []
-    console.log('✅ Dados recebidos da SprintHub:', vendedores.length, 'vendedores')
     
     // Estatísticas
     const stats = {
@@ -75,8 +71,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao buscar vendedores:', error)
-    
     return NextResponse.json(
       { 
         success: false, 
@@ -148,8 +142,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao buscar vendedor específico:', error)
-    
     return NextResponse.json(
       { 
         success: false, 

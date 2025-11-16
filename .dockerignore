@@ -1,94 +1,118 @@
-# Dependencies
+# =============================================================================
+# .dockerignore - Otimizado para Build Rápido e Seguro
+# =============================================================================
+
+# Dependências (serão instaladas no container)
 node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json.bak
 
-# Local env files
-.env*.local
-.env
-
-# Next.js build output
-.next/
-out/
-
-# Production
+# Next.js
+.next
+out
+dist
 build
 
-# Misc
-.DS_Store
-*.pem
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Testes
+coverage
+.nyc_output
+**/*.test.*
+**/*.spec.*
+**/tests
+**/__tests__
+**/__mocks__
 
 # Git
 .git
 .gitignore
-README.md
+.gitattributes
+.github
 
-# Docker
-Dockerfile
-.dockerignore
-
-# IDE
+# IDEs
 .vscode
 .idea
-
-# OS
-Thumbs.db
+*.swp
+*.swo
+*~
+.DS_Store
 
 # Logs
 logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# Coverage directory used by tools like istanbul
-coverage
-
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
+# Environment files (usar secrets)
 .env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+.env.security.example
 
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
+# Documentação
+*.md
+!README.md
+docs
+SECURITY_*.md
+BUGS_*.md
 
-# next.js build output
-.next
+# Docker
+Dockerfile
+Dockerfile.*
+docker-compose*.yml
+.dockerignore
 
-# nuxt.js build output
-.nuxt
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+.circleci
 
-# vuepress build output
-.vuepress/dist
+# Configurações de deploy
+easypanel.json
+easypanel-deploy.yml
+deploy
+scripts/deploy*.sh
 
-# Serverless directories
-.serverless
+# Temporários
+tmp
+temp
+*.tmp
+*.bak
+*.cache
 
-# FuseBox cache
-.fusebox/
+# OS
+Thumbs.db
+.DS_Store
 
-# DynamoDB Local files
-.dynamodb/
+# Database
+*.sql
+*.sqlite
+*.db
+db/migrations/*.sql
 
-# TernJS port file
-.tern-port
+# Scripts de setup (não necessários em produção)
+scripts/setup-*.ts
+scripts/gerar-*.ts
+scripts/generate-*.ts
+
+# Arquivos de configuração desnecessários
+.editorconfig
+.eslintcache
+.prettierrc
+.prettierignore
+
+# Prisma (se usar)
+prisma/dev.db
+prisma/*.db-journal
+
+# Backups
+*.backup
+backup/
+backups/

@@ -1,79 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { login } from '@/lib/auth'
-import { checkRateLimit, getClientIP } from '@/lib/rate-limit'
-import { validateLoginData, sanitizeString, detectSuspiciousActivity } from '@/lib/validation'
+import { resetRateLimit } from '@/lib/security/rate-limit-advanced'
+import { analyzeInput } from '@/lib/security/input-sanitization'
+import { logLoginSuccess, logLoginFailure, logSuspiciousInput } from '@/lib/security/audit-log'
+import { getAPISecurityHeaders } from '@/lib/security/headers'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting para prevenir ataques de força bruta
-    const clientIP = getClientIP(request)
-    const rateLimitResult = checkRateLimit(`login:${clientIP}`)
+    // Rate limiting é aplicado pelo middleware
     
-    if (!rateLimitResult.allowed) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Muitas tentativas de login. Tente novamente em alguns minutos.',
-          retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)
-        },
-        { status: 429 }
-      )
-    }
-
     const body = await request.json()
     const { username, password } = body
 
-    // Validação robusta
+    // Validação básica
     if (!username || !password) {
       return NextResponse.json(
         { success: false, message: 'Username e senha são obrigatórios' },
-        { status: 400 }
+        { status: 400, headers: getAPISecurityHeaders() }
       )
     }
 
-    // Sanitização
-    const cleanUsername = sanitizeString(username.toString().trim().toLowerCase())
+    // Análise de segurança do input
+    const usernameAnalysis = analyzeInput(username.toString())
+    if (!usernameAnalysis.isSafe) {
+      logSuspiciousInput(request, 'username', usernameAnalysis.threats.join(', '))
+      return NextResponse.json(
+        { success: false, message: 'Input inválido detectado' },
+        { status: 400, headers: getAPISecurityHeaders() }
+      )
+    }
+
+    // Limpar e normalizar username
+    const cleanUsername = usernameAnalysis.sanitized.trim().toLowerCase()
     const cleanPassword = password.toString()
 
-    // Validação usando o sistema robusto
-    const validation = validateLoginData(cleanUsername, cleanPassword)
-    if (!validation.isValid) {
+    // Validação de formato
+    if (cleanUsername.length < 3 || cleanUsername.length > 30) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Dados inválidos',
-          errors: validation.errors
-        },
-        { status: 400 }
+        { success: false, message: 'Username deve ter entre 3 e 30 caracteres' },
+        { status: 400, headers: getAPISecurityHeaders() }
       )
-    }
-
-    // Detectar atividade suspeita
-    const suspiciousWarnings = detectSuspiciousActivity(cleanUsername, cleanPassword)
-    if (suspiciousWarnings.length > 0) {
-      console.warn('⚠️ Atividade suspeita detectada:', suspiciousWarnings)
     }
 
     // Tentar fazer login
     const result = await login({ username: cleanUsername, password: cleanPassword })
 
     if (!result.success) {
+      logLoginFailure(request, cleanUsername, result.message || 'Invalid credentials')
+      
       return NextResponse.json(
         { success: false, message: result.message },
-        { status: 401 }
+        { status: 401, headers: getAPISecurityHeaders() }
       )
     }
+
+    // Login bem-sucedido
+    logLoginSuccess(request, result.user!.id, result.user!.username)
+    
+    // Resetar rate limit após login bem-sucedido
+    resetRateLimit(`login:user:${result.user!.id}`)
 
     // Criar resposta com cookie de autenticação
     const response = NextResponse.json({
       success: true,
       user: result.user,
       message: 'Login realizado com sucesso'
+    }, {
+      headers: getAPISecurityHeaders()
     })
 
-    // Definir cookie HTTP-only para segurança
+    // Definir cookie HTTP-only para segurança máxima
     response.cookies.set('auth-token', result.token!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -85,10 +83,13 @@ export async function POST(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error('Erro na API de login:', error)
     return NextResponse.json(
-      { success: false, message: 'Erro interno do servidor' },
-      { status: 500 }
+      { 
+        success: false, 
+        message: 'Erro interno do servidor',
+        error: process.env.NODE_ENV === 'development' ? String(error) : undefined
+      },
+      { status: 500, headers: getAPISecurityHeaders() }
     )
   }
 }

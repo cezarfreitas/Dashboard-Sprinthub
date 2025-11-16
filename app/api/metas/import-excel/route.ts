@@ -221,8 +221,6 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('❌ Erro ao importar Excel:', error)
-    
     return NextResponse.json(
       { 
         success: false, 

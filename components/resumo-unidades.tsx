@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo, memo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -71,38 +71,32 @@ interface ResumoUnidadesProps {
   dataFim?: string
 }
 
-// Componente Pie Chart With Needle
-function PieChartWithNeedle({ value, meta, realizado }: { value: number; meta: number; realizado: number }) {
-  // Determinar a cor baseada no percentual
-  const getColor = () => {
-    if (value >= 100) return '#10b981' // Verde
-    if (value >= 75) return '#f59e0b'  // Laranja
-    return '#ef4444' // Vermelho
-  }
-
+// Componente Pie Chart With Needle - Memoizado para evitar re-renders
+const PieChartWithNeedle = memo(({ value, meta, realizado }: { value: number; meta: number; realizado: number }) => {
   // Normalizar para o range 0-200% com 100% no centro
   const maxValue = 200
-  const normalizedValue = Math.min(Math.max(value, 0), maxValue)
+  const normalizedValue = useMemo(() => Math.min(Math.max(value, 0), maxValue), [value, maxValue])
   
-  // Criar segmentos do gauge com 100% no centro (topo)
-  const segments = [
+  // Criar segmentos do gauge com 100% no centro (topo) - Memoizado
+  const segments = useMemo(() => [
     { value: 50, fill: '#ef4444' },   // 0-50% Vermelho
     { value: 25, fill: '#f59e0b' },   // 50-75% Laranja  
     { value: 25, fill: '#fbbf24' },   // 75-100% Amarelo
     { value: 50, fill: '#10b981' },   // 100-150% Verde claro
     { value: 50, fill: '#059669' }    // 150-200% Verde escuro
-  ]
+  ], [])
 
-  // Função de formatação de moeda
-  const formatCurrency = (value: number): string => {
+  // Função de formatação de moeda - Memoizada
+  const formatCurrency = useCallback((value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value)
-  }
+  }, [])
 
+  // Constantes do gráfico
   const RADIAN = Math.PI / 180
   const width = 240
   const gaugeHeight = 140
@@ -115,26 +109,32 @@ function PieChartWithNeedle({ value, meta, realizado }: { value: number; meta: n
   const needleLength = 72
   const needleBaseRadius = 6
   
-  // Calcular o ângulo da agulha
-  // Semicírculo: 180° (esquerda) até 0° (direita)
-  // 0% deve estar em 180° (esquerda)
-  // 100% deve estar em 90° (topo/centro)
-  // 200% deve estar em 0° (direita)
-  const startAngle = 180
-  const endAngle = 0
-  const totalAngle = startAngle - endAngle // 180°
-  const angleForValue = startAngle - (normalizedValue / maxValue) * totalAngle
+  // Calcular o ângulo da agulha - Memoizado
+  const needleCoordinates = useMemo(() => {
+    // Semicírculo: 180° (esquerda) até 0° (direita)
+    // 0% deve estar em 180° (esquerda)
+    // 100% deve estar em 90° (topo/centro)
+    // 200% deve estar em 0° (direita)
+    const startAngle = 180
+    const endAngle = 0
+    const totalAngle = startAngle - endAngle // 180°
+    const angleForValue = startAngle - (normalizedValue / maxValue) * totalAngle
+    
+    // Converter para radianos e ajustar para sistema de coordenadas SVG
+    // No SVG: 0° = direita (3h), 90° = baixo (6h), 180° = esquerda (9h), 270° = cima (12h)
+    // Mapeamento: SVG angle = 360° - angleForValue
+    // 0%: angleForValue=180° → SVG=180° (esquerda horizontal)
+    // 100%: angleForValue=90° → SVG=270° (cima vertical)
+    // 200%: angleForValue=0° → SVG=0° (direita horizontal)
+    const svgAngle = 360 - angleForValue
+    const needleAngleRad = svgAngle * RADIAN
+    const needleX = cx + needleLength * Math.cos(needleAngleRad)
+    const needleY = cy + needleLength * Math.sin(needleAngleRad)
+    
+    return { needleX, needleY }
+  }, [normalizedValue, maxValue, cx, cy, needleLength, RADIAN])
   
-  // Converter para radianos e ajustar para sistema de coordenadas SVG
-  // No SVG: 0° = direita (3h), 90° = baixo (6h), 180° = esquerda (9h), 270° = cima (12h)
-  // Mapeamento: SVG angle = 360° - angleForValue
-  // 0%: angleForValue=180° → SVG=180° (esquerda horizontal)
-  // 100%: angleForValue=90° → SVG=270° (cima vertical)
-  // 200%: angleForValue=0° → SVG=0° (direita horizontal)
-  const svgAngle = 360 - angleForValue
-  const needleAngleRad = svgAngle * RADIAN
-  const needleX = cx + needleLength * Math.cos(needleAngleRad)
-  const needleY = cy + needleLength * Math.sin(needleAngleRad)
+  const { needleX, needleY } = needleCoordinates
 
   return (
     <div className="relative -mt-2" style={{ width: width, height: height }}>
@@ -150,6 +150,7 @@ function PieChartWithNeedle({ value, meta, realizado }: { value: number; meta: n
             outerRadius={outerRadius}
             paddingAngle={0}
             dataKey="value"
+            isAnimationActive={false}
           >
             {segments.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -241,41 +242,43 @@ function PieChartWithNeedle({ value, meta, realizado }: { value: number; meta: n
       </div>
     </div>
   )
-}
+})
+
+PieChartWithNeedle.displayName = 'PieChartWithNeedle'
 
 export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataInicio, dataFim }: ResumoUnidadesProps) {
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const formatCurrency = (value: number): string => {
+  const formatCurrency = useCallback((value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value)
-  }
+  }, [])
 
-  const getMesNome = (mes: number): string => {
+  const getMesNome = useCallback((mes: number): string => {
     const meses = [
       'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
     ]
     return meses[mes - 1] || ''
-  }
+  }, [])
 
-  const escapeCsv = (value: string | number | null | undefined) => {
+  const escapeCsv = useCallback((value: string | number | null | undefined) => {
     if (value === null || value === undefined) return ''
     const str = String(value)
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
       return `"${str.replace(/"/g, '""')}"`
     }
     return str
-  }
+  }, [])
 
 
-  const handleExportarOportunidades = async (unidadeId: number, mesAtual?: number, anoAtual?: number) => {
+  const handleExportarOportunidades = useCallback(async (unidadeId: number, mesAtual?: number, anoAtual?: number) => {
     try {
       // Usar período do filtro se disponível, senão usar mês/ano
       let primeiraData: string
@@ -364,9 +367,9 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
       console.error('Erro ao exportar oportunidades:', err)
       alert('Erro ao exportar oportunidades. Tente novamente.')
     }
-  }
+  }, [data, dataInicio, dataFim, mes, ano, escapeCsv, getMesNome])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -398,11 +401,11 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
     } finally {
       setLoading(false)
     }
-  }
+  }, [mes, ano, vendedorId, unidadeId])
 
   useEffect(() => {
     fetchData()
-  }, [mes, ano, vendedorId, unidadeId])
+  }, [fetchData])
 
   if (loading) {
     return (
