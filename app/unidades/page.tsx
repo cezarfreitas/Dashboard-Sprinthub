@@ -40,7 +40,9 @@ export default function UnidadesPage() {
   }, [updateUnidadeFila])
 
   const handleCopyUrl = useCallback(async (unidadeId: number) => {
-    const url = `http://localhost:3000/api/filav2?unidade=${unidadeId}&idlead={contactfield=id}`
+    // Usar a URL atual da página (protocolo + host + porta)
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+    const url = `${origin}/api/filav2?unidade=${unidadeId}&idlead={contactfield=id}`
     
     try {
       await navigator.clipboard.writeText(url)

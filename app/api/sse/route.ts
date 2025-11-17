@@ -12,8 +12,20 @@ export async function GET(request: NextRequest) {
       const initialData = `data: ${JSON.stringify({ type: 'connected' })}\n\n`
       controller.enqueue(new TextEncoder().encode(initialData))
       
+      // Enviar heartbeat a cada 30 segundos para manter conexão ativa
+      const heartbeatInterval = setInterval(() => {
+        try {
+          const heartbeat = `data: ${JSON.stringify({ type: 'heartbeat', timestamp: new Date().toISOString() })}\n\n`
+          controller.enqueue(new TextEncoder().encode(heartbeat))
+        } catch (error) {
+          clearInterval(heartbeatInterval)
+          removeConnection(controller)
+        }
+      }, 30000)
+      
       // Cleanup quando conexão fechar
       const cleanup = () => {
+        clearInterval(heartbeatInterval)
         removeConnection(controller)
       }
       

@@ -12,7 +12,7 @@ interface RateLimitEntry {
   blockedUntil?: number
 }
 
-interface RateLimitConfig {
+export interface RateLimitConfig {
   maxAttempts: number
   windowMs: number
   blockDurationMs: number

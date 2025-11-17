@@ -29,12 +29,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Buscar unidades do vendedor
+    // Buscar unidade do vendedor (via unidade_id direto)
     const unidades = await executeQuery(`
-      SELECT u.id, u.nome, u.responsavel, vu.created_at
-      FROM unidades u
-      JOIN vendedores_unidades vu ON u.id = vu.unidade_id
-      WHERE vu.vendedor_id = ?
+      SELECT u.id, u.nome, u.responsavel, v.created_at
+      FROM vendedores v
+      LEFT JOIN unidades u ON v.unidade_id = u.id
+      WHERE v.id = ? AND u.id IS NOT NULL
       ORDER BY u.nome
     `, [vendedor_id]) as any[]
 
@@ -60,20 +60,18 @@ export async function GET(request: NextRequest) {
 // GET - Listar todos os vendedores com suas unidades (para relatório)
 export async function POST(request: NextRequest) {
   try {
-    // Buscar todos os vendedores com suas unidades
+    // Buscar todos os vendedores com suas unidades (via unidade_id direto)
     const vendedoresUnidades = await executeQuery(`
       SELECT 
         v.id as vendedor_id,
         v.name,
         v.lastName,
         v.email,
-        GROUP_CONCAT(u.nome ORDER BY u.nome SEPARATOR ', ') as unidades,
-        COUNT(u.id) as total_unidades
+        COALESCE(u.nome, u.name, 'Sem unidade') as unidades,
+        CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as total_unidades
       FROM vendedores v
-      LEFT JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
-      LEFT JOIN unidades u ON vu.unidade_id = u.id
+      LEFT JOIN unidades u ON v.unidade_id = u.id
       WHERE v.ativo = 1
-      GROUP BY v.id, v.name, v.lastName, v.email
       ORDER BY v.name, v.lastName
     `) as any[]
 

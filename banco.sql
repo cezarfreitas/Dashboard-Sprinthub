@@ -108,6 +108,7 @@ CREATE TABLE oportunidades (
   reject_appro_desc varchar(255) DEFAULT NULL,
   conf_installment json DEFAULT NULL,
   fields json DEFAULT NULL,
+  dataLead json DEFAULT NULL,
   createDate datetime DEFAULT NULL,
   updateDate datetime DEFAULT NULL,
   archived tinyint(1) DEFAULT '0',
@@ -242,6 +243,27 @@ ALTER TABLE oportunidades
   ADD PRIMARY KEY (id),
   ADD KEY idx_created_at (created_at),
   ADD KEY idx_coluna_funil_id (coluna_funil_id);
+
+CREATE TABLE notificacao_oportunidades (
+  id int NOT NULL AUTO_INCREMENT,
+  oportunidade_id bigint UNSIGNED NOT NULL,
+  nome varchar(255) NOT NULL,
+  valor decimal(15,2) DEFAULT '0.00',
+  status varchar(50) DEFAULT 'open',
+  data_criacao datetime NOT NULL,
+  vendedor varchar(255) DEFAULT NULL,
+  unidade varchar(255) DEFAULT NULL,
+  cor varchar(7) DEFAULT NULL COMMENT 'Cor customizada em formato hex (#RRGGBB)',
+  consultado_em timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_oportunidade_id (oportunidade_id),
+  KEY idx_consultado_em (consultado_em),
+  KEY idx_status (status),
+  CONSTRAINT fk_notificacao_oportunidades_oportunidade 
+    FOREIGN KEY (oportunidade_id) REFERENCES oportunidades(id) 
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE unidades
   ADD PRIMARY KEY (id),

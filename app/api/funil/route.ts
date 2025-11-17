@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
           }
           
           if (unidadeId) {
-            whereClause += ` AND user IN (SELECT v.id FROM vendedores v JOIN vendedores_unidades vu ON v.id = vu.vendedor_id WHERE vu.unidade_id = ?)`
+            whereClause += ` AND user IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)`
             queryParams.push(unidadeId)
           }
 
@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
           }
           
           if (unidadeId) {
-            whereClause += ` AND user IN (SELECT v.id FROM vendedores v JOIN vendedores_unidades vu ON v.id = vu.vendedor_id WHERE vu.unidade_id = ?)`
+            whereClause += ` AND user IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)`
             queryParams.push(unidadeId)
           }
 

@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
     if (unidade_id) {
       query += `
         INNER JOIN vendedores v ON o.user = v.id
-        INNER JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
       `
     }
     
@@ -46,7 +45,7 @@ export async function GET(request: NextRequest) {
     
     // Filtrar por unidade
     if (unidade_id) {
-      query += ' AND vu.unidade_id = ?'
+      query += ' AND v.unidade_id = ?'
       params.push(parseInt(unidade_id))
     }
     

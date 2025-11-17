@@ -7,50 +7,55 @@ export async function GET() {
   try {
     const jobs = cronScheduler.getAllJobs()
     
-    // Buscar últimas execuções do banco de dados para cada job
-    const jobsWithHistory = await Promise.all(jobs.map(async (job) => {
-      try {
-        const history = await executeQuery(`
-          SELECT started_at, completed_at, status, type, records_inserted, records_updated, records_errors, error_message
-          FROM cron_sync_history
-          WHERE job_name = ?
-          ORDER BY started_at DESC
-          LIMIT 1
-        `, [job.name]) as any[]
-        
-        const lastExecution = history.length > 0 ? history[0] : null
-        
-        return {
-          name: job.name,
-          schedule: job.schedule,
-          isRunning: job.isRunning,
-          isExecuting: job.isExecuting,
-          lastRun: lastExecution ? lastExecution.completed_at || lastExecution.started_at : null,
-          nextRun: job.nextRun,
-          lastStatus: lastExecution ? lastExecution.status : null,
-          lastError: lastExecution ? lastExecution.error_message : null,
-          lastType: lastExecution ? lastExecution.type : null,
-          lastStats: lastExecution ? {
-            inserted: lastExecution.records_inserted,
-            updated: lastExecution.records_updated,
-            errors: lastExecution.records_errors
-          } : null
-        }
-      } catch (error) {
-        // Se houver erro ao buscar histórico, retornar dados básicos
-        return {
-          name: job.name,
-          schedule: job.schedule,
-          isRunning: job.isRunning,
-          isExecuting: job.isExecuting,
-          lastRun: job.lastRun,
-          nextRun: job.nextRun,
-          lastStatus: null,
-          lastType: null,
-          lastStats: null
-        }
+    // ⚡ OTIMIZADO: 1 query ao invés de N queries (uma por job)
+    const jobNames = jobs.map(j => j.name)
+    
+    if (jobNames.length === 0) {
+      return NextResponse.json({
+        success: true,
+        jobs: []
+      })
+    }
+
+    // Buscar histórico de todos os jobs de uma vez
+    const placeholders = jobNames.map(() => '?').join(',')
+    const historyResults = await executeQuery(`
+      SELECT h1.* 
+      FROM cron_sync_history h1
+      INNER JOIN (
+        SELECT job_name, MAX(started_at) as max_started
+        FROM cron_sync_history
+        WHERE job_name IN (${placeholders})
+        GROUP BY job_name
+      ) h2 ON h1.job_name = h2.job_name AND h1.started_at = h2.max_started
+    `, jobNames) as any[]
+
+    // Criar mapa para acesso rápido
+    const historyMap = new Map(
+      historyResults.map(h => [h.job_name, h])
+    )
+
+    // Combinar dados dos jobs com histórico
+    const jobsWithHistory = jobs.map(job => {
+      const lastExecution = historyMap.get(job.name)
+      
+      return {
+        name: job.name,
+        schedule: job.schedule,
+        isRunning: job.isRunning,
+        isExecuting: job.isExecuting,
+        lastRun: lastExecution ? lastExecution.completed_at || lastExecution.started_at : null,
+        nextRun: job.nextRun,
+        lastStatus: lastExecution ? lastExecution.status : null,
+        lastError: lastExecution ? lastExecution.error_message : null,
+        lastType: lastExecution ? lastExecution.type : null,
+        lastStats: lastExecution ? {
+          inserted: lastExecution.records_inserted,
+          updated: lastExecution.records_updated,
+          errors: lastExecution.records_errors
+        } : null
       }
-    }))
+    })
     
     return NextResponse.json({
       success: true,
@@ -58,7 +63,10 @@ export async function GET() {
     })
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: 'Erro ao obter status dos jobs' },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Erro ao obter status dos jobs'
+      },
       { status: 500 }
     )
   }

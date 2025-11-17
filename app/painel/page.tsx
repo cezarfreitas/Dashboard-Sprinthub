@@ -143,18 +143,59 @@ export default function PainelPage() {
     return meses[mes - 1] || ''
   }, [])
 
-  const formatTimeAgo = useCallback((dateString: string) => {
-    const date = new Date(dateString)
+  const formatTimeAgo = useCallback((dateString: string | null | undefined) => {
+    if (!dateString) return 'Agora'
+    
+    let date: Date
+    
+    // Se for formato MySQL (YYYY-MM-DD HH:MM:SS), converter para Date (local time)
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateString)) {
+      // Formato MySQL: YYYY-MM-DD HH:MM:SS
+      // Parsear manualmente para garantir que é tratado como local time
+      const [datePart, timePart] = dateString.split(' ')
+      const [year, month, day] = datePart.split('-').map(Number)
+      const [hours, minutes, seconds] = timePart.split(':').map(Number)
+      // Criar Date usando valores locais (month é 0-indexed)
+      date = new Date(year, month - 1, day, hours, minutes, seconds)
+    } else if (typeof dateString === 'string' && dateString.includes('T')) {
+      // Já está em formato ISO
+      date = new Date(dateString)
+    } else {
+      // Tentar parsear normalmente
+      date = new Date(dateString)
+    }
+    
     const now = new Date()
+    
+    // Verificar se a data é válida
+    if (isNaN(date.getTime())) {
+      return 'Agora'
+    }
+    
+    // Calcular diferença em milissegundos
     const diffMs = now.getTime() - date.getTime()
+    
+    // Se a diferença for negativa (data no futuro) ou muito pequena, retornar "Agora"
+    if (diffMs < 0 || diffMs < 1000) return 'Agora'
+    
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
 
     if (diffMins < 1) return 'Agora'
-    if (diffMins < 60) return `${diffMins}m atrás`
-    if (diffHours < 24) return `${diffHours}h atrás`
-    return `${diffDays}d atrás`
+    if (diffMins < 60) return `há ${diffMins}min`
+    if (diffHours < 24) return `há ${diffHours}h`
+    if (diffDays < 7) return `há ${diffDays}d`
+    
+    // Para mais de 7 dias, mostrar data formatada
+    const diffWeeks = Math.floor(diffDays / 7)
+    if (diffWeeks < 4) return `há ${diffWeeks}sem`
+    
+    const diffMonths = Math.floor(diffDays / 30)
+    if (diffMonths < 12) return `há ${diffMonths}mes`
+    
+    const diffYears = Math.floor(diffDays / 365)
+    return `há ${diffYears}ano${diffYears > 1 ? 's' : ''}`
   }, [])
 
   // Verificar se há filtros ativos
@@ -204,7 +245,7 @@ export default function PainelPage() {
         setReceitaDiaria(dataReceita.dados || [])
       }
     } catch (err) {
-      console.error('Erro ao carregar gráficos:', err)
+      // Error handling silencioso
     } finally {
       setLoadingGraficos(false)
     }
@@ -342,86 +383,26 @@ export default function PainelPage() {
           ticketMedio
         })
       } catch (err) {
-        console.error('Erro ao carregar estatísticas:', err)
+        // Error handling silencioso
     } finally {
       setLoadingStats(false)
     }
   }, [mesAtual, anoAtual, diaAtual])
 
-  const fetchRecentes = useCallback(async () => {
-      try {
-        const response = await fetch('/api/oportunidades/recentes?limit=20')
-        const data = await response.json()
-        
-        // Usar dados da API se disponível
-        if (data.success && data.oportunidades && data.oportunidades.length > 0) {
-          setOportunidadesRecentes(data.oportunidades)
-        } else {
-          // Dados simulados estáticos (sem new Date() para evitar re-renders)
-          const simuladas = [
-            {
-              id: 1,
-              nome: 'Oportunidade ABC - Cliente Premium',
-              valor: 45000,
-              status: 'gain',
-              dataCriacao: '2024-11-16T10:00:00.000Z',
-              vendedor: 'João Silva',
-              unidade: 'Unidade Centro'
-            },
-            {
-              id: 2,
-              nome: 'Projeto XYZ - Empresa Tech',
-              valor: 28000,
-              status: 'open',
-              dataCriacao: '2024-11-16T09:55:00.000Z',
-              vendedor: 'Maria Santos',
-              unidade: 'Unidade Norte'
-            },
-            {
-              id: 3,
-              nome: 'Contrato DEF - Startup',
-              valor: 15000,
-              status: 'lost',
-              dataCriacao: '2024-11-16T09:50:00.000Z',
-              vendedor: 'Pedro Costa',
-              unidade: 'Unidade Sul'
-            }
-          ]
-          setOportunidadesRecentes(simuladas)
-        }
-      } catch (err) {
-        console.error('Erro ao carregar oportunidades recentes:', err)
-        // Dados simulados estáticos em caso de erro
-        const simuladas = [
-          {
-            id: 1,
-            nome: 'Oportunidade ABC - Cliente Premium',
-            valor: 45000,
-            status: 'gain',
-            dataCriacao: '2024-11-16T10:00:00.000Z',
-            vendedor: 'João Silva',
-            unidade: 'Unidade Centro'
-          },
-          {
-            id: 2,
-            nome: 'Projeto XYZ - Empresa Tech',
-            valor: 28000,
-            status: 'open',
-            dataCriacao: '2024-11-16T09:55:00.000Z',
-            vendedor: 'Maria Santos',
-            unidade: 'Unidade Norte'
-          },
-          {
-            id: 3,
-            nome: 'Contrato DEF - Startup',
-            valor: 15000,
-            status: 'lost',
-            dataCriacao: '2024-11-16T09:50:00.000Z',
-            vendedor: 'Pedro Costa',
-            unidade: 'Unidade Sul'
-          }
-        ]
-        setOportunidadesRecentes(simuladas)
+  // Função para buscar notificações de oportunidades
+  const fetchNotificacoes = useCallback(async () => {
+    try {
+      const response = await fetch('/api/oportunidades/notificacoes?limit=20')
+      const data = await response.json()
+      
+      if (data.success && data.historico && data.historico.length > 0) {
+        setOportunidadesRecentes(data.historico)
+      } else {
+        setOportunidadesRecentes([])
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setOportunidadesRecentes([])
     } finally {
       setLoadingRecentes(false)
     }
@@ -431,9 +412,19 @@ export default function PainelPage() {
     fetchUnidades()
     fetchGraficos()
     fetchStats()
-    fetchRecentes()
-    // TODAS as atualizações automáticas estão DESABILITADAS
-  }, [fetchUnidades, fetchGraficos, fetchStats, fetchRecentes])
+    fetchNotificacoes()
+  }, [fetchUnidades, fetchGraficos, fetchStats, fetchNotificacoes])
+
+  // Atualizar notificações a cada 10 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchNotificacoes()
+    }, 10000) // 10 segundos
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [fetchNotificacoes])
 
   if (loading) {
     return (
@@ -466,6 +457,36 @@ export default function PainelPage() {
             </div>
           ) : (
             oportunidadesRecentes.map((op) => {
+              // Função para converter hex para rgba com opacidade
+              const hexToRgba = (hex: string, alpha: number) => {
+                const r = parseInt(hex.slice(1, 3), 16)
+                const g = parseInt(hex.slice(3, 5), 16)
+                const b = parseInt(hex.slice(5, 7), 16)
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`
+              }
+
+              // Verificar se há cor customizada (aceita com ou sem #)
+              let corHex = op.cor
+              if (corHex) {
+                // Remover espaços e garantir formato correto
+                corHex = String(corHex).trim()
+                if (!corHex.startsWith('#')) {
+                  corHex = `#${corHex}`
+                }
+                // Validar formato hex (3 ou 6 dígitos após #)
+                // Expandir formato curto (#fff -> #ffffff)
+                if (/^#[0-9A-F]{3}$/i.test(corHex)) {
+                  corHex = `#${corHex[1]}${corHex[1]}${corHex[2]}${corHex[2]}${corHex[3]}${corHex[3]}`
+                } else if (!/^#[0-9A-F]{6}$/i.test(corHex)) {
+                  // Se não for válido, descartar
+                  corHex = null
+                } else {
+                  // Garantir maiúsculas para consistência
+                  corHex = corHex.toUpperCase()
+                }
+              }
+              const temCorCustomizada = !!corHex
+              
               const statusConfig = {
                 gain: { 
                   bg: 'bg-green-900/30', 
@@ -489,28 +510,121 @@ export default function PainelPage() {
                   valorColor: 'text-blue-400'
                 }
               }
-              const config = statusConfig[op.status as keyof typeof statusConfig] || statusConfig.open
               
+              // Determinar texto do badge
+              let badgeText = 'ABERTA'
+              if (op.status) {
+                const statusLower = String(op.status).toLowerCase()
+                if (statusConfig[op.status as keyof typeof statusConfig]) {
+                  badgeText = statusConfig[op.status as keyof typeof statusConfig].text
+                } else {
+                  badgeText = String(op.status).toUpperCase()
+                }
+              }
+              
+              // Aplicar cor customizada se disponível (sempre tem prioridade)
+              const cardStyle: React.CSSProperties = temCorCustomizada ? {
+                backgroundColor: hexToRgba(corHex!, 0.15),
+                borderColor: corHex!,
+                borderWidth: '1px',
+                borderStyle: 'solid'
+              } : {}
+              
+              const badgeStyle: React.CSSProperties = temCorCustomizada ? {
+                backgroundColor: corHex!,
+                color: '#ffffff'
+              } : {}
+              
+              const valorStyle: React.CSSProperties = temCorCustomizada ? {
+                color: corHex!
+              } : {}
+              
+              // Classes CSS (só aplicar se não houver cor customizada)
+              // Quando há cor customizada, usar apenas classes básicas sem background/border
+              const cardClasses = temCorCustomizada 
+                ? "rounded-lg border shadow-sm transition-colors bg-transparent" 
+                : cn("rounded-lg border shadow-sm transition-colors", statusConfig[op.status as keyof typeof statusConfig]?.bg || 'bg-blue-900/30', statusConfig[op.status as keyof typeof statusConfig]?.border || 'border-blue-700')
+              
+              const badgeClasses = temCorCustomizada
+                ? "px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
+                : cn("px-1.5 py-0.5 rounded text-[10px] font-bold text-white", statusConfig[op.status as keyof typeof statusConfig]?.badge || 'bg-blue-600')
+              
+              const valorClasses = temCorCustomizada
+                ? "font-bold text-xs"
+                : cn("font-bold text-xs", statusConfig[op.status as keyof typeof statusConfig]?.valorColor || 'text-blue-400')
+              
+              // Usar div quando há cor customizada para evitar conflitos com classes do Card
+              if (temCorCustomizada) {
+                return (
+                  <div
+                    key={op.id}
+                    className={cardClasses}
+                    style={cardStyle}
+                  >
+                    <div className="p-3">
+                    <div className="flex items-start justify-between mb-1.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span 
+                            className={badgeClasses}
+                            style={badgeStyle}
+                          >
+                            {badgeText}
+                          </span>
+                        </div>
+                        <p className="text-white font-semibold text-xs truncate">{op.nome}</p>
+                        <p className="text-gray-400 text-[10px] mt-0.5 truncate" title={op.unidade}>
+                          {op.unidade}
+                        </p>
+                      </div>
+                      <span className="text-gray-500 text-[10px] flex-shrink-0 ml-1.5">
+                        {formatTimeAgo(op.consultadoEm || op.dataCriacao)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-700">
+                      <span className="text-gray-400 text-[10px] truncate" title={op.vendedor}>
+                        {op.vendedor}
+                      </span>
+                      <span 
+                        className={valorClasses}
+                        style={valorStyle}
+                      >
+                        {formatCurrency(op.valor)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                )
+              }
+              
+              // Usar Card quando não há cor customizada
               return (
-                <Card key={op.id} className={cn("border transition-colors", config.bg, config.border)}>
+                <Card
+                  key={op.id}
+                  className={cardClasses}
+                >
                   <CardContent className="p-3">
                     <div className="flex items-start justify-between mb-1.5">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-bold text-white", config.badge)}>
-                            {config.text}
+                          <span className={badgeClasses}>
+                            {badgeText}
                           </span>
                         </div>
                         <p className="text-white font-semibold text-xs truncate">{op.nome}</p>
-                        <p className="text-gray-400 text-[10px] mt-0.5 truncate">{op.unidade}</p>
+                        <p className="text-gray-400 text-[10px] mt-0.5 truncate" title={op.unidade}>
+                          {op.unidade}
+                        </p>
                       </div>
                       <span className="text-gray-500 text-[10px] flex-shrink-0 ml-1.5">
-                        {formatTimeAgo(op.dataCriacao)}
+                        {formatTimeAgo(op.consultadoEm || op.dataCriacao)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-700">
-                      <span className="text-gray-400 text-[10px] truncate">{op.vendedor}</span>
-                      <span className={cn("font-bold text-xs", config.valorColor)}>
+                      <span className="text-gray-400 text-[10px] truncate" title={op.vendedor}>
+                        {op.vendedor}
+                      </span>
+                      <span className={valorClasses}>
                         {formatCurrency(op.valor)}
                       </span>
                     </div>
@@ -737,7 +851,7 @@ export default function PainelPage() {
                         dataKey="total_criadas" 
                         position="top" 
                         style={{ fill: '#9ca3af', fontSize: '10px' }}
-                        formatter={(value: number) => value === 0 ? '' : value}
+                        formatter={(value: any) => value === 0 ? '' : String(value)}
                       />
                     </Line>
                   </LineChart>
@@ -795,7 +909,7 @@ export default function PainelPage() {
                         dataKey="valor_total" 
                         position="top" 
                         style={{ fill: '#9ca3af', fontSize: '10px' }}
-                        formatter={(value: number) => value === 0 ? '' : `R$ ${(value / 1000).toFixed(0)}k`}
+                        formatter={(value: any) => value === 0 ? '' : `R$ ${(Number(value) / 1000).toFixed(0)}k`}
                       />
                     </Line>
                   </LineChart>

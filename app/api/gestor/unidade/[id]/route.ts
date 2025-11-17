@@ -24,9 +24,9 @@ export async function GET(
         u.id,
         u.nome,
         u.responsavel,
-        COUNT(DISTINCT vu.vendedor_id) as total_vendedores
+        COUNT(DISTINCT v.id) as total_vendedores
       FROM unidades u
-      LEFT JOIN vendedores_unidades vu ON u.id = vu.unidade_id
+      LEFT JOIN vendedores v ON u.id = v.unidade_id
       WHERE u.id = ?
       GROUP BY u.id, u.nome, u.responsavel
     `, [unidadeId]) as any[]
@@ -49,12 +49,11 @@ export async function GET(
         v.email,
         v.username,
         v.telephone,
-        vu.sequencia,
-        vu.ativo
+        1 as sequencia,
+        v.ativo
       FROM vendedores v
-      JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
-      WHERE vu.unidade_id = ?
-      ORDER BY vu.sequencia ASC
+      WHERE v.unidade_id = ?
+      ORDER BY v.name ASC
     `, [unidadeId]) as any[]
 
     // Buscar roleta da unidade

@@ -244,6 +244,7 @@ export async function syncOportunidades(): Promise<{
                   const rejectApproDesc = opp.reject_appro_desc || null
                   const confInstallment = opp.conf_installment ? JSON.stringify(opp.conf_installment) : null
                   const fields = opp.fields ? JSON.stringify(opp.fields) : null
+                  const dataLead = opp.dataLead ? JSON.stringify(opp.dataLead) : null
                   const archived = opp.archived ? 1 : 0
                   const colunaFunilId = coluna.id
 
@@ -280,6 +281,7 @@ export async function syncOportunidades(): Promise<{
                            reject_appro_desc = ?,
                            conf_installment = ?,
                            fields = ?,
+                           dataLead = ?,
                            createDate = ?,
                            updateDate = ?,
                            archived = ?,
@@ -289,7 +291,7 @@ export async function syncOportunidades(): Promise<{
                         title, value, crmColumn, leadId, sequence, status, lossReason, gainReason,
                         expectedCloseDate, saleChannel, campaign, user, lastColumnChange, lastStatusChange,
                         gainDate, lostDate, reopenDate, awaitColumnApproved, awaitColumnApprovedUser,
-                        rejectAppro, rejectApproDesc, confInstallment, fields, createDate, updateDate,
+                        rejectAppro, rejectApproDesc, confInstallment, fields, dataLead, createDate, updateDate,
                         archived, colunaFunilId, opp.id
                       ]
                     )
@@ -301,14 +303,14 @@ export async function syncOportunidades(): Promise<{
                        (id, title, value, crm_column, lead_id, sequence, status, loss_reason, gain_reason,
                         expectedCloseDate, sale_channel, campaign, user, last_column_change, last_status_change,
                         gain_date, lost_date, reopen_date, await_column_approved, await_column_approved_user,
-                        reject_appro, reject_appro_desc, conf_installment, fields, createDate, updateDate,
+                        reject_appro, reject_appro_desc, conf_installment, fields, dataLead, createDate, updateDate,
                         archived, coluna_funil_id, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
                       [
                         opp.id, title, value, crmColumn, leadId, sequence, status, lossReason, gainReason,
                         expectedCloseDate, saleChannel, campaign, user, lastColumnChange, lastStatusChange,
                         gainDate, lostDate, reopenDate, awaitColumnApproved, awaitColumnApprovedUser,
-                        rejectAppro, rejectApproDesc, confInstallment, fields, createDate, updateDate,
+                        rejectAppro, rejectApproDesc, confInstallment, fields, dataLead, createDate, updateDate,
                         archived, colunaFunilId
                       ]
                     )

@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     
     let gestoresMap = new Map<number, string>()
     if (gestorIds.length > 0) {
-      const uniqueGestorIds = [...new Set(gestorIds)]
+      const uniqueGestorIds = Array.from(new Set(gestorIds))
       const placeholders = uniqueGestorIds.map(() => '?').join(',')
       const gestoresResult = await executeQuery(`
         SELECT id, name, lastName 

@@ -1,4 +1,5 @@
 import cron from 'node-cron'
+import parser from 'cron-parser'
 import { syncVendedoresFromSprintHub } from './vendedores-sync'
 import { syncUnidadesFromSprintHub } from './unidades-sync'
 import { syncFunis } from './funis-sync'
@@ -9,104 +10,98 @@ import { syncOportunidades } from './oportunidades-sync'
 interface CronJob {
   name: string
   task: any // node-cron ScheduledTask
-  isRunning: boolean // Se o job está ATIVO/AGENDADO (não se está executando neste momento)
+  isRunning: boolean // Se o job está ATIVO/AGENDADO
   isExecuting: boolean // Se o job está executando NESTE MOMENTO
   lastRun: Date | null
   nextRun: Date | null
   schedule: string
 }
 
+interface SyncFunction {
+  (type?: 'manual' | 'scheduled'): Promise<any>
+}
+
+// ⚡ OTIMIZADO: Mapa de jobs para eliminar duplicação
+const SYNC_JOBS_CONFIG: Record<string, { envVar: string; fn: SyncFunction; requiresType?: boolean }> = {
+  'vendedores-sync': {
+    envVar: 'VENDEDORES_SYNC_SCHEDULE',
+    fn: syncVendedoresFromSprintHub,
+    requiresType: true
+  },
+  'unidades-sync': {
+    envVar: 'UNIDADES_SYNC_SCHEDULE',
+    fn: syncUnidadesFromSprintHub,
+    requiresType: true
+  },
+  'funis-sync': {
+    envVar: 'FUNIS_SYNC_SCHEDULE',
+    fn: syncFunis,
+    requiresType: false
+  },
+  'motivos-perda-sync': {
+    envVar: 'MOTIVOS_PERDA_SYNC_SCHEDULE',
+    fn: syncMotivosPerda,
+    requiresType: false
+  },
+  'colunas-funil-sync': {
+    envVar: 'COLUNAS_FUNIL_SYNC_SCHEDULE',
+    fn: syncColunasFunil,
+    requiresType: false
+  },
+  'oportunidades-sync': {
+    envVar: 'OPORTUNIDADES_SYNC_SCHEDULE',
+    fn: syncOportunidades,
+    requiresType: false
+  }
+}
+
 class CronScheduler {
   private jobs: Map<string, CronJob> = new Map()
   private isEnabled: boolean = true
+  private executionLocks: Map<string, boolean> = new Map() // ⚡ Mutex para prevenir concorrência
 
   constructor() {
     this.initializeDefaultJobs()
   }
 
   private initializeDefaultJobs() {
-    // Obter configurações das variáveis de ambiente
-    const vendedoresSyncSchedule = process.env.VENDEDORES_SYNC_SCHEDULE || '0 8,14,20 * * *'
-    const unidadesSyncSchedule = process.env.UNIDADES_SYNC_SCHEDULE || '0 8,14,20 * * *'
-    const funisSyncSchedule = process.env.FUNIS_SYNC_SCHEDULE || '0 8,14,20 * * *'
-    const motivosPerdaSyncSchedule = process.env.MOTIVOS_PERDA_SYNC_SCHEDULE || '0 8,14,20 * * *'
-    const colunasFunilSyncSchedule = process.env.COLUNAS_FUNIL_SYNC_SCHEDULE || '0 8,14,20 * * *'
-    const oportunidadesSyncSchedule = process.env.OPORTUNIDADES_SYNC_SCHEDULE || '0 9,15,21 * * *'
     const timezone = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
+    const defaultSchedule = '0 8,14,20 * * *'
+    const oportunidadesSchedule = '0 9,15,21 * * *'
 
-    // Sincronização de vendedores
-    this.addJob('vendedores-sync', vendedoresSyncSchedule, async () => {
-      console.log('🔄 [CRON] Iniciando sincronização automática de vendedores...')
-      try {
-        await syncVendedoresFromSprintHub('scheduled')
-        console.log('✅ [CRON] Sincronização de vendedores concluída com sucesso')
-      } catch (error) {
-        console.error('❌ [CRON] Erro na sincronização de vendedores:', error)
-      }
+    // ⚡ OTIMIZADO: Criar jobs usando configuração centralizada
+    Object.entries(SYNC_JOBS_CONFIG).forEach(([jobName, config]) => {
+      const schedule = process.env[config.envVar] || 
+        (jobName === 'oportunidades-sync' ? oportunidadesSchedule : defaultSchedule)
+      
+      this.addJob(jobName, schedule, async () => {
+        await this.executeSync(jobName, config.fn, config.requiresType ? 'scheduled' : undefined)
+      })
     })
+  }
 
-    // Sincronização de unidades
-    this.addJob('unidades-sync', unidadesSyncSchedule, async () => {
-      console.log('🔄 [CRON] Iniciando sincronização automática de unidades...')
-      try {
-        await syncUnidadesFromSprintHub('scheduled')
-        console.log('✅ [CRON] Sincronização de unidades concluída com sucesso')
-      } catch (error) {
-        console.error('❌ [CRON] Erro na sincronização de unidades:', error)
+  // ⚡ NOVO: Função centralizada de execução com mutex
+  private async executeSync(
+    jobName: string, 
+    syncFn: SyncFunction, 
+    type?: 'manual' | 'scheduled'
+  ): Promise<void> {
+    // Verificar lock para prevenir execução concorrente
+    if (this.executionLocks.get(jobName)) {
+      return
+    }
+
+    this.executionLocks.set(jobName, true)
+
+    try {
+      if (type) {
+        await syncFn(type)
+      } else {
+        await syncFn()
       }
-    })
-
-    // Sincronização de funis
-    this.addJob('funis-sync', funisSyncSchedule, async () => {
-      console.log('🔄 [CRON] Iniciando sincronização automática de funis...')
-      try {
-        await syncFunis()
-        console.log('✅ [CRON] Sincronização de funis concluída com sucesso')
-      } catch (error) {
-        console.error('❌ [CRON] Erro na sincronização de funis:', error)
-      }
-    })
-
-    // Sincronização de motivos de perda
-    this.addJob('motivos-perda-sync', motivosPerdaSyncSchedule, async () => {
-      console.log('🔄 [CRON] Iniciando sincronização automática de motivos de perda...')
-      try {
-        await syncMotivosPerda()
-        console.log('✅ [CRON] Sincronização de motivos de perda concluída com sucesso')
-      } catch (error) {
-        console.error('❌ [CRON] Erro na sincronização de motivos de perda:', error)
-      }
-    })
-
-    // Sincronização de colunas de funil
-    this.addJob('colunas-funil-sync', colunasFunilSyncSchedule, async () => {
-      console.log('🔄 [CRON] Iniciando sincronização automática de colunas de funil...')
-      try {
-        await syncColunasFunil()
-        console.log('✅ [CRON] Sincronização de colunas de funil concluída com sucesso')
-      } catch (error) {
-        console.error('❌ [CRON] Erro na sincronização de colunas de funil:', error)
-      }
-    })
-
-    // Sincronização de oportunidades
-    this.addJob('oportunidades-sync', oportunidadesSyncSchedule, async () => {
-      console.log('🔄 [CRON] Iniciando sincronização automática de oportunidades...')
-      try {
-        await syncOportunidades()
-        console.log('✅ [CRON] Sincronização de oportunidades concluída com sucesso')
-      } catch (error) {
-        console.error('❌ [CRON] Erro na sincronização de oportunidades:', error)
-      }
-    })
-
-    console.log(`📅 [CRON] Jobs configurados com timezone: ${timezone}`)
-    console.log(`📅 [CRON] Sincronização vendedores: ${vendedoresSyncSchedule}`)
-    console.log(`📅 [CRON] Sincronização unidades: ${unidadesSyncSchedule}`)
-    console.log(`📅 [CRON] Sincronização funis: ${funisSyncSchedule}`)
-    console.log(`📅 [CRON] Sincronização motivos perda: ${motivosPerdaSyncSchedule}`)
-    console.log(`📅 [CRON] Sincronização colunas funil: ${colunasFunilSyncSchedule}`)
-    console.log(`📅 [CRON] Sincronização oportunidades: ${oportunidadesSyncSchedule}`)
+    } finally {
+      this.executionLocks.delete(jobName)
+    }
   }
 
   addJob(name: string, schedule: string, task: () => Promise<void> | void) {
@@ -124,8 +119,6 @@ class CronScheduler {
 
       try {
         await task()
-      } catch (error) {
-        console.error(`❌ [CRON] Erro no job ${name}:`, error)
       } finally {
         if (job) {
           job.isExecuting = false
@@ -140,14 +133,12 @@ class CronScheduler {
     this.jobs.set(name, {
       name,
       task: cronTask,
-      isRunning: false, // Inicialmente não está rodando
-      isExecuting: false, // Inicialmente não está executando
+      isRunning: false,
+      isExecuting: false,
       lastRun: null,
       nextRun: this.getNextRunTime(schedule),
       schedule
     })
-
-    console.log(`📅 [CRON] Job '${name}' adicionado com schedule: ${schedule}`)
   }
 
   removeJob(name: string) {
@@ -155,7 +146,6 @@ class CronScheduler {
     if (job) {
       job.task.destroy()
       this.jobs.delete(name)
-      console.log(`🗑️ [CRON] Job '${name}' removido`)
     }
   }
 
@@ -165,7 +155,6 @@ class CronScheduler {
       job.task.start()
       job.isRunning = true
       this.jobs.set(name, job)
-      console.log(`▶️ [CRON] Job '${name}' iniciado`)
     }
   }
 
@@ -175,7 +164,6 @@ class CronScheduler {
       job.task.stop()
       job.isRunning = false
       this.jobs.set(name, job)
-      console.log(`⏸️ [CRON] Job '${name}' pausado`)
     }
   }
 
@@ -186,7 +174,6 @@ class CronScheduler {
       job.isRunning = true
       this.jobs.set(name, job)
     })
-    console.log('🚀 [CRON] Todos os jobs iniciados')
   }
 
   stopAll() {
@@ -196,7 +183,6 @@ class CronScheduler {
       job.isRunning = false
       this.jobs.set(name, job)
     })
-    console.log('⏹️ [CRON] Todos os jobs pausados')
   }
 
   getJobStatus(name: string) {
@@ -214,50 +200,42 @@ class CronScheduler {
     }))
   }
 
+  // ⚡ OTIMIZADO: Usar cron-parser para cálculo correto
   private getNextRunTime(schedule: string): Date | null {
     try {
-      // Esta é uma implementação simplificada
-      // Em produção, você pode usar uma biblioteca como 'cron-parser' para cálculos mais precisos
-      return new Date(Date.now() + 30 * 60 * 1000) // Próxima execução em 30 minutos
+      const cronParser = parser as any
+      const interval = cronParser.parseExpression(schedule, {
+        tz: process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
+      })
+      return interval.next().toDate()
     } catch {
       return null
     }
   }
 
-  // Executar job manualmente
+  // ⚡ OTIMIZADO: Usar mapa de funções ao invés de if/else gigante
   async runJobNow(name: string) {
     const job = this.jobs.get(name)
     if (!job) {
       throw new Error(`Job '${name}' não encontrado`)
     }
 
-    console.log(`🔄 [CRON] Executando job '${name}' manualmente...`)
+    const config = SYNC_JOBS_CONFIG[name]
+    if (!config) {
+      throw new Error(`Função para job '${name}' não implementada`)
+    }
+
+    // Verificar se já está executando
+    if (this.executionLocks.get(name)) {
+      throw new Error(`Job '${name}' já está em execução`)
+    }
+
     job.isExecuting = true
     job.lastRun = new Date()
     this.jobs.set(name, job)
     
     try {
-      // Executar a função baseada no nome do job
-      if (name === 'vendedores-sync') {
-        await syncVendedoresFromSprintHub('manual')
-      } else if (name === 'unidades-sync') {
-        await syncUnidadesFromSprintHub('manual')
-      } else if (name === 'funis-sync') {
-        await syncFunis()
-      } else if (name === 'motivos-perda-sync') {
-        await syncMotivosPerda()
-      } else if (name === 'colunas-funil-sync') {
-        await syncColunasFunil()
-      } else if (name === 'oportunidades-sync') {
-        await syncOportunidades()
-      } else {
-        // Para outros jobs, você pode adicionar mais condições aqui
-        throw new Error(`Função para job '${name}' não implementada`)
-      }
-      console.log(`✅ [CRON] Job '${name}' executado com sucesso`)
-    } catch (error) {
-      console.error(`❌ [CRON] Erro na execução manual do job '${name}':`, error)
-      throw error
+      await this.executeSync(name, config.fn, config.requiresType ? 'manual' : undefined)
     } finally {
       job.isExecuting = false
       job.nextRun = this.getNextRunTime(job.schedule)
@@ -270,17 +248,8 @@ class CronScheduler {
 export const cronScheduler = new CronScheduler()
 
 // Inicializar automaticamente
-console.log('🚀 [CRON] Inicializando jobs automaticamente...')
 if (process.env.NODE_ENV === 'production') {
-  console.log('🚀 [CRON] Modo produção - iniciando todos os jobs')
   cronScheduler.startAll()
-} else {
-  // Em desenvolvimento, apenas iniciar se explicitamente habilitado
-  console.log('🚀 [CRON] Modo desenvolvimento - ENABLE_CRON:', process.env.ENABLE_CRON)
-  if (process.env.ENABLE_CRON === 'true') {
-    console.log('🚀 [CRON] ENABLE_CRON=true - iniciando todos os jobs')
-    cronScheduler.startAll()
-  } else {
-    console.log('⚠️ [CRON] ENABLE_CRON não está definido como true - jobs não iniciados')
-  }
+} else if (process.env.ENABLE_CRON === 'true') {
+  cronScheduler.startAll()
 }

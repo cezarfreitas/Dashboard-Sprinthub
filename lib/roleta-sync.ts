@@ -29,8 +29,7 @@ export async function sincronizarRoletaUnidade(unidadeId: number): Promise<void>
     const vendedores = await executeQuery(`
       SELECT v.id, v.name, v.lastName
       FROM vendedores v
-      JOIN vendedores_unidades vu ON v.id = vu.vendedor_id
-      WHERE vu.unidade_id = ?
+      WHERE v.unidade_id = ?
       ORDER BY v.name
     `, [unidadeId]) as any[]
 

@@ -49,9 +49,9 @@ export async function GET() {
     })
 
     // Coletar todos os vendedores únicos de todas as unidades
-    const todosVendedoresIds = [...new Set(
+    const todosVendedoresIds = Array.from(new Set(
       Array.from(unidadeVendedoresMap.values()).flat()
-    )]
+    ))
 
     if (todosVendedoresIds.length === 0) {
       // Sem vendedores, retornar unidades vazias

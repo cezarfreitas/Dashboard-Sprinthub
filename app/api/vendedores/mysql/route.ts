@@ -82,13 +82,9 @@ export async function GET(request: NextRequest) {
       queryParams.push(status)
     }
 
-    // Filtro por unidade - usando a tabela de relacionamento
+    // Filtro por unidade - usando unidade_id direto
     if (unidade_id) {
-      whereClause += ` AND id IN (
-        SELECT vendedor_id 
-        FROM vendedores_unidades 
-        WHERE unidade_id = ?
-      )`
+      whereClause += ` AND unidade_id = ?`
       queryParams.push(parseInt(unidade_id))
     }
 

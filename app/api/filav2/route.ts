@@ -17,6 +17,7 @@ interface FilaV2Response {
   departamento?: number | null
   lead_id?: number
   lead_atualizado?: boolean
+  lead_recuperado?: any
   antes?: {
     owner: number | null
     owner_nome: string | null
@@ -102,7 +103,7 @@ async function consultarLeadSprintHub(leadId: string) {
     throw new Error('Configuração da API não encontrada')
   }
   
-  const url = `${urlPatch}/leads/${leadId}?query={lead{id,firstname,lastname,userAccess,departmentAccess,owner{id,name}}}&apitoken=${apiToken}&i=${groupId}`
+  const url = `${urlPatch}/leads/${leadId}?query={lead{id,firstname,lastname,whatsapp,phone,mobile,userAccess,departmentAccess,owner{id,name}}}&apitoken=${apiToken}&i=${groupId}`
   
   const response = await fetch(url, {
     method: 'GET',
@@ -166,7 +167,8 @@ async function registrarLog(
 async function atualizarLeadSprintHub(
   leadId: string,
   vendedorId: number,
-  dptoGestao: number | null
+  dptoGestao: number | null,
+  leadDataAtual?: any
 ) {
   const { apiToken, groupId, urlPatch } = ENV_CONFIG
   
@@ -174,16 +176,28 @@ async function atualizarLeadSprintHub(
     throw new Error('Configuração da API não encontrada')
   }
   
-  const updateData = {
+  // Buscar dados do lead se não foram fornecidos
+  const lead = leadDataAtual || (await consultarLeadSprintHub(leadId))?.data?.lead
+  
+  // Determinar whatsapp (campo obrigatório): whatsapp > phone > mobile > ''
+  const whatsapp = lead?.whatsapp || lead?.phone || lead?.mobile || ''
+  
+  // Preparar payload de atualização
+  const updateData: any = {
     owner: vendedorId,
     userAccess: [vendedorId],
-    departmentAccess: dptoGestao ? [dptoGestao] : []
+    departmentAccess: dptoGestao ? [dptoGestao] : [],
+    whatsapp
   }
   
+  // Preservar campos importantes se existirem
+  if (lead?.firstname) updateData.firstname = lead.firstname
+  if (lead?.lastname) updateData.lastname = lead.lastname
+  
   console.log('[FilaV2] 📝 PUT Lead', leadId, '→ V', vendedorId, '| D', dptoGestao || 'N/A')
+  console.log('[FilaV2] 📦 Payload:', JSON.stringify(updateData, null, 2))
   
   const url = `${urlPatch}/leads/${leadId}?apitoken=${apiToken}&i=${groupId}`
-  
   const response = await fetch(url, {
     method: 'PUT',
     headers: {
@@ -329,7 +343,13 @@ export async function GET(request: NextRequest) {
     let dadosDepois = null
     
     try {
-      resultadoPut = await atualizarLeadSprintHub(leadId, proximoFila.vendedor_id, unidade.dpto_gestao)
+      // Passar dados do lead se já foram consultados
+      resultadoPut = await atualizarLeadSprintHub(
+        leadId, 
+        proximoFila.vendedor_id, 
+        unidade.dpto_gestao,
+        leadAntes // Passar dados do lead já consultados
+      )
       leadAtualizado = true
       
       dadosDepois = {
@@ -386,6 +406,11 @@ export async function GET(request: NextRequest) {
       vendedor_atribuido: proximoFila,
       departamento: unidade.dpto_gestao,
       lead_atualizado: leadAtualizado
+    }
+
+    // Adicionar JSON completo do lead recuperado
+    if (leadAntes) {
+      response.lead_recuperado = leadAntes
     }
 
     // Adicionar dados antes/depois se disponíveis
@@ -473,7 +498,7 @@ export async function PUT(request: NextRequest) {
 
     const proximoVendedorId = filaAtiva[0].vendedor_id
 
-    // Atualizar lead
+    // Atualizar lead (buscar dados primeiro se necessário)
     const result = await atualizarLeadSprintHub(leadId, proximoVendedorId, unidade.dpto_gestao)
 
     return NextResponse.json({
