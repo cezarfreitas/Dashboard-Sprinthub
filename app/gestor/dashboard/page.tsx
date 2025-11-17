@@ -192,11 +192,6 @@ export default function GestorDashboard() {
     const dataInicioStr = formatarData(dataInicio)
     const dataFimStr = formatarData(dataFim)
 
-    console.log('=== getPeriodoDatas ===')
-    console.log('Período:', periodoFiltro)
-    console.log('Data Início:', dataInicioStr, dataInicio)
-    console.log('Data Fim:', dataFimStr, dataFim)
-
     return {
       dataInicio: dataInicioStr,
       dataFim: dataFimStr,
@@ -226,12 +221,7 @@ export default function GestorDashboard() {
   }
 
   const fetchStats = useCallback(async () => {
-    console.log('=== fetchStats chamada ===')
-    console.log('Gestor:', gestor)
-    console.log('Unidade Selecionada:', unidadeSelecionada)
-    
     if (!gestor || unidadeSelecionada == null) {
-      console.log('Gestor ou unidade não definidos, abortando fetchStats')
       return
     }
 
@@ -239,7 +229,6 @@ export default function GestorDashboard() {
       setLoading(true)
       const { dataInicio, dataFim } = getPeriodoDatas()
       const url = `/api/gestor/stats?gestorId=${gestor.id}&unidadeId=${unidadeSelecionada}&dataInicio=${dataInicio}&dataFim=${dataFim}`
-      console.log('Buscando stats:', url)
       
       const response = await fetch(url)
 
@@ -249,18 +238,13 @@ export default function GestorDashboard() {
 
       const data = await response.json()
 
-      console.log('Resposta da API stats:', data)
-
       if (data.success) {
         setStats(data.stats)
         setError("")
-        console.log('Stats carregadas com sucesso:', data.stats)
       } else {
         setError(data.message || 'Erro ao carregar estatísticas')
-        console.error('Erro na resposta:', data.message)
       }
     } catch (err) {
-      console.error('Erro ao buscar stats:', err)
       setError(err instanceof Error ? err.message : 'Erro de conexão')
     } finally {
       setLoading(false)
@@ -273,18 +257,12 @@ export default function GestorDashboard() {
   }
 
   const handleVerOportunidades = async (vendedor: VendedorStats) => {
-    console.log('=== handleVerOportunidades chamada ===')
-    console.log('Vendedor:', vendedor)
-    
     setVendedorSelecionado(vendedor)
-    console.log('Abrindo dialog...')
     setDialogOpen(true)
     setLoadingOportunidades(true)
 
     try {
       const { dataInicio, dataFim } = getPeriodoDatas()
-
-      console.log('Buscando oportunidades:', `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${dataInicio}&data_fim=${dataFim}`)
       
       const response = await fetch(
         `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${dataInicio}&data_fim=${dataFim}`
@@ -296,21 +274,15 @@ export default function GestorDashboard() {
 
       const data = await response.json()
 
-      console.log('Resposta da API:', data)
-
       if (data.success) {
         setOportunidades(data.oportunidades || [])
-        console.log('Oportunidades carregadas:', data.oportunidades?.length || 0)
       } else {
         setOportunidades([])
-        console.log('Nenhuma oportunidade encontrada')
       }
     } catch (err) {
-      console.error('Erro ao buscar oportunidades:', err)
       setOportunidades([])
     } finally {
       setLoadingOportunidades(false)
-      console.log('Dialog aberto:', true)
     }
   }
 
@@ -353,53 +325,35 @@ export default function GestorDashboard() {
         link.click()
       }
     } catch (err) {
-      console.error('Erro ao exportar oportunidades:', err)
+      // Erro ao exportar oportunidades
     }
   }
 
   useEffect(() => {
-    console.log('=== useEffect inicial ===')
     // Verificar se gestor está logado
     const gestorData = localStorage.getItem('gestor')
-    console.log('gestorData do localStorage:', gestorData)
     
     if (!gestorData) {
-      console.log('Nenhum gestor no localStorage, redirecionando...')
       router.push('/gestor')
       return
     }
 
     try {
       const parsedGestor = JSON.parse(gestorData)
-      console.log('Gestor parseado:', parsedGestor)
       setGestor(parsedGestor)
       // Definir unidade principal como padrão
       setUnidadeSelecionada(parsedGestor.unidade_principal.id)
-      console.log('Unidade principal selecionada:', parsedGestor.unidade_principal.id)
     } catch (err) {
-      console.error('Erro ao parsear gestor:', err)
       router.push('/gestor')
       return
     }
   }, [router])
 
   useEffect(() => {
-    console.log('=== useEffect fetchStats ===')
-    console.log('Gestor:', gestor)
-    console.log('Unidade Selecionada:', unidadeSelecionada)
-    console.log('Período Filtro:', periodoFiltro)
-    
     if (gestor && unidadeSelecionada != null) {
-      console.log('Chamando fetchStats...')
       fetchStats()
-    } else {
-      console.log('Não chamando fetchStats - gestor ou unidade undefined')
     }
   }, [gestor, unidadeSelecionada, periodoFiltro, dataInicioPersonalizada, dataFimPersonalizada, fetchStats])
-
-  useEffect(() => {
-    console.log('Estado do dialog mudou:', dialogOpen)
-  }, [dialogOpen])
 
   if (!gestor) {
     return (
@@ -828,7 +782,6 @@ export default function GestorDashboard() {
 
       {/* Dialog de Oportunidades */}
       <Dialog open={dialogOpen} onOpenChange={(open) => {
-        console.log('Dialog onOpenChange:', open)
         setDialogOpen(open)
       }}>
         <DialogContent className="max-w-4xl max-h-[80vh]">

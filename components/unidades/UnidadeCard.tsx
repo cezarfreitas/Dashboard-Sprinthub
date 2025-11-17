@@ -1,6 +1,5 @@
 import React, { memo, useCallback } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -9,9 +8,7 @@ import {
   UserCircle,
   ListOrdered,
   MapPin,
-  MessageCircle,
-  Copy,
-  Check
+  MessageCircle
 } from 'lucide-react'
 import type { Unidade, VendedorFila } from '@/hooks/unidades/useUnidades'
 
@@ -19,16 +16,12 @@ interface UnidadeCardProps {
   unidade: Unidade
   onToggleStatus: (id: number, currentStatus: boolean) => void
   onManageQueue: (unidade: Unidade) => void
-  onCopyUrl: (id: number) => void
-  copiedId: number | null
 }
 
 export const UnidadeCard = memo(function UnidadeCard({
   unidade,
   onToggleStatus,
-  onManageQueue,
-  onCopyUrl,
-  copiedId
+  onManageQueue
 }: UnidadeCardProps) {
   const handleToggleStatus = useCallback(() => {
     onToggleStatus(unidade.id, unidade.ativo)
@@ -37,11 +30,6 @@ export const UnidadeCard = memo(function UnidadeCard({
   const handleManageQueue = useCallback(() => {
     onManageQueue(unidade)
   }, [unidade, onManageQueue])
-
-  const handleCopyUrl = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    onCopyUrl(unidade.id)
-  }, [unidade.id, onCopyUrl])
 
   return (
     <Card 
@@ -89,19 +77,6 @@ export const UnidadeCard = memo(function UnidadeCard({
           </div>
           
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleCopyUrl}
-              title="Copiar URL da fila"
-            >
-              {copiedId === unidade.id ? (
-                <Check className="h-4 w-4 text-green-500" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </Button>
             <Switch
               checked={unidade.ativo}
               onCheckedChange={handleToggleStatus}

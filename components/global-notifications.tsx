@@ -11,8 +11,6 @@ export default function GlobalNotifications() {
 
   useEffect(() => {
     if (lastEvent && lastEvent.type === 'nova_venda') {
-      console.log('Nova venda detectada globalmente:', lastEvent)
-      
       setCelebrationData(lastEvent.data)
       setShowCelebration(true)
     }

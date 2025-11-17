@@ -13,6 +13,7 @@ interface Unidade {
   nome?: string
   name?: string
   nome_exibicao?: string
+  grupo_id?: number | null
   oportunidades_abertas: number
   oportunidades_ganhas: number
   oportunidades_perdidas: number
@@ -108,12 +109,31 @@ export default function PainelPage() {
   const [oportunidadesRecentes, setOportunidadesRecentes] = useState<any[]>([])
   const [loadingRecentes, setLoadingRecentes] = useState(true)
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
+  
+  // Calcular datas iniciais para "Este Mês"
+  const periodoInicial = useMemo(() => {
+    const hoje = new Date()
+    const inicio = new Date()
+    const fim = new Date()
+    inicio.setDate(1)
+    inicio.setHours(0, 0, 0, 0)
+    fim.setHours(23, 59, 59, 999)
+    return {
+      inicio: inicio.toISOString().split('T')[0],
+      fim: fim.toISOString().split('T')[0]
+    }
+  }, [])
+  
   const [filtros, setFiltros] = useState({
     unidadeSelecionada: 'todas',
-    periodoInicio: '',
-    periodoFim: '',
-    statusOportunidade: 'todas'
+    periodoTipo: 'este-mes',
+    periodoInicio: periodoInicial.inicio,
+    periodoFim: periodoInicial.fim,
+    funilSelecionado: 'todos',
+    grupoSelecionado: 'todos'
   })
+  const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
+  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string }>>([])
   
   // Memoizar datas para evitar re-renders constantes
   const { mesAtual, anoAtual, diaAtual } = useMemo(() => {
@@ -198,12 +218,84 @@ export default function PainelPage() {
     return `há ${diffYears}ano${diffYears > 1 ? 's' : ''}`
   }, [])
 
+  // Função para calcular datas baseado no tipo de período
+  const calcularPeriodo = useCallback((tipo: string) => {
+    const hoje = new Date()
+    const inicio = new Date()
+    const fim = new Date()
+
+    switch (tipo) {
+      case 'este-mes':
+        inicio.setDate(1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'mes-passado':
+        inicio.setMonth(hoje.getMonth() - 1, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setDate(0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'esta-semana':
+        const diaSemana = hoje.getDay()
+        inicio.setDate(hoje.getDate() - diaSemana)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'semana-passada':
+        const diaSemanaAtual = hoje.getDay()
+        inicio.setDate(hoje.getDate() - diaSemanaAtual - 7)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setDate(hoje.getDate() - diaSemanaAtual - 1)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'este-ano':
+        inicio.setMonth(0, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'ano-anterior':
+        inicio.setFullYear(hoje.getFullYear() - 1, 0, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setFullYear(hoje.getFullYear() - 1, 11, 31)
+        fim.setHours(23, 59, 59, 999)
+        break
+      default:
+        return { inicio: '', fim: '' }
+    }
+
+    return {
+      inicio: inicio.toISOString().split('T')[0],
+      fim: fim.toISOString().split('T')[0]
+    }
+  }, [])
+
+  // Atualizar datas quando o tipo de período mudar
+  useEffect(() => {
+    if (filtros.periodoTipo !== 'personalizado') {
+      const { inicio, fim } = calcularPeriodo(filtros.periodoTipo)
+      setFiltros(prev => {
+        // Só atualiza se as datas forem diferentes para evitar loops
+        if (prev.periodoInicio !== inicio || prev.periodoFim !== fim) {
+          return {
+            ...prev,
+            periodoInicio: inicio,
+            periodoFim: fim
+          }
+        }
+        return prev
+      })
+    }
+  }, [filtros.periodoTipo, calcularPeriodo])
+
   // Verificar se há filtros ativos
   const filtrosAtivos = useMemo(() => {
     return filtros.unidadeSelecionada !== 'todas' ||
+           filtros.periodoTipo !== 'este-mes' ||
            filtros.periodoInicio !== '' ||
            filtros.periodoFim !== '' ||
-           filtros.statusOportunidade !== 'todas'
+           filtros.funilSelecionado !== 'todos' ||
+           filtros.grupoSelecionado !== 'todos'
   }, [filtros])
 
   // Memoizar fetch functions para evitar re-renders
@@ -408,12 +500,40 @@ export default function PainelPage() {
     }
   }, [])
 
+  const fetchFunis = useCallback(async () => {
+    try {
+      const response = await fetch('/api/funis')
+      const data = await response.json()
+      if (data.success && data.funis) {
+        setFunis(data.funis)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setFunis([])
+    }
+  }, [])
+
+  const fetchGrupos = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades/grupos')
+      const data = await response.json()
+      if (data.success && data.grupos) {
+        setGrupos(data.grupos)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setGrupos([])
+    }
+  }, [])
+
   useEffect(() => {
     fetchUnidades()
     fetchGraficos()
     fetchStats()
     fetchNotificacoes()
-  }, [fetchUnidades, fetchGraficos, fetchStats, fetchNotificacoes])
+    fetchFunis()
+    fetchGrupos()
+  }, [fetchUnidades, fetchGraficos, fetchStats, fetchNotificacoes, fetchFunis, fetchGrupos])
 
   // Atualizar notificações a cada 10 segundos
   useEffect(() => {
@@ -928,6 +1048,13 @@ export default function PainelPage() {
             if (filtros.unidadeSelecionada !== 'todas' && unidade.id !== parseInt(filtros.unidadeSelecionada)) {
               return false
             }
+            // Aplicar filtro de grupo
+            if (filtros.grupoSelecionado !== 'todos') {
+              const grupoId = parseInt(filtros.grupoSelecionado)
+              if (!unidade.grupo_id || unidade.grupo_id !== grupoId) {
+                return false
+              }
+            }
             return true
           })
           .sort((a, b) => b.valor_ganho - a.valor_ganho)
@@ -1009,7 +1136,7 @@ export default function PainelPage() {
       {/* Botão Flutuante de Filtros */}
       <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
         <DialogTrigger asChild>
-          <div className="fixed bottom-6 right-6 z-50">
+          <div className="fixed bottom-12 right-6 z-50">
             <Button
               className="h-14 w-14 rounded-full shadow-2xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-all duration-300 flex items-center justify-center group hover:scale-110 relative"
               size="icon"
@@ -1055,40 +1182,75 @@ export default function PainelPage() {
             {/* Filtro de Período */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-300">Período</label>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Data Início</label>
-                  <input
-                    type="date"
-                    value={filtros.periodoInicio}
-                    onChange={(e) => setFiltros({ ...filtros, periodoInicio: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Data Fim</label>
-                  <input
-                    type="date"
-                    value={filtros.periodoFim}
-                    onChange={(e) => setFiltros({ ...filtros, periodoFim: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Filtro de Status */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-300">Status das Oportunidades</label>
               <select
-                value={filtros.statusOportunidade}
-                onChange={(e) => setFiltros({ ...filtros, statusOportunidade: e.target.value })}
+                value={filtros.periodoTipo}
+                onChange={(e) => setFiltros({ ...filtros, periodoTipo: e.target.value })}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="todas">Todas</option>
-                <option value="abertas">Somente Abertas</option>
-                <option value="ganhas">Somente Ganhas</option>
-                <option value="perdidas">Somente Perdidas</option>
+                <option value="este-mes">Este Mês</option>
+                <option value="mes-passado">Mês Passado</option>
+                <option value="esta-semana">Esta Semana</option>
+                <option value="semana-passada">Semana Passada</option>
+                <option value="este-ano">Este Ano</option>
+                <option value="ano-anterior">Ano Anterior</option>
+                <option value="personalizado">Personalizado</option>
+              </select>
+              
+              {filtros.periodoTipo === 'personalizado' && (
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Data Início</label>
+                    <input
+                      type="date"
+                      value={filtros.periodoInicio}
+                      onChange={(e) => setFiltros({ ...filtros, periodoInicio: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Data Fim</label>
+                    <input
+                      type="date"
+                      value={filtros.periodoFim}
+                      onChange={(e) => setFiltros({ ...filtros, periodoFim: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Filtro de Funil */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-300">Funil</label>
+              <select
+                value={filtros.funilSelecionado}
+                onChange={(e) => setFiltros({ ...filtros, funilSelecionado: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="todos">Todos os Funis</option>
+                {funis.map(funil => (
+                  <option key={funil.id} value={funil.id}>
+                    {funil.funil_nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro de Grupos */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-300">Grupos</label>
+              <select
+                value={filtros.grupoSelecionado}
+                onChange={(e) => setFiltros({ ...filtros, grupoSelecionado: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="todos">Todos os Grupos</option>
+                {grupos.map(grupo => (
+                  <option key={grupo.id} value={grupo.id}>
+                    {grupo.nome}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -1100,9 +1262,11 @@ export default function PainelPage() {
               onClick={() => {
                 setFiltros({
                   unidadeSelecionada: 'todas',
+                  periodoTipo: 'este-mes',
                   periodoInicio: '',
                   periodoFim: '',
-                  statusOportunidade: 'todas'
+                  funilSelecionado: 'todos',
+                  grupoSelecionado: 'todos'
                 })
               }}
               className="flex-1 bg-gray-800 text-white border-gray-700 hover:bg-gray-700"

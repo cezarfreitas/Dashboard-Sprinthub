@@ -117,6 +117,10 @@ const menuItems = [
       {
         title: "Geral",
         href: "/configuracoes"
+      },
+      {
+        title: "API",
+        href: "/configuracoes/api"
       }
     ]
   }

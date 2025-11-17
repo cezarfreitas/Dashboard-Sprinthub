@@ -40,8 +40,6 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
       if (data.success) {
         // Login bem-sucedido
-        console.log('Login realizado com sucesso!', data)
-        
         if (onSuccess) {
           onSuccess()
         } else {

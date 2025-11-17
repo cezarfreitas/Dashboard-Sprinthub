@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Database } from 'lucide-react'
 import CronControls from '@/components/cron-controls'
@@ -25,10 +25,6 @@ export default function UnidadesPage() {
 
   const [editingUnidade, setEditingUnidade] = useState<Unidade | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [copiedId, setCopiedId] = useState<number | null>(null)
-  
-  // Ref to track timeout for cleanup
-  const copiedTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleManageQueue = useCallback((unidade: Unidade) => {
     setEditingUnidade(unidade)
@@ -38,29 +34,6 @@ export default function UnidadesPage() {
   const handleSaveFila = useCallback(async (unidadeId: number, fila: any[]) => {
     await updateUnidadeFila(unidadeId, fila)
   }, [updateUnidadeFila])
-
-  const handleCopyUrl = useCallback(async (unidadeId: number) => {
-    // Usar a URL atual da página (protocolo + host + porta)
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
-    const url = `${origin}/api/filav2?unidade=${unidadeId}&idlead={contactfield=id}`
-    
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopiedId(unidadeId)
-      
-      // Clear existing timeout
-      if (copiedTimeoutRef.current) {
-        clearTimeout(copiedTimeoutRef.current)
-      }
-      
-      // Set new timeout
-      copiedTimeoutRef.current = setTimeout(() => {
-        setCopiedId(null)
-      }, 2000)
-    } catch (err) {
-      // Silent fail - copy feature is not critical
-    }
-  }, [])
 
   const handleToggleStatus = useCallback(async (id: number, currentStatus: boolean) => {
     try {
@@ -73,15 +46,6 @@ export default function UnidadesPage() {
   const handleSyncComplete = useCallback(() => {
     refreshUnidades(false)
   }, [refreshUnidades])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (copiedTimeoutRef.current) {
-        clearTimeout(copiedTimeoutRef.current)
-      }
-    }
-  }, [])
 
   if (loading && unidades.length === 0 && !stats) {
     return (
@@ -166,8 +130,6 @@ export default function UnidadesPage() {
                 unidade={unidade}
                 onToggleStatus={handleToggleStatus}
                 onManageQueue={handleManageQueue}
-                onCopyUrl={handleCopyUrl}
-                copiedId={copiedId}
               />
             ))}
           </div>

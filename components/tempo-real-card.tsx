@@ -55,25 +55,20 @@ export default function TempoRealCard({
       }
       
       const url = params.toString() ? `${endpoint}?${params.toString()}` : endpoint
-      console.log(`[${title}] Fetching:`, url)
       
       const response = await fetch(url)
       
       if (!response.ok) {
-        console.error(`[${title}] API Error:`, response.status, response.statusText)
         throw new Error(`Erro ${response.status}: ${response.statusText}`)
       }
       
       const data = await response.json()
-      console.log(`[${title}] Response:`, data)
       
       const oportunidades = data.oportunidades || []
-      console.log(`[${title}] Count:`, oportunidades.length)
       
       setCount(oportunidades.length)
 
     } catch (err) {
-      console.error(`[${title}] Error:`, err)
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
       setLoading(false)

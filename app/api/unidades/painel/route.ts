@@ -19,13 +19,14 @@ export async function GET() {
     // Buscar todas as unidades ativas
     const unidades = await executeQuery(`
       SELECT 
-        id, 
-        COALESCE(nome, name) as nome, 
-        users
-      FROM unidades 
-      WHERE ativo = 1
-        AND (nome IS NOT NULL OR name IS NOT NULL)
-      ORDER BY COALESCE(nome, name)
+        u.id, 
+        COALESCE(u.nome, u.name) as nome, 
+        u.users,
+        u.grupo_id
+      FROM unidades u
+      WHERE u.ativo = 1
+        AND (u.nome IS NOT NULL OR u.name IS NOT NULL)
+      ORDER BY COALESCE(u.nome, u.name)
     `) as any[]
 
     // Buscar todos os vendedores uma vez
@@ -118,6 +119,7 @@ export async function GET() {
           id: unidade.id,
           nome: unidade.nome,
           nome_exibicao: unidade.nome,
+          grupo_id: unidade.grupo_id || null,
           oportunidades_abertas: 0,
           oportunidades_ganhas: 0,
           oportunidades_perdidas: 0,
@@ -147,6 +149,7 @@ export async function GET() {
         id: unidade.id,
         nome: unidade.nome,
         nome_exibicao: unidade.nome,
+        grupo_id: unidade.grupo_id || null,
         oportunidades_abertas: totalAbertas,
         oportunidades_ganhas: totalGanhas,
         oportunidades_perdidas: totalPerdidas,

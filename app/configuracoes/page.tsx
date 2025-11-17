@@ -58,8 +58,8 @@ export default function ConfiguracoesPage() {
       if (data.success) {
         setConfig(data.config)
       }
-    } catch (error) {
-      console.error('Erro ao carregar configurações:', error)
+    } catch {
+      // Erro ao carregar configurações
     } finally {
       setLoading(false)
     }

@@ -17,8 +17,6 @@ interface CongratulationsDialogProps {
 }
 
 export function CongratulationsDialog({ isOpen, onClose }: CongratulationsDialogProps) {
-  console.log('CongratulationsDialog renderizado, isOpen:', isOpen)
-  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
