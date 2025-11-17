@@ -49,9 +49,6 @@ export async function GET(request: NextRequest) {
       const dataInicioObj = new Date(dataInicio)
       mes = dataInicioObj.getMonth() + 1
       ano = dataInicioObj.getFullYear()
-      console.log('=== API gestor/stats - Período ===')
-      console.log('Data Início:', primeiraDataMes)
-      console.log('Data Fim:', ultimaDataMes)
     } else {
       // Fallback para mês atual
       const dataAtual = new Date()
@@ -59,9 +56,6 @@ export async function GET(request: NextRequest) {
       mes = dataAtual.getMonth() + 1
       primeiraDataMes = `${ano}-${String(mes).padStart(2, '0')}-01`
       ultimaDataMes = dataAtual.toISOString().split('T')[0]
-      console.log('=== API gestor/stats - Usando mês atual ===')
-      console.log('Data Início:', primeiraDataMes)
-      console.log('Data Fim:', ultimaDataMes)
     }
 
     // Buscar vendedores da unidade (exceto o gestor)
@@ -102,56 +96,120 @@ export async function GET(request: NextRequest) {
     }
 
     // Estatísticas gerais da equipe
-    console.log('Executando query stats com:', { primeiraDataMes, ultimaDataMes, vendedorIds })
-    const stats = await executeQuery(`
-      SELECT 
-        COUNT(*) as oportunidades_criadas,
-        SUM(CASE WHEN o.ganho = 1 THEN 1 ELSE 0 END) as oportunidades_ganhas,
-        SUM(CASE WHEN o.ganho = 1 THEN o.valor ELSE 0 END) as valor_ganho,
-        SUM(CASE WHEN o.perda = 1 THEN 1 ELSE 0 END) as oportunidades_perdidas,
-        SUM(CASE WHEN o.ganho = 0 AND o.perda = 0 THEN 1 ELSE 0 END) as oportunidades_abertas
+    // Contar criadas (baseado em createDate)
+    const criadas = await executeQuery(`
+      SELECT COUNT(*) as total
       FROM oportunidades o
-      WHERE o.vendedor_id IN (${vendedorIds.join(',')})
-        AND DATE(o.created_date) >= DATE(?)
-        AND DATE(o.created_date) <= DATE(?)
+      WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
+        AND DATE(o.createDate) >= DATE(?)
+        AND DATE(o.createDate) <= DATE(?)
     `, [primeiraDataMes, ultimaDataMes]) as any[]
-    console.log('Resultado stats:', stats)
+    
+    // Contar ganhas (baseado em gain_date)
+    const ganhas = await executeQuery(`
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(SUM(o.value), 0) as valor
+      FROM oportunidades o
+      WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
+        AND o.status = 'gain'
+        AND DATE(o.gain_date) >= DATE(?)
+        AND DATE(o.gain_date) <= DATE(?)
+    `, [primeiraDataMes, ultimaDataMes]) as any[]
+    
+    // Contar perdidas (baseado em lost_date)
+    const perdidas = await executeQuery(`
+      SELECT COUNT(*) as total
+      FROM oportunidades o
+      WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
+        AND o.status = 'lost'
+        AND DATE(o.lost_date) >= DATE(?)
+        AND DATE(o.lost_date) <= DATE(?)
+    `, [primeiraDataMes, ultimaDataMes]) as any[]
+    
+    // Contar abertas (criadas no período e ainda abertas)
+    const abertas = await executeQuery(`
+      SELECT COUNT(*) as total
+      FROM oportunidades o
+      WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
+        AND o.status IN ('open', 'aberta', 'active')
+        AND DATE(o.createDate) >= DATE(?)
+        AND DATE(o.createDate) <= DATE(?)
+    `, [primeiraDataMes, ultimaDataMes]) as any[]
+    
+    const stats = [{
+      oportunidades_criadas: criadas[0]?.total || 0,
+      oportunidades_ganhas: ganhas[0]?.total || 0,
+      valor_ganho: ganhas[0]?.valor || 0,
+      oportunidades_perdidas: perdidas[0]?.total || 0,
+      oportunidades_abertas: abertas[0]?.total || 0
+    }]
 
     // Estatísticas por vendedor
     const vendedoresStats = await Promise.all(
       vendedores.map(async (vendedor) => {
-        const vendedorStats = await executeQuery(`
-          SELECT 
-            COUNT(*) as oportunidades_criadas,
-            SUM(CASE WHEN o.ganho = 1 THEN 1 ELSE 0 END) as oportunidades_ganhas,
-            SUM(CASE WHEN o.ganho = 1 THEN o.valor ELSE 0 END) as valor_ganho,
-            SUM(CASE WHEN o.perda = 1 THEN 1 ELSE 0 END) as oportunidades_perdidas,
-            SUM(CASE WHEN o.ganho = 0 AND o.perda = 0 THEN 1 ELSE 0 END) as oportunidades_abertas
+        // Criadas (baseado em createDate)
+        const criadasVendedor = await executeQuery(`
+          SELECT COUNT(*) as total
           FROM oportunidades o
-          WHERE o.vendedor_id = ?
-            AND DATE(o.created_date) >= DATE(?)
-            AND DATE(o.created_date) <= DATE(?)
+          WHERE o.user = ?
+            AND DATE(o.createDate) >= DATE(?)
+            AND DATE(o.createDate) <= DATE(?)
+        `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
+        
+        // Ganhas (baseado em gain_date)
+        const ganhasVendedor = await executeQuery(`
+          SELECT 
+            COUNT(*) as total,
+            COALESCE(SUM(o.value), 0) as valor
+          FROM oportunidades o
+          WHERE o.user = ?
+            AND o.status = 'gain'
+            AND DATE(o.gain_date) >= DATE(?)
+            AND DATE(o.gain_date) <= DATE(?)
+        `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
+        
+        // Perdidas (baseado em lost_date)
+        const perdidasVendedor = await executeQuery(`
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.user = ?
+            AND o.status = 'lost'
+            AND DATE(o.lost_date) >= DATE(?)
+            AND DATE(o.lost_date) <= DATE(?)
+        `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
+        
+        // Abertas (criadas no período e ainda abertas)
+        const abertasVendedor = await executeQuery(`
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.user = ?
+            AND o.status IN ('open', 'aberta', 'active')
+            AND DATE(o.createDate) >= DATE(?)
+            AND DATE(o.createDate) <= DATE(?)
         `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
 
         // Buscar meta do vendedor
         const meta = await executeQuery(`
-          SELECT valor_meta
-          FROM vendedores_metas
+          SELECT COALESCE(meta_valor, 0) as meta
+          FROM metas_mensais
           WHERE vendedor_id = ?
+            AND unidade_id = ?
             AND mes = ?
             AND ano = ?
-        `, [vendedor.id, mes, ano]) as any[]
+            AND status = 'ativa'
+        `, [vendedor.id, unidadeId, mes, ano]) as any[]
 
         return {
           id: vendedor.id,
           name: vendedor.name,
           lastName: vendedor.lastName,
-          oportunidades_criadas: vendedorStats[0].oportunidades_criadas || 0,
-          oportunidades_ganhas: vendedorStats[0].oportunidades_ganhas || 0,
-          valor_ganho: parseFloat(vendedorStats[0].valor_ganho) || 0,
-          oportunidades_perdidas: vendedorStats[0].oportunidades_perdidas || 0,
-          oportunidades_abertas: vendedorStats[0].oportunidades_abertas || 0,
-          meta: meta.length > 0 ? parseFloat(meta[0].valor_meta) : 0
+          oportunidades_criadas: criadasVendedor[0]?.total || 0,
+          oportunidades_ganhas: ganhasVendedor[0]?.total || 0,
+          valor_ganho: parseFloat(ganhasVendedor[0]?.valor) || 0,
+          oportunidades_perdidas: perdidasVendedor[0]?.total || 0,
+          oportunidades_abertas: abertasVendedor[0]?.total || 0,
+          meta: meta[0]?.meta || 0
         }
       })
     )
@@ -162,20 +220,19 @@ export async function GET(request: NextRequest) {
     // Buscar distribuição por etapas do funil
     const etapasFunil = await executeQuery(`
       SELECT 
-        c.id,
-        c.nome_coluna,
-        c.sequencia,
+        cf.id,
+        cf.nome as nome_coluna,
+        cf.ordem as sequencia,
         COUNT(DISTINCT o.id) as total_oportunidades,
-        SUM(o.valor) as valor_total
+        COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
-      JOIN colunas c ON o.coluna_id = c.id
-      WHERE o.vendedor_id IN (${vendedorIds.join(',')})
-        AND DATE(o.created_date) >= DATE(?)
-        AND DATE(o.created_date) <= DATE(?)
-        AND o.ganho = 0
-        AND o.perda = 0
-      GROUP BY c.id, c.nome_coluna, c.sequencia
-      ORDER BY c.sequencia
+      JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
+      WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
+        AND DATE(o.createDate) >= DATE(?)
+        AND DATE(o.createDate) <= DATE(?)
+        AND o.status IN ('open', 'aberta', 'active')
+      GROUP BY cf.id, cf.nome, cf.ordem
+      ORDER BY cf.ordem
     `, [primeiraDataMes, ultimaDataMes]) as any[]
 
     return NextResponse.json({

@@ -222,7 +222,27 @@ export async function syncOportunidades(): Promise<{
                   const leadId = opp.lead_id || null
                   const sequence = opp.sequence !== undefined ? opp.sequence : null
                   const status = opp.status || null
-                  const lossReason = opp.loss_reason || null
+                  // Extrair apenas o ID se loss_reason for um objeto, senão usar o valor direto
+                  // Remover "Motivo " se estiver presente
+                  let lossReason: string | number | null = null
+                  if (opp.loss_reason) {
+                    if (typeof opp.loss_reason === 'object' && opp.loss_reason.id) {
+                      // Se for objeto, pegar apenas o ID
+                      lossReason = String(opp.loss_reason.id)
+                    } else if (typeof opp.loss_reason === 'string' || typeof opp.loss_reason === 'number') {
+                      // Se for string ou número, remover "Motivo " se estiver presente
+                      let value = String(opp.loss_reason).trim()
+                      if (value.startsWith('Motivo ')) {
+                        value = value.replace(/^Motivo\s+/, '')
+                      }
+                      // Garantir que seja apenas número
+                      if (/^\d+$/.test(value)) {
+                        lossReason = value
+                      } else {
+                        lossReason = null
+                      }
+                    }
+                  }
                   const gainReason = opp.gain_reason || null
                   const expectedCloseDate = opp.expectedCloseDate ? opp.expectedCloseDate.split('T')[0] : null
                   const saleChannel = opp.sale_channel || null

@@ -17,10 +17,28 @@ function parseJSON(value: any): any[] {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const mes = parseInt(searchParams.get('mes') || new Date().getMonth() + 1 as any)
-    const ano = parseInt(searchParams.get('ano') || new Date().getFullYear() as any)
+    const mes = searchParams.get('mes') ? parseInt(searchParams.get('mes')!) : null
+    const ano = searchParams.get('ano') ? parseInt(searchParams.get('ano')!) : null
+    const dataInicio = searchParams.get('dataInicio')
+    const dataFim = searchParams.get('dataFim')
     const vendedorId = searchParams.get('vendedorId')
     const unidadeId = searchParams.get('unidadeId')
+
+    // Determinar mes/ano para compatibilidade com código existente e para buscar meta
+    let mesFinal = mes
+    let anoFinal = ano
+    if (!mesFinal || !anoFinal) {
+      if (dataInicio) {
+        // Se tiver dataInicio, usar o mês/ano da data de início
+        const dataInicioObj = new Date(dataInicio + ' 00:00:00')
+        mesFinal = dataInicioObj.getMonth() + 1
+        anoFinal = dataInicioObj.getFullYear()
+      } else {
+        const hoje = new Date()
+        mesFinal = mesFinal || hoje.getMonth() + 1
+        anoFinal = anoFinal || hoje.getFullYear()
+      }
+    }
 
     // Buscar todas as unidades ativas
     let queryUnidades = `
@@ -63,54 +81,115 @@ export async function GET(request: NextRequest) {
         .map((id: number) => vendedoresMap.get(id))
         .filter(v => v !== undefined)
       
-      // Adicionar o gestor se não estiver na lista de vendedores
+      // Separar vendedores do gestor
+      const vendedoresSemGestor = vendedoresUnidade.filter(v => v.id !== unidade.user_gestao)
+      
+      // Adicionar o gestor se não estiver na lista de vendedores (para estatísticas, mas não conta no total)
+      let vendedoresComGestor = [...vendedoresSemGestor]
       if (unidade.user_gestao && !userIds.includes(unidade.user_gestao)) {
         const gestor = vendedoresMap.get(unidade.user_gestao)
         if (gestor) {
-          vendedoresUnidade.push(gestor)
+          vendedoresComGestor.push(gestor)
         }
       }
       
-      // Buscar estatísticas de cada vendedor da unidade
-      const matrizVendedores = await Promise.all(vendedoresUnidade.map(async (vendedor: any) => {
+      // Construir filtro de data
+      let dataFilter = ''
+      let dataParams: any[] = []
+      
+      if (dataInicio && dataFim) {
+        dataFilter = ' AND o.createDate >= ? AND o.createDate <= ?'
+        dataParams = [dataInicio + ' 00:00:00', dataFim + ' 23:59:59']
+      } else {
+        dataFilter = ' AND MONTH(o.createDate) = ? AND YEAR(o.createDate) = ?'
+        dataParams = [mesFinal, anoFinal]
+      }
+
+      // Buscar estatísticas de cada vendedor da unidade (incluindo gestor para estatísticas)
+      const matrizVendedores = await Promise.all(vendedoresComGestor.map(async (vendedor: any) => {
         // Oportunidades criadas
         const criadas = await executeQuery(`
           SELECT COUNT(*) as total
-          FROM oportunidades
-          WHERE user = ?
-            AND MONTH(createDate) = ?
-            AND YEAR(createDate) = ?
-        `, [vendedor.id, mes, ano]) as any[]
+          FROM oportunidades o
+          WHERE o.user = ?
+            ${dataFilter}
+        `, [vendedor.id, ...dataParams]) as any[]
 
-        // Oportunidades ganhas
-        const ganhas = await executeQuery(`
-          SELECT 
-            COUNT(*) as total,
-            COALESCE(SUM(value), 0) as valor
-          FROM oportunidades
-          WHERE user = ?
-            AND status = 'gain'
-            AND MONTH(gain_date) = ?
-            AND YEAR(gain_date) = ?
-        `, [vendedor.id, mes, ano]) as any[]
+        // Oportunidades ganhas (baseado em gain_date - quando foi ganha)
+        let ganhasQuery = ''
+        let ganhasParams: any[] = [vendedor.id]
+        if (dataInicio && dataFim) {
+          ganhasQuery = `
+            SELECT 
+              COUNT(*) as total,
+              COALESCE(SUM(value), 0) as valor
+            FROM oportunidades o
+            WHERE o.user = ?
+              AND o.status = 'gain'
+              AND o.gain_date >= ? AND o.gain_date <= ?
+          `
+          ganhasParams = [vendedor.id, dataInicio + ' 00:00:00', dataFim + ' 23:59:59']
+        } else {
+          ganhasQuery = `
+            SELECT 
+              COUNT(*) as total,
+              COALESCE(SUM(value), 0) as valor
+            FROM oportunidades o
+            WHERE o.user = ?
+              AND o.status = 'gain'
+              AND MONTH(o.gain_date) = ? AND YEAR(o.gain_date) = ?
+          `
+          ganhasParams = [vendedor.id, mesFinal, anoFinal]
+        }
+        const ganhas = await executeQuery(ganhasQuery, ganhasParams) as any[]
 
-        // Oportunidades perdidas
-        const perdidas = await executeQuery(`
-          SELECT COUNT(*) as total
-          FROM oportunidades
-          WHERE user = ?
-            AND status = 'lost'
-            AND MONTH(lost_date) = ?
-            AND YEAR(lost_date) = ?
-        `, [vendedor.id, mes, ano]) as any[]
+        // Oportunidades perdidas (baseado em lost_date - quando foi perdida)
+        let perdidasQuery = ''
+        let perdidasParams: any[] = [vendedor.id]
+        if (dataInicio && dataFim) {
+          perdidasQuery = `
+            SELECT COUNT(*) as total
+            FROM oportunidades o
+            WHERE o.user = ?
+              AND o.status = 'lost'
+              AND o.lost_date >= ? AND o.lost_date <= ?
+          `
+          perdidasParams = [vendedor.id, dataInicio + ' 00:00:00', dataFim + ' 23:59:59']
+        } else {
+          perdidasQuery = `
+            SELECT COUNT(*) as total
+            FROM oportunidades o
+            WHERE o.user = ?
+              AND o.status = 'lost'
+              AND MONTH(o.lost_date) = ? AND YEAR(o.lost_date) = ?
+          `
+          perdidasParams = [vendedor.id, mesFinal, anoFinal]
+        }
+        const perdidas = await executeQuery(perdidasQuery, perdidasParams) as any[]
 
-        // Oportunidades abertas
-        const abertas = await executeQuery(`
-          SELECT COUNT(*) as total
-          FROM oportunidades
-          WHERE user = ?
-            AND status IN ('open', 'aberta', 'active')
-        `, [vendedor.id]) as any[]
+        // Oportunidades abertas (criadas no período e ainda abertas)
+        let abertasQuery = ''
+        let abertasParams: any[] = [vendedor.id]
+        if (dataInicio && dataFim) {
+          abertasQuery = `
+            SELECT COUNT(*) as total
+            FROM oportunidades o
+            WHERE o.user = ?
+              AND o.status IN ('open', 'aberta', 'active')
+              AND o.createDate >= ? AND o.createDate <= ?
+          `
+          abertasParams = [vendedor.id, dataInicio + ' 00:00:00', dataFim + ' 23:59:59']
+        } else {
+          abertasQuery = `
+            SELECT COUNT(*) as total
+            FROM oportunidades o
+            WHERE o.user = ?
+              AND o.status IN ('open', 'aberta', 'active')
+              AND MONTH(o.createDate) = ? AND YEAR(o.createDate) = ?
+          `
+          abertasParams = [vendedor.id, mesFinal, anoFinal]
+        }
+        const abertas = await executeQuery(abertasQuery, abertasParams) as any[]
 
         // Meta do vendedor
         const metaResult = await executeQuery(`
@@ -121,19 +200,36 @@ export async function GET(request: NextRequest) {
             AND mes = ?
             AND ano = ?
             AND status = 'ativa'
-        `, [vendedor.id, unidade.id, mes, ano]) as any[]
+        `, [vendedor.id, unidade.id, mesFinal, anoFinal]) as any[]
 
         // Tempo médio de fechamento (Won Time) - diferença entre createDate e gain_date
-        const wonTimeResult = await executeQuery(`
-          SELECT AVG(DATEDIFF(gain_date, createDate)) as tempo_medio_dias
-          FROM oportunidades
-          WHERE user = ?
-            AND status = 'gain'
-            AND MONTH(gain_date) = ?
-            AND YEAR(gain_date) = ?
-            AND gain_date IS NOT NULL
-            AND createDate IS NOT NULL
-        `, [vendedor.id, mes, ano]) as any[]
+        // Baseado em gain_date para pegar vendas concluídas no período
+        let wonTimeQuery = ''
+        let wonTimeParams: any[] = [vendedor.id]
+        if (dataInicio && dataFim) {
+          wonTimeQuery = `
+            SELECT AVG(DATEDIFF(gain_date, createDate)) as tempo_medio_dias
+            FROM oportunidades o
+            WHERE o.user = ?
+              AND o.status = 'gain'
+              AND o.gain_date >= ? AND o.gain_date <= ?
+              AND o.gain_date IS NOT NULL
+              AND o.createDate IS NOT NULL
+          `
+          wonTimeParams = [vendedor.id, dataInicio + ' 00:00:00', dataFim + ' 23:59:59']
+        } else {
+          wonTimeQuery = `
+            SELECT AVG(DATEDIFF(gain_date, createDate)) as tempo_medio_dias
+            FROM oportunidades o
+            WHERE o.user = ?
+              AND o.status = 'gain'
+              AND MONTH(o.gain_date) = ? AND YEAR(o.gain_date) = ?
+              AND o.gain_date IS NOT NULL
+              AND o.createDate IS NOT NULL
+          `
+          wonTimeParams = [vendedor.id, mesFinal, anoFinal]
+        }
+        const wonTimeResult = await executeQuery(wonTimeQuery, wonTimeParams) as any[]
 
         return {
           id: vendedor.id,
@@ -221,44 +317,294 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Oportunidades criadas no mês
+      // Construir filtro de data para queries agregadas
+      let dataFilterAgregado = ''
+      let dataParamsAgregado: any[] = []
+      
+      if (dataInicio && dataFim) {
+        dataFilterAgregado = ' AND o.createDate >= ? AND o.createDate <= ?'
+        dataParamsAgregado = [dataInicio + ' 00:00:00', dataFim + ' 23:59:59']
+      } else {
+        dataFilterAgregado = ' AND MONTH(o.createDate) = ? AND YEAR(o.createDate) = ?'
+        dataParamsAgregado = [mesFinal, anoFinal]
+      }
+
+      // Oportunidades criadas no período
       const oportunidadesCriadas = await executeQuery(`
         SELECT COUNT(*) as total
         FROM oportunidades o
-        WHERE MONTH(o.createDate) = ? 
-          AND YEAR(o.createDate) = ?
+        WHERE 1=1
+          ${dataFilterAgregado}
           ${vendedorFilter}
-      `, [mes, ano, ...vendedorParams]) as any[]
+      `, [...dataParamsAgregado, ...vendedorParams]) as any[]
 
-      // Oportunidades ganhas no mês
-      const oportunidadesGanhas = await executeQuery(`
-        SELECT 
-          COUNT(*) as total, 
-          COALESCE(SUM(o.value), 0) as valor_total
-        FROM oportunidades o
-        WHERE o.status = 'gain'
-          AND MONTH(o.gain_date) = ? 
-          AND YEAR(o.gain_date) = ?
-          ${vendedorFilter}
-      `, [mes, ano, ...vendedorParams]) as any[]
+      // Oportunidades criadas no mesmo período do mês anterior (para comparação)
+      let oportunidadesCriadasMesAnteriorQuery = ''
+      let oportunidadesCriadasMesAnteriorParams: any[] = []
+      if (dataInicio && dataFim) {
+        // Calcular período anterior (mesmo número de dias)
+        const dataInicioObj = new Date(dataInicio + ' 00:00:00')
+        const dataFimObj = new Date(dataFim + ' 23:59:59')
+        const diasDiferenca = Math.ceil((dataFimObj.getTime() - dataInicioObj.getTime()) / (1000 * 60 * 60 * 24))
+        
+        const dataInicioAnterior = new Date(dataInicioObj)
+        dataInicioAnterior.setMonth(dataInicioAnterior.getMonth() - 1)
+        const dataFimAnterior = new Date(dataInicioAnterior)
+        dataFimAnterior.setDate(dataFimAnterior.getDate() + diasDiferenca)
+        
+        const formatarData = (data: Date) => {
+          const ano = data.getFullYear()
+          const mes = String(data.getMonth() + 1).padStart(2, '0')
+          const dia = String(data.getDate()).padStart(2, '0')
+          return `${ano}-${mes}-${dia}`
+        }
+        
+        oportunidadesCriadasMesAnteriorQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.createDate >= ? AND o.createDate <= ?
+            ${vendedorFilter}
+        `
+        oportunidadesCriadasMesAnteriorParams = [formatarData(dataInicioAnterior) + ' 00:00:00', formatarData(dataFimAnterior) + ' 23:59:59', ...vendedorParams]
+      } else {
+        // Para mês/ano, buscar mês anterior
+        const mesAnterior = mesFinal === 1 ? 12 : mesFinal - 1
+        const anoAnterior = mesFinal === 1 ? anoFinal - 1 : anoFinal
+        
+        oportunidadesCriadasMesAnteriorQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE MONTH(o.createDate) = ? AND YEAR(o.createDate) = ?
+            ${vendedorFilter}
+        `
+        oportunidadesCriadasMesAnteriorParams = [mesAnterior, anoAnterior, ...vendedorParams]
+      }
+      const oportunidadesCriadasMesAnterior = await executeQuery(oportunidadesCriadasMesAnteriorQuery, oportunidadesCriadasMesAnteriorParams) as any[]
+      
+      // Calcular percentual de crescimento
+      const totalCriadas = Number(oportunidadesCriadas[0]?.total) || 0
+      const totalCriadasAnterior = Number(oportunidadesCriadasMesAnterior[0]?.total) || 0
+      let crescimentoPercentual = 0
+      if (totalCriadasAnterior > 0) {
+        crescimentoPercentual = ((totalCriadas - totalCriadasAnterior) / totalCriadasAnterior) * 100
+      } else if (totalCriadas > 0) {
+        crescimentoPercentual = 100
+      }
+      if (isNaN(crescimentoPercentual)) crescimentoPercentual = 0
 
-      // Oportunidades perdidas no mês
-      const oportunidadesPerdidas = await executeQuery(`
-        SELECT COUNT(*) as total
-        FROM oportunidades o
-        WHERE o.status = 'lost'
-          AND MONTH(o.lost_date) = ? 
-          AND YEAR(o.lost_date) = ?
-          ${vendedorFilter}
-      `, [mes, ano, ...vendedorParams]) as any[]
+      // Oportunidades ganhas no período atual (baseado em gain_date)
+      let ganhasNoPeriodoQuery = ''
+      let ganhasNoPeriodoParams: any[] = []
+      if (dataInicio && dataFim) {
+        ganhasNoPeriodoQuery = `
+          SELECT 
+            COUNT(*) as total, 
+            COALESCE(SUM(o.value), 0) as valor_total
+          FROM oportunidades o
+          WHERE o.status = 'gain'
+            AND o.gain_date >= ? AND o.gain_date <= ?
+            ${vendedorFilter}
+        `
+        ganhasNoPeriodoParams = [dataInicio + ' 00:00:00', dataFim + ' 23:59:59', ...vendedorParams]
+      } else {
+        ganhasNoPeriodoQuery = `
+          SELECT 
+            COUNT(*) as total, 
+            COALESCE(SUM(o.value), 0) as valor_total
+          FROM oportunidades o
+          WHERE o.status = 'gain'
+            AND MONTH(o.gain_date) = ? AND YEAR(o.gain_date) = ?
+            ${vendedorFilter}
+        `
+        ganhasNoPeriodoParams = [mesFinal, anoFinal, ...vendedorParams]
+      }
+      const ganhasNoPeriodo = await executeQuery(ganhasNoPeriodoQuery, ganhasNoPeriodoParams) as any[]
 
-      // Oportunidades abertas (sem data específica)
-      const oportunidadesAbertas = await executeQuery(`
-        SELECT COUNT(*) as total
-        FROM oportunidades o
-        WHERE o.status IN ('open', 'aberta', 'active')
-          ${vendedorFilter}
-      `, vendedorParams) as any[]
+      // Oportunidades ganhas no período anterior (para comparação)
+      let ganhasPeriodoAnteriorQuery = ''
+      let ganhasPeriodoAnteriorParams: any[] = []
+      if (dataInicio && dataFim) {
+        const dataInicioObj = new Date(dataInicio + ' 00:00:00')
+        const dataFimObj = new Date(dataFim + ' 23:59:59')
+        const diasDiferenca = Math.ceil((dataFimObj.getTime() - dataInicioObj.getTime()) / (1000 * 60 * 60 * 24))
+        
+        const dataInicioAnterior = new Date(dataInicioObj)
+        dataInicioAnterior.setMonth(dataInicioAnterior.getMonth() - 1)
+        const dataFimAnterior = new Date(dataInicioAnterior)
+        dataFimAnterior.setDate(dataFimAnterior.getDate() + diasDiferenca)
+        
+        const formatarData = (data: Date) => {
+          const ano = data.getFullYear()
+          const mes = String(data.getMonth() + 1).padStart(2, '0')
+          const dia = String(data.getDate()).padStart(2, '0')
+          return `${ano}-${mes}-${dia}`
+        }
+        
+        ganhasPeriodoAnteriorQuery = `
+          SELECT 
+            COUNT(*) as total,
+            COALESCE(SUM(o.value), 0) as valor_total
+          FROM oportunidades o
+          WHERE o.status = 'gain'
+            AND o.gain_date >= ? AND o.gain_date <= ?
+            ${vendedorFilter}
+        `
+        ganhasPeriodoAnteriorParams = [formatarData(dataInicioAnterior) + ' 00:00:00', formatarData(dataFimAnterior) + ' 23:59:59', ...vendedorParams]
+      } else {
+        const mesAnterior = mesFinal === 1 ? 12 : mesFinal - 1
+        const anoAnterior = mesFinal === 1 ? anoFinal - 1 : anoFinal
+        
+        ganhasPeriodoAnteriorQuery = `
+          SELECT 
+            COUNT(*) as total,
+            COALESCE(SUM(o.value), 0) as valor_total
+          FROM oportunidades o
+          WHERE o.status = 'gain'
+            AND MONTH(o.gain_date) = ? AND YEAR(o.gain_date) = ?
+            ${vendedorFilter}
+        `
+        ganhasPeriodoAnteriorParams = [mesAnterior, anoAnterior, ...vendedorParams]
+      }
+      const ganhasPeriodoAnterior = await executeQuery(ganhasPeriodoAnteriorQuery, ganhasPeriodoAnteriorParams) as any[]
+
+      // Total de ganhas (baseado em gain_date)
+      const totalGanhas = Number(ganhasNoPeriodo[0]?.total || 0)
+      const valorTotalGanhas = Number(ganhasNoPeriodo[0]?.valor_total || 0)
+      const totalGanhasAnterior = Number(ganhasPeriodoAnterior[0]?.total || 0)
+      
+      const oportunidadesGanhas = [{
+        total: totalGanhas,
+        valor_total: isNaN(valorTotalGanhas) ? 0 : valorTotalGanhas
+      }]
+
+      // Oportunidades perdidas no período atual (baseado em lost_date)
+      let perdidasNoPeriodoQuery = ''
+      let perdidasNoPeriodoParams: any[] = []
+      if (dataInicio && dataFim) {
+        perdidasNoPeriodoQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.status = 'lost'
+            AND o.lost_date >= ? AND o.lost_date <= ?
+            ${vendedorFilter}
+        `
+        perdidasNoPeriodoParams = [dataInicio + ' 00:00:00', dataFim + ' 23:59:59', ...vendedorParams]
+      } else {
+        perdidasNoPeriodoQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.status = 'lost'
+            AND MONTH(o.lost_date) = ? AND YEAR(o.lost_date) = ?
+            ${vendedorFilter}
+        `
+        perdidasNoPeriodoParams = [mesFinal, anoFinal, ...vendedorParams]
+      }
+      const perdidasNoPeriodo = await executeQuery(perdidasNoPeriodoQuery, perdidasNoPeriodoParams) as any[]
+
+      // Oportunidades perdidas no período anterior (para comparação)
+      let perdidasPeriodoAnteriorQuery = ''
+      let perdidasPeriodoAnteriorParams: any[] = []
+      if (dataInicio && dataFim) {
+        const dataInicioObj = new Date(dataInicio + ' 00:00:00')
+        const dataFimObj = new Date(dataFim + ' 23:59:59')
+        const diasDiferenca = Math.ceil((dataFimObj.getTime() - dataInicioObj.getTime()) / (1000 * 60 * 60 * 24))
+        
+        const dataInicioAnterior = new Date(dataInicioObj)
+        dataInicioAnterior.setMonth(dataInicioAnterior.getMonth() - 1)
+        const dataFimAnterior = new Date(dataInicioAnterior)
+        dataFimAnterior.setDate(dataFimAnterior.getDate() + diasDiferenca)
+        
+        const formatarData = (data: Date) => {
+          const ano = data.getFullYear()
+          const mes = String(data.getMonth() + 1).padStart(2, '0')
+          const dia = String(data.getDate()).padStart(2, '0')
+          return `${ano}-${mes}-${dia}`
+        }
+        
+        perdidasPeriodoAnteriorQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.status = 'lost'
+            AND o.lost_date >= ? AND o.lost_date <= ?
+            ${vendedorFilter}
+        `
+        perdidasPeriodoAnteriorParams = [formatarData(dataInicioAnterior) + ' 00:00:00', formatarData(dataFimAnterior) + ' 23:59:59', ...vendedorParams]
+      } else {
+        const mesAnterior = mesFinal === 1 ? 12 : mesFinal - 1
+        const anoAnterior = mesFinal === 1 ? anoFinal - 1 : anoFinal
+        
+        perdidasPeriodoAnteriorQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.status = 'lost'
+            AND MONTH(o.lost_date) = ? AND YEAR(o.lost_date) = ?
+            ${vendedorFilter}
+        `
+        perdidasPeriodoAnteriorParams = [mesAnterior, anoAnterior, ...vendedorParams]
+      }
+      const perdidasPeriodoAnterior = await executeQuery(perdidasPeriodoAnteriorQuery, perdidasPeriodoAnteriorParams) as any[]
+
+      // Total de perdidas (baseado em lost_date)
+      const totalPerdidas = Number(perdidasNoPeriodo[0]?.total || 0)
+      const totalPerdidasAnterior = Number(perdidasPeriodoAnterior[0]?.total || 0)
+      
+      const oportunidadesPerdidas = [{
+        total: totalPerdidas
+      }]
+
+      // Oportunidades abertas criadas no período atual
+      let abertasCriadasNoPeriodoQuery = ''
+      let abertasCriadasNoPeriodoParams: any[] = []
+      if (dataInicio && dataFim) {
+        abertasCriadasNoPeriodoQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.status IN ('open', 'aberta', 'active')
+            AND o.createDate >= ? AND o.createDate <= ?
+            ${vendedorFilter}
+        `
+        abertasCriadasNoPeriodoParams = [dataInicio + ' 00:00:00', dataFim + ' 23:59:59', ...vendedorParams]
+      } else {
+        abertasCriadasNoPeriodoQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.status IN ('open', 'aberta', 'active')
+            AND MONTH(o.createDate) = ? AND YEAR(o.createDate) = ?
+            ${vendedorFilter}
+        `
+        abertasCriadasNoPeriodoParams = [mesFinal, anoFinal, ...vendedorParams]
+      }
+      const abertasCriadasNoPeriodo = await executeQuery(abertasCriadasNoPeriodoQuery, abertasCriadasNoPeriodoParams) as any[]
+
+      // Oportunidades abertas criadas em período anterior (ainda abertas)
+      let abertasCriadasPeriodoAnteriorQuery = ''
+      let abertasCriadasPeriodoAnteriorParams: any[] = []
+      if (dataInicio && dataFim) {
+        abertasCriadasPeriodoAnteriorQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.status IN ('open', 'aberta', 'active')
+            AND o.createDate < ?
+            ${vendedorFilter}
+        `
+        abertasCriadasPeriodoAnteriorParams = [dataInicio + ' 00:00:00', ...vendedorParams]
+      } else {
+        const primeiroDiaMes = new Date(anoFinal, mesFinal - 1, 1)
+        abertasCriadasPeriodoAnteriorQuery = `
+          SELECT COUNT(*) as total
+          FROM oportunidades o
+          WHERE o.status IN ('open', 'aberta', 'active')
+            AND o.createDate < ?
+            ${vendedorFilter}
+        `
+        abertasCriadasPeriodoAnteriorParams = [primeiroDiaMes.toISOString().split('T')[0] + ' 00:00:00', ...vendedorParams]
+      }
+      const abertasCriadasPeriodoAnterior = await executeQuery(abertasCriadasPeriodoAnteriorQuery, abertasCriadasPeriodoAnteriorParams) as any[]
+
+      // Total de abertas (para compatibilidade)
+      const oportunidadesAbertas = [{
+        total: (abertasCriadasNoPeriodo[0]?.total || 0) + (abertasCriadasPeriodoAnterior[0]?.total || 0)
+      }]
 
       // Meta da unidade para o mês
       const metaUnidade = await executeQuery(`
@@ -268,7 +614,7 @@ export async function GET(request: NextRequest) {
           AND mes = ? 
           AND ano = ? 
           AND status = 'ativa'
-      `, [unidade.id, mes, ano]) as any[]
+      `, [unidade.id, mesFinal, anoFinal]) as any[]
 
       // Comparação mockada (será implementada com dados reais depois)
       const comparacaoMesAnterior = Math.random() * 100 - 30 // Entre -30% e +70%
@@ -277,15 +623,23 @@ export async function GET(request: NextRequest) {
       return {
         id: unidade.id,
         nome: unidade.nome,
-        total_vendedores: vendedoresUnidade.length,
+        total_vendedores: vendedoresSemGestor.length,
         vendedores_na_fila: vendedoresNaFila,
         nome_gestor: nomeGestor,
         oportunidades_criadas: oportunidadesCriadas[0]?.total || 0,
-        oportunidades_ganhas: oportunidadesGanhas[0]?.total || 0,
-        valor_ganho: oportunidadesGanhas[0]?.valor_total || 0,
+        oportunidades_criadas_mes_anterior: oportunidadesCriadasMesAnterior[0]?.total || 0,
+        crescimento_criadas_percentual: Number(crescimentoPercentual) || 0,
+        oportunidades_ganhas: Number(oportunidadesGanhas[0]?.total) || 0,
+        valor_ganho: Number(oportunidadesGanhas[0]?.valor_total) || 0,
+        ganhas_criadas_no_periodo: totalGanhas, // Atual
+        ganhas_criadas_periodo_anterior: totalGanhasAnterior, // Anterior
         oportunidades_perdidas: oportunidadesPerdidas[0]?.total || 0,
+        perdidas_criadas_no_periodo: totalPerdidas, // Atual
+        perdidas_criadas_periodo_anterior: totalPerdidasAnterior, // Anterior
         oportunidades_abertas: oportunidadesAbertas[0]?.total || 0,
-        meta_mes: metaUnidade[0]?.meta_total || 0,
+        abertas_criadas_no_periodo: abertasCriadasNoPeriodo[0]?.total || 0,
+        abertas_criadas_periodo_anterior: abertasCriadasPeriodoAnterior[0]?.total || 0,
+        meta_mes: Number(metaUnidade[0]?.meta_total) || 0,
         vendedores: matrizVendedores,
         comparacao_mes_anterior: comparacaoMesAnterior,
         comparacao_ano_anterior: comparacaoAnoAnterior,
@@ -298,8 +652,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      mes,
-      ano,
+      mes: mesFinal,
+      ano: anoFinal,
+      dataInicio: dataInicio || null,
+      dataFim: dataFim || null,
       unidades: unidadesOrdenadas
     })
 

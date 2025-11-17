@@ -2,7 +2,15 @@ import { executeQuery } from './database'
 
 interface SprintHubMotivoPerda {
   id: number
-  motivo: string
+  motivo?: string
+  name?: string
+  title?: string
+  description?: string
+  text?: string
+  label?: string
+  nome?: string
+  motivo_perda?: string
+  [key: string]: any // Permitir outros campos dinâmicos
 }
 
 export async function syncMotivosPerda(): Promise<{
@@ -46,10 +54,21 @@ export async function syncMotivosPerda(): Promise<{
     }
 
     const data = await response.json()
-    const motivos: SprintHubMotivoPerda[] = Array.isArray(data) ? data : []
+    let motivos: SprintHubMotivoPerda[] = []
+    
+    // Normalizar dados da API (pode vir como array direto ou dentro de um objeto)
+    if (Array.isArray(data)) {
+      motivos = data
+    } else if (data.data && Array.isArray(data.data)) {
+      motivos = data.data
+    } else if (data.motivos && Array.isArray(data.motivos)) {
+      motivos = data.motivos
+    } else if (data.results && Array.isArray(data.results)) {
+      motivos = data.results
+    }
 
     console.log(`✅ ${motivos.length} motivos de perda recebidos da API`)
-    console.log('📦 Dados recebidos:', JSON.stringify(motivos, null, 2))
+    console.log('📦 Dados recebidos (primeiros 3):', JSON.stringify(motivos.slice(0, 3), null, 2))
 
     if (motivos.length === 0) {
       return {
@@ -91,9 +110,26 @@ export async function syncMotivosPerda(): Promise<{
           continue
         }
 
-        // Garantir que motivo não seja undefined
-        // Se não tiver motivo, usar o ID como fallback
-        const motivoTexto = motivo.motivo || `Motivo ${motivo.id}`
+        // Buscar o texto do motivo em diferentes campos possíveis
+        // A API pode retornar: motivo, name, title, description, text, label, etc.
+        const motivoTexto = 
+          motivo.motivo || 
+          motivo.name || 
+          motivo.title || 
+          motivo.description || 
+          motivo.text || 
+          motivo.label ||
+          motivo.nome ||
+          motivo.motivo_perda ||
+          null
+
+        // Se não encontrou o texto, usar o ID como fallback
+        const motivoFinal = motivoTexto || `Motivo ${motivo.id}`
+        
+        // Log para debug se não encontrou o campo motivo
+        if (!motivoTexto) {
+          console.warn(`⚠️ Motivo ${motivo.id} sem texto, usando fallback. Dados:`, JSON.stringify(motivo))
+        }
 
         // Verificar se o motivo já existe
         const existing = await executeQuery(
@@ -108,19 +144,19 @@ export async function syncMotivosPerda(): Promise<{
              SET motivo = ?,
                  updated_at = NOW()
              WHERE id = ?`,
-            [motivoTexto, motivo.id]
+            [motivoFinal, motivo.id]
           )
           atualizados++
-          console.log(`✓ Motivo ${motivo.id} atualizado`)
+          console.log(`✓ Motivo ${motivo.id} atualizado: "${motivoFinal}"`)
         } else {
           // Inserir novo motivo
           await executeQuery(
             `INSERT INTO motivos_de_perda (id, motivo, created_at, updated_at)
              VALUES (?, ?, NOW(), NOW())`,
-            [motivo.id, motivoTexto]
+            [motivo.id, motivoFinal]
           )
           novos++
-          console.log(`✓ Motivo ${motivo.id} inserido`)
+          console.log(`✓ Motivo ${motivo.id} inserido: "${motivoFinal}"`)
         }
       } catch (error) {
         console.error(`❌ Erro ao sincronizar motivo ${motivo.id}:`, error)

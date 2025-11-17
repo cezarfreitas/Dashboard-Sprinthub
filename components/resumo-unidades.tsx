@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, memo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users, Download } from "lucide-react"
+import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users, Download, CheckCircle, Circle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
@@ -250,6 +250,17 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Estado: Map<unidade_id, Map<vendedor_id, Map<dia, total>>>
+  const [matrizOportunidades, setMatrizOportunidades] = useState<Map<number, Map<number, Map<number, number>>>>(new Map())
+  
+  // Função para atualizar matriz de uma unidade específica
+  const updateMatrizUnidade = useCallback((unidadeId: number, dados: Map<number, Map<number, number>>) => {
+    setMatrizOportunidades(prev => {
+      const nova = new Map(prev)
+      nova.set(unidadeId, dados)
+      return nova
+    })
+  }, [])
 
   const formatCurrency = useCallback((value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
@@ -278,23 +289,8 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
   }, [])
 
 
-  const handleExportarOportunidades = useCallback(async (unidadeId: number, mesAtual?: number, anoAtual?: number) => {
+  const handleExportarPerformanceVendedores = useCallback(async (unidadeId: number, mesAtual?: number, anoAtual?: number) => {
     try {
-      // Usar período do filtro se disponível, senão usar mês/ano
-      let primeiraData: string
-      let ultimaData: string
-      
-      if (dataInicio && dataFim) {
-        primeiraData = dataInicio
-        ultimaData = dataFim
-      } else {
-        // Obter período atual se não fornecido
-        const mesPeriodo = mesAtual || mes || new Date().getMonth() + 1
-        const anoPeriodo = anoAtual || ano || new Date().getFullYear()
-        primeiraData = `${anoPeriodo}-${String(mesPeriodo).padStart(2, '0')}-01`
-        ultimaData = new Date(anoPeriodo, mesPeriodo, 0).toISOString().split('T')[0]
-      }
-      
       // Buscar unidade nos dados já carregados
       const unidade = data?.unidades.find((u: any) => u.id === unidadeId)
       if (!unidade || !unidade.vendedores || unidade.vendedores.length === 0) {
@@ -302,54 +298,66 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
         return
       }
 
-      // Buscar oportunidades de todos os vendedores da unidade no período
-      const todasOportunidades = []
-      
-      for (const vendedor of unidade.vendedores) {
-        const response = await fetch(
-          `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${primeiraData}&data_fim=${ultimaData}`
-        )
-        
-        if (response.ok) {
-          const responseData = await response.json()
-          if (responseData.success && responseData.oportunidades) {
-            todasOportunidades.push(...responseData.oportunidades.map((op: any) => ({
-              ...op,
-              vendedor_nome: `${vendedor.nome}`.trim()
-            })))
-          }
-        }
-      }
-
-      if (todasOportunidades.length === 0) {
-        alert('Nenhuma oportunidade encontrada para o período selecionado')
-        return
-      }
-
-      // Criar CSV
+      // Criar CSV com a tabela de Performance por Vendedor
       const headers = [
-        'ID',
-        'Título',
         'Vendedor',
-        'Valor',
-        'Status',
-        'Etapa',
-        'Data Criação',
-        'Motivo Perda'
+        'Criados',
+        'Perdidas',
+        'Ganhas',
+        'Abertas',
+        'Valor Ganho',
+        '% Meta',
+        'Meta',
+        'W.T (dias)',
+        'T.C%',
+        'T.Méd'
       ]
       
       const csvContent = [
         headers.map(escapeCsv).join(','),
-        ...todasOportunidades.map((op: any) => [
-          escapeCsv(op.id),
-          escapeCsv(op.titulo),
-          escapeCsv(op.vendedor_nome),
-          escapeCsv(op.valor),
-          escapeCsv(op.ganho === 1 ? 'Ganha' : op.perda === 1 ? 'Perdida' : 'Aberta'),
-          escapeCsv(op.coluna_nome || ''),
-          escapeCsv(new Date(op.created_date).toLocaleDateString('pt-BR')),
-          escapeCsv(op.motivo_perda || '')
-        ].join(','))
+        ...unidade.vendedores.map((vendedor: any) => {
+          const percentualMeta = vendedor.meta > 0 
+            ? ((vendedor.valor / vendedor.meta) * 100).toFixed(0)
+            : '0'
+          const taxaConversao = vendedor.taxa_conversao !== undefined 
+            ? vendedor.taxa_conversao.toFixed(0)
+            : vendedor.criadas > 0
+              ? ((vendedor.ganhas / vendedor.criadas) * 100).toFixed(0)
+              : '0'
+          const ticketMedio = vendedor.ticket_medio !== undefined
+            ? vendedor.ticket_medio.toFixed(2)
+            : vendedor.ganhas > 0
+              ? (vendedor.valor / vendedor.ganhas).toFixed(2)
+              : '0'
+          
+          return [
+            escapeCsv(vendedor.nome || ''),
+            escapeCsv(vendedor.criadas || 0),
+            escapeCsv(vendedor.perdidas || 0),
+            escapeCsv(vendedor.ganhas || 0),
+            escapeCsv(vendedor.abertas || 0),
+            escapeCsv(vendedor.valor ? vendedor.valor.toFixed(2) : '0'),
+            escapeCsv(`${percentualMeta}%`),
+            escapeCsv(vendedor.meta ? vendedor.meta.toFixed(2) : '0'),
+            escapeCsv(vendedor.won_time_dias !== null && vendedor.won_time_dias !== undefined ? vendedor.won_time_dias.toString() : '-'),
+            escapeCsv(`${taxaConversao}%`),
+            escapeCsv(ticketMedio)
+          ].join(',')
+        }),
+        // Linha de total
+        [
+          escapeCsv('TOTAL'),
+          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.criadas || 0), 0).toString()),
+          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.perdidas || 0), 0).toString()),
+          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.ganhas || 0), 0).toString()),
+          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.abertas || 0), 0).toString()),
+          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.valor || 0), 0).toFixed(2)),
+          escapeCsv(''),
+          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.meta || 0), 0).toFixed(2)),
+          escapeCsv(''),
+          escapeCsv(''),
+          escapeCsv('')
+        ].join(',')
       ].join('\n')
 
       // Adicionar BOM para Excel reconhecer UTF-8
@@ -358,16 +366,21 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
       
-      // Nome do arquivo
-      const mesPeriodo = mes || new Date().getMonth() + 1
-      const anoPeriodo = ano || new Date().getFullYear()
-      link.download = `oportunidades_${unidade.nome}_${getMesNome(mesPeriodo)}_${anoPeriodo}.csv`
+      // Nome do arquivo - sanitizar nome da unidade
+      const mesPeriodo = mesAtual || mes || new Date().getMonth() + 1
+      const anoPeriodo = anoAtual || ano || new Date().getFullYear()
+      const nomeUnidadeSanitizado = unidade.nome.replace(/[^a-zA-Z0-9_-]/g, '_')
+      link.download = `performance_vendedores_${nomeUnidadeSanitizado}_${getMesNome(mesPeriodo)}_${anoPeriodo}.csv`
       link.click()
+      
+      // Liberar memória
+      setTimeout(() => URL.revokeObjectURL(link.href), 100)
     } catch (err) {
-      console.error('Erro ao exportar oportunidades:', err)
-      alert('Erro ao exportar oportunidades. Tente novamente.')
+      console.error('Erro ao exportar performance de vendedores:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido'
+      alert(`Erro ao exportar: ${errorMessage}`)
     }
-  }, [data, dataInicio, dataFim, mes, ano, escapeCsv, getMesNome])
+  }, [data, mes, ano, escapeCsv, getMesNome])
 
   const fetchData = useCallback(async () => {
     try {
@@ -403,9 +416,44 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
     }
   }, [mes, ano, vendedorId, unidadeId])
 
+  // Buscar matriz de oportunidades por vendedor e dia
+  const fetchMatrizOportunidades = useCallback(async (unidadeId: number, mesAtual: number, anoAtual: number) => {
+    try {
+      const response = await fetch(
+        `/api/oportunidades/matriz-vendedor-dia?unidade_id=${unidadeId}&mes=${mesAtual}&ano=${anoAtual}`
+      )
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          // Criar Map por vendedor_id -> Map<dia, total>
+          const vendedoresMap = new Map<number, Map<number, number>>()
+          result.dados.forEach((item: any) => {
+            if (!vendedoresMap.has(item.vendedor_id)) {
+              vendedoresMap.set(item.vendedor_id, new Map())
+            }
+            const vendedorMap = vendedoresMap.get(item.vendedor_id)!
+            vendedorMap.set(item.dia, item.total_criadas)
+          })
+          // Atualizar apenas a matriz desta unidade
+          updateMatrizUnidade(unidadeId, vendedoresMap)
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar matriz de oportunidades:', err)
+    }
+  }, [updateMatrizUnidade])
+
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    if (data && data.unidades.length > 0 && mes && ano) {
+      data.unidades.forEach(unidade => {
+        fetchMatrizOportunidades(unidade.id, mes, ano)
+      })
+    }
+  }, [data, mes, ano, fetchMatrizOportunidades])
 
   if (loading) {
     return (
@@ -483,22 +531,6 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Resumo por Unidade</h2>
-          <p className="text-sm text-muted-foreground">
-            {getMesNome(data.mes)} {data.ano}
-          </p>
-        </div>
-        <button 
-          onClick={fetchData}
-          className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
-        >
-          <RefreshCw className="h-4 w-4" />
-        Atualizar
-      </button>
-      </div>
-
       <div className="grid gap-4 grid-cols-1">
         {data.unidades.map((unidade) => {
           const percentualMeta = unidade.meta_mes > 0 
@@ -506,57 +538,284 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
             : 0
 
           return (
-            <Card key={unidade.id} className="hover:shadow-xl transition-all">
-              <CardHeader className="pb-4">
+            <div key={unidade.id} className="space-y-4">
+              {/* Informações da unidade fora do card */}
+              <div className="space-y-4">
                 <div className="flex items-start justify-between gap-6">
-                  {/* Nome da unidade e informações */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="p-2 bg-blue-500 rounded-lg flex-shrink-0">
-                      <Building2 className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-xl font-bold text-gray-900 mb-2">{unidade.nome}</CardTitle>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3 flex-shrink-0" />
-                          <span className="font-medium">{unidade.total_vendedores} vendedor{unidade.total_vendedores !== 1 ? 'es' : ''}</span>
-                        </div>
-                        <span className="text-green-600 font-semibold">• {unidade.vendedores_na_fila} na fila</span>
-                        {unidade.nome_gestor && (
-                          <span className="text-blue-600 font-semibold">• Gestor: {unidade.nome_gestor}</span>
-                        )}
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xl font-bold text-gray-900">
+                      <span>{unidade.nome}</span>
+                      <span className="text-gray-400">•</span>
+                      <div className="flex items-center gap-1 text-base font-normal text-gray-600">
+                        <Users className="h-4 w-4 flex-shrink-0" />
+                        <span>Vendedores: {unidade.total_vendedores}</span>
                       </div>
+                      <span className="text-green-600 font-semibold text-base font-normal">• {unidade.vendedores_na_fila} na fila</span>
+                      {unidade.nome_gestor && (
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span className="text-blue-600 font-semibold text-base font-normal">Gestor: {unidade.nome_gestor}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   
-                  {/* Botão Exportar e Gráfico */}
-                  <div className="flex flex-col items-end gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-3">
                     {/* Botão Exportar */}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleExportarOportunidades(unidade.id, mes, ano)}
+                      onClick={() => handleExportarPerformanceVendedores(unidade.id, mes, ano)}
                       className="h-8 text-xs whitespace-nowrap"
                     >
                       <Download className="h-3 w-3 mr-1.5" />
                       Exportar
                     </Button>
                     
-                    {/* Gráfico */}
-                    {unidade.meta_mes > 0 && (
-                      <div className="flex items-center justify-end">
-                        <PieChartWithNeedle 
-                          value={percentualMeta}
-                          meta={unidade.meta_mes}
-                          realizado={unidade.valor_ganho}
-                        />
-                      </div>
-                    )}
+                    <button 
+                      onClick={fetchData}
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Atualizar
+                    </button>
                   </div>
                 </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
+
+                {/* Cards Estatísticos - Todos em uma linha */}
+                <div className="grid grid-cols-5 gap-4">
+                  {/* Card Meta */}
+                  {unidade.meta_mes > 0 && (
+                    <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Target className="h-4 w-4 text-purple-600" />
+                              <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Meta</span>
+                            </div>
+                            <p className="text-2xl font-bold text-purple-900">
+                              {formatCurrency(unidade.meta_mes)}
+                            </p>
+                          </div>
+                          <div className="p-2 bg-purple-200 rounded-full">
+                            <Target className="h-6 w-6 text-purple-700" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Card Realizado */}
+                  {unidade.meta_mes > 0 && (
+                    <Card className={`bg-gradient-to-br ${
+                      percentualMeta >= 100 
+                        ? 'from-green-50 to-green-100 border-green-200' 
+                        : percentualMeta >= 75
+                        ? 'from-yellow-50 to-yellow-100 border-yellow-200'
+                        : 'from-red-50 to-red-100 border-red-200'
+                    }`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <DollarSign className={`h-4 w-4 ${
+                                percentualMeta >= 100 
+                                  ? 'text-green-600' 
+                                  : percentualMeta >= 75
+                                  ? 'text-yellow-600'
+                                  : 'text-red-600'
+                              }`} />
+                              <span className={`text-xs font-semibold uppercase tracking-wide ${
+                                percentualMeta >= 100 
+                                  ? 'text-green-700' 
+                                  : percentualMeta >= 75
+                                  ? 'text-yellow-700'
+                                  : 'text-red-700'
+                              }`}>Realizado</span>
+                            </div>
+                            <p className={`text-2xl font-bold ${
+                              percentualMeta >= 100 
+                                ? 'text-green-900' 
+                                : percentualMeta >= 75
+                                ? 'text-yellow-900'
+                                : 'text-red-900'
+                            }`}>
+                              {formatCurrency(unidade.valor_ganho)}
+                            </p>
+                            <p className={`text-xs font-semibold mt-0.5 ${
+                              percentualMeta >= 100 
+                                ? 'text-green-700' 
+                                : percentualMeta >= 75
+                                ? 'text-yellow-700'
+                                : 'text-red-700'
+                            }`}>
+                              {percentualMeta.toFixed(1)}% da meta
+                            </p>
+                          </div>
+                          <div className={`p-2 rounded-full ${
+                            percentualMeta >= 100 
+                              ? 'bg-green-200' 
+                              : percentualMeta >= 75
+                              ? 'bg-yellow-200'
+                              : 'bg-red-200'
+                          }`}>
+                            <DollarSign className={`h-6 w-6 ${
+                              percentualMeta >= 100 
+                                ? 'text-green-700' 
+                                : percentualMeta >= 75
+                                ? 'text-yellow-700'
+                                : 'text-red-700'
+                            }`} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Card Abertas */}
+                  <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Circle className="h-4 w-4 text-yellow-600" />
+                            <span className="text-xs font-semibold text-yellow-700 uppercase tracking-wide">Abertas</span>
+                          </div>
+                          <p className="text-2xl font-bold text-yellow-900">
+                            {unidade.oportunidades_abertas || 0}
+                          </p>
+                        </div>
+                        <div className="p-2 bg-yellow-200 rounded-full">
+                          <Circle className="h-6 w-6 text-yellow-700" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Card Perdidas */}
+                  <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <XCircle className="h-4 w-4 text-red-600" />
+                            <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Perdidas</span>
+                          </div>
+                          <p className="text-2xl font-bold text-red-900">
+                            {unidade.oportunidades_perdidas || 0}
+                          </p>
+                        </div>
+                        <div className="p-2 bg-red-200 rounded-full">
+                          <XCircle className="h-6 w-6 text-red-700" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Card Ganhas */}
+                  <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Ganhas</span>
+                          </div>
+                          <p className="text-2xl font-bold text-green-900">
+                            {unidade.oportunidades_ganhas || 0}
+                          </p>
+                        </div>
+                        <div className="p-2 bg-green-200 rounded-full">
+                          <CheckCircle className="h-6 w-6 text-green-700" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Matriz de Oportunidades por Vendedor e Dia */}
+                {unidade.vendedores && unidade.vendedores.length > 0 && (
+                  <Card className="mt-4">
+                    <CardHeader>
+                      <CardTitle className="text-lg font-bold">Oportunidades Criadas por Dia</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-gray-100 border-b-2 border-gray-300">
+                              <th className="text-left px-3 py-2 font-semibold text-gray-700 sticky left-0 bg-gray-100 z-10">Vendedor</th>
+                              {Array.from({ length: new Date(ano || new Date().getFullYear(), mes || new Date().getMonth() + 1, 0).getDate() }, (_, i) => i + 1).map(dia => (
+                                <th key={dia} className="text-center px-2 py-2 font-semibold text-gray-700 min-w-[40px]">
+                                  {dia}
+                                </th>
+                              ))}
+                              <th className="text-center px-3 py-2 font-semibold text-gray-700 bg-gray-200">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {unidade.vendedores.map((vendedor: any) => {
+                              const unidadeMatriz = matrizOportunidades.get(unidade.id)
+                              const vendedorDados = unidadeMatriz?.get(vendedor.id)
+                              const totalVendedor = Array.from({ length: new Date(ano || new Date().getFullYear(), mes || new Date().getMonth() + 1, 0).getDate() }, (_, i) => i + 1)
+                                .reduce((sum, dia) => sum + (vendedorDados?.get(dia) || 0), 0)
+                              
+                              return (
+                                <tr key={vendedor.id} className="border-b border-gray-200 hover:bg-gray-50">
+                                  <td className="px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white z-10">
+                                    {vendedor.nome}
+                                  </td>
+                                  {Array.from({ length: new Date(ano || new Date().getFullYear(), mes || new Date().getMonth() + 1, 0).getDate() }, (_, i) => i + 1).map(dia => {
+                                    const valor = vendedorDados?.get(dia) || 0
+                                    return (
+                                      <td key={dia} className={`text-center px-2 py-2 ${valor > 0 ? 'text-blue-600 font-semibold' : 'text-gray-400'}`}>
+                                        {valor > 0 ? valor : '-'}
+                                      </td>
+                                    )
+                                  })}
+                                  <td className="text-center px-3 py-2 font-bold text-gray-900 bg-gray-50">
+                                    {totalVendedor}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                            {/* Linha de Total */}
+                            <tr className="bg-gray-100 border-t-2 border-gray-300 font-bold">
+                              <td className="px-3 py-2 text-gray-900 sticky left-0 bg-gray-100 z-10">TOTAL</td>
+                              {Array.from({ length: new Date(ano || new Date().getFullYear(), mes || new Date().getMonth() + 1, 0).getDate() }, (_, i) => i + 1).map(dia => {
+                                const unidadeMatriz = matrizOportunidades.get(unidade.id)
+                                const totalDia = unidade.vendedores.reduce((sum: number, v: any) => {
+                                  const vendedorDados = unidadeMatriz?.get(v.id)
+                                  return sum + (vendedorDados?.get(dia) || 0)
+                                }, 0)
+                                return (
+                                  <td key={dia} className={`text-center px-2 py-2 ${totalDia > 0 ? 'text-blue-700' : 'text-gray-500'}`}>
+                                    {totalDia > 0 ? totalDia : '-'}
+                                  </td>
+                                )
+                              })}
+                              <td className="text-center px-3 py-2 text-gray-900 bg-gray-200">
+                                {(() => {
+                                  const unidadeMatriz = matrizOportunidades.get(unidade.id)
+                                  return unidade.vendedores.reduce((sum: number, v: any) => {
+                                    const vendedorDados = unidadeMatriz?.get(v.id)
+                                    return sum + Array.from({ length: new Date(ano || new Date().getFullYear(), mes || new Date().getMonth() + 1, 0).getDate() }, (_, i) => i + 1)
+                                      .reduce((s, dia) => s + (vendedorDados?.get(dia) || 0), 0)
+                                  }, 0)
+                                })()}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <Card className="hover:shadow-xl transition-all">
+                <CardContent className="space-y-4 pt-6">
 
                 <div className="grid grid-cols-2 gap-6">
                   {/* COLUNA 1: Performance */}
@@ -844,6 +1103,7 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
                 </div>
               </CardContent>
             </Card>
+            </div>
           )
         })}
       </div>

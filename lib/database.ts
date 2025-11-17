@@ -41,13 +41,14 @@ export function getConnectionPool(): mysql.Pool {
 }
 
 // Função para executar queries
+// IMPORTANTE: Usando query() em vez de execute() para evitar prepared statement leak
 export async function executeQuery<T = any>(
   query: string, 
   params: any[] = []
 ): Promise<T[]> {
   const connection = getConnectionPool()
   try {
-    const [rows] = await connection.execute(query, params)
+    const [rows] = await connection.query(query, params)
     return rows as T[]
   } catch (error) {
     console.error('Erro ao executar query:', error)

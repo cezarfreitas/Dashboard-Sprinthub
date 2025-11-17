@@ -42,13 +42,24 @@ export async function GET(request: NextRequest) {
     const debug = searchParams.get('debug')
     const userId = searchParams.get('user_id')
     const unidadeId = searchParams.get('unidade_id')
+    const dataInicio = searchParams.get('dataInicio')
+    const dataFim = searchParams.get('dataFim')
     
-    // Sempre usar mês atual
-    const dataAtual = new Date()
-    const mes = dataAtual.getMonth() + 1
-    const ano = dataAtual.getFullYear()
+    // Determinar mês/ano para compatibilidade com código existente
+    let mes: number
+    let ano: number
     
-    console.log('🔍 [FUNIL API] Parâmetros:', { idFunil, debug, mes, ano, userId, unidadeId })
+    if (dataInicio) {
+      const dataInicioObj = new Date(dataInicio + ' 00:00:00')
+      mes = dataInicioObj.getMonth() + 1
+      ano = dataInicioObj.getFullYear()
+    } else {
+      const dataAtual = new Date()
+      mes = dataAtual.getMonth() + 1
+      ano = dataAtual.getFullYear()
+    }
+    
+    console.log('🔍 [FUNIL API] Parâmetros:', { idFunil, debug, mes, ano, userId, unidadeId, dataInicio, dataFim })
 
     // Se debug=structure, mostrar estrutura da tabela
     if (debug === 'structure') {
@@ -166,54 +177,120 @@ export async function GET(request: NextRequest) {
     
     console.log('🔍 [FUNIL API] Colunas do funil:', colunas.map(c => `${c.id}: ${c.nome_coluna}`))
 
+    // DEBUG: Verificar total de oportunidades no período
+    let debugTotalQuery = `SELECT COUNT(*) as total FROM oportunidades WHERE 1=1`
+    let debugTotalParams: any[] = []
+    
+    if (dataInicio && dataFim) {
+      debugTotalQuery += ` AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+      debugTotalParams.push(dataInicio, dataFim)
+    } else {
+      debugTotalQuery += ` AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+      debugTotalParams.push(mes, ano)
+    }
+    
+    if (unidadeId) {
+      debugTotalQuery += ` AND CAST(user AS UNSIGNED) IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)`
+      debugTotalParams.push(unidadeId)
+    }
+    
+    const debugTotal = await executeQuery(debugTotalQuery, debugTotalParams) as any[]
+    console.log('🔍 [FUNIL API] === DEBUG INÍCIO ===')
+    console.log('🔍 [FUNIL API] Total de oportunidades no período:', debugTotal[0]?.total)
+    console.log('🔍 [FUNIL API] Filtros aplicados:', { dataInicio, dataFim, unidadeId, mes, ano })
+    
+    // DEBUG: Verificar status das oportunidades
+    const debugStatus = await executeQuery(
+      debugTotalQuery.replace('COUNT(*) as total', 'status, COUNT(*) as total') + ' GROUP BY status',
+      debugTotalParams
+    ) as any[]
+    console.log('🔍 [FUNIL API] Status das oportunidades:', debugStatus)
+
     // Processar cada coluna do funil
     const colunasComStatus: ColunaFunilComStatus[] = await Promise.all(
       colunas.map(async (coluna, index) => {
-        console.log(`🔍 [FUNIL API] Processando coluna: ${coluna.nome_coluna}`)
+        console.log(`🔍 [FUNIL API] Processando coluna: ${coluna.nome_coluna} (ID: ${coluna.id})`)
         
         let oportunidadesAbertas, oportunidadesGanhas, oportunidadesPerdidas
         
+        // === TESTE 1: Contar TODAS as oportunidades (sem filtros) ===
+        const teste1 = await executeQuery(`SELECT COUNT(*) as total FROM oportunidades`) as any[]
+        console.log(`🔍 [TESTE 1] Total de oportunidades na base (SEM FILTROS):`, teste1[0]?.total)
+        
+        // === TESTE 2: Filtrar por período ===
+        let queryTeste2 = `SELECT COUNT(*) as total FROM oportunidades WHERE 1=1`
+        let paramsTeste2: any[] = []
+        
+        if (dataInicio && dataFim) {
+          queryTeste2 += ` AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+          paramsTeste2.push(dataInicio, dataFim)
+        } else {
+          queryTeste2 += ` AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+          paramsTeste2.push(mes, ano)
+        }
+        
+        const teste2 = await executeQuery(queryTeste2, paramsTeste2) as any[]
+        console.log(`🔍 [TESTE 2] Com filtro de período:`, teste2[0]?.total, 'Params:', paramsTeste2)
+        
+        // === TESTE 3: Adicionar filtro de unidade ===
+        if (unidadeId) {
+          // Primeiro, verificar quais vendedores pertencem à unidade
+          const vendedoresUnidade = await executeQuery(
+            `SELECT id FROM vendedores WHERE unidade_id = ?`,
+            [unidadeId]
+          ) as any[]
+          console.log(`🔍 [TESTE 3a] Vendedores da unidade ${unidadeId}:`, vendedoresUnidade.map((v: any) => v.id))
+          
+          // Depois, verificar quantas oportunidades esses vendedores têm
+          if (vendedoresUnidade.length > 0) {
+            const idsVendedores = vendedoresUnidade.map((v: any) => v.id)
+            const placeholders = idsVendedores.map(() => '?').join(',')
+            
+            queryTeste2 += ` AND CAST(user AS UNSIGNED) IN (${placeholders})`
+            paramsTeste2.push(...idsVendedores)
+            
+            const teste3 = await executeQuery(queryTeste2, paramsTeste2) as any[]
+            console.log(`🔍 [TESTE 3b] Com filtro de unidade:`, teste3[0]?.total)
+          } else {
+            console.log(`🔍 [TESTE 3c] ⚠️ Nenhum vendedor encontrado para unidade ${unidadeId}`)
+          }
+        }
+        
+        // === TESTE 4: Adicionar filtro de status (abertas) ===
+        let queryAbertas = queryTeste2 + ` AND status NOT IN ('gain', 'lost')`
+        const teste4 = await executeQuery(queryAbertas, paramsTeste2) as any[]
+        console.log(`🔍 [TESTE 4] Com filtro de status (abertas):`, teste4[0]?.total)
+        
+        // Resultado final
+        oportunidadesAbertas = await executeQuery(`
+          SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor_total
+          FROM oportunidades 
+          WHERE status NOT IN ('gain', 'lost') 
+          ${dataInicio && dataFim ? 'AND DATE(createDate) >= ? AND DATE(createDate) <= ?' : 'AND MONTH(createDate) = ? AND YEAR(createDate) = ?'}
+          ${unidadeId ? 'AND CAST(user AS UNSIGNED) IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)' : ''}
+        `, unidadeId ? [...paramsTeste2.slice(0, dataInicio && dataFim ? 2 : 2), unidadeId] : paramsTeste2) as Array<{count: number, valor_total: number}>
+        
+        console.log(`🔍 [RESULTADO FINAL] Abertas:`, oportunidadesAbertas[0])
+        
         if (crmColumnExists.length > 0) {
-          // Construir filtros dinamicamente
-          let whereClause = `status = ? AND crm_column = ? AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
-          let queryParams: any[] = ['open', coluna.id, mes, ano]
-          
-          if (userId) {
-            whereClause += ` AND user = ?`
-            queryParams.push(userId)
-          }
-          
-          if (unidadeId) {
-            whereClause += ` AND user IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)`
-            queryParams.push(unidadeId)
-          }
+          // TODO: Adicionar filtro por crm_column depois que confirmar que está contando corretamente
 
-          // Usar crm_column (ID da coluna) se existir
-          oportunidadesAbertas = await executeQuery(`
-            SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor_total
-            FROM oportunidades 
-            WHERE ${whereClause}
-          `, queryParams) as Array<{count: number, valor_total: number}>
-
-          // Para ganhas
-          queryParams[0] = 'gain'
-          oportunidadesGanhas = await executeQuery(`
-            SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor_total
-            FROM oportunidades 
-            WHERE ${whereClause}
-          `, queryParams) as Array<{count: number, valor_total: number}>
-
-          // Para perdidas
-          queryParams[0] = 'lost'
-          oportunidadesPerdidas = await executeQuery(`
-            SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor_total
-            FROM oportunidades 
-            WHERE ${whereClause}
-          `, queryParams) as Array<{count: number, valor_total: number}>
+          // Por enquanto, deixar ganhas e perdidas zeradas até confirmar que abertas está funcionando
+          oportunidadesGanhas = [{ count: 0, valor_total: 0 }]
+          oportunidadesPerdidas = [{ count: 0, valor_total: 0 }]
         } else {
           // Construir filtros para fallback
-          let whereClause = `status = ? AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
-          let queryParams: any[] = ['open', mes, ano]
+          let whereClause = `status = ?`
+          let queryParams: any[] = ['open']
+          
+          // Usar dataInicio/dataFim se fornecidos, senão usar mês/ano
+          if (dataInicio && dataFim) {
+            whereClause += ` AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+            queryParams.push(dataInicio, dataFim)
+          } else {
+            whereClause += ` AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+            queryParams.push(mes, ano)
+          }
           
           if (userId) {
             whereClause += ` AND user = ?`
@@ -278,7 +355,59 @@ export async function GET(request: NextRequest) {
     )
 
     // Calcular totais do período
+    // Buscar totais reais do período (criados, ganhos, perdidos)
+    let totalCriadosQuery = ''
+    let totalCriadosParams: any[] = []
+    let totalGanhosQuery = ''
+    let totalGanhosParams: any[] = []
+    let totalPerdidosQuery = ''
+    let totalPerdidosParams: any[] = []
+    
+    if (dataInicio && dataFim) {
+      totalCriadosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE DATE(createDate) >= ? AND DATE(createDate) <= ?`
+      totalCriadosParams = [dataInicio, dataFim]
+      totalGanhosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'gain' AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+      totalGanhosParams = [dataInicio, dataFim]
+      totalPerdidosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'lost' AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+      totalPerdidosParams = [dataInicio, dataFim]
+    } else {
+      totalCriadosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE MONTH(createDate) = ? AND YEAR(createDate) = ?`
+      totalCriadosParams = [mes, ano]
+      totalGanhosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'gain' AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+      totalGanhosParams = [mes, ano]
+      totalPerdidosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'lost' AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+      totalPerdidosParams = [mes, ano]
+    }
+    
+    if (userId) {
+      totalCriadosQuery += ` AND user = ?`
+      totalCriadosParams.push(userId)
+      totalGanhosQuery += ` AND user = ?`
+      totalGanhosParams.push(userId)
+      totalPerdidosQuery += ` AND user = ?`
+      totalPerdidosParams.push(userId)
+    }
+    
+    if (unidadeId) {
+      totalCriadosQuery += ` AND user IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)`
+      totalCriadosParams.push(unidadeId)
+      totalGanhosQuery += ` AND user IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)`
+      totalGanhosParams.push(unidadeId)
+      totalPerdidosQuery += ` AND user IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)`
+      totalPerdidosParams.push(unidadeId)
+    }
+    
+    const totalCriados = await executeQuery(totalCriadosQuery, totalCriadosParams) as Array<{count: number, valor: number}>
+    const totalGanhos = await executeQuery(totalGanhosQuery, totalGanhosParams) as Array<{count: number, valor: number}>
+    const totalPerdidos = await executeQuery(totalPerdidosQuery, totalPerdidosParams) as Array<{count: number, valor: number}>
+    
     const totais_periodo = {
+      total_criados: totalCriados[0]?.count || 0,
+      total_ganhos: totalGanhos[0]?.count || 0,
+      total_perdidos: totalPerdidos[0]?.count || 0,
+      valor_total_criados: Number(totalCriados[0]?.valor) || 0,
+      valor_total_ganhos: Number(totalGanhos[0]?.valor) || 0,
+      valor_total_perdidos: Number(totalPerdidos[0]?.valor) || 0,
       total_oportunidades: colunasComStatus.reduce((sum, col) => sum + col.abertos + col.ganhos + col.perdidos, 0),
       valor_total: colunasComStatus.reduce((sum, col) => sum + col.valor_abertos + col.valor_ganhos + col.valor_perdidos, 0)
     }

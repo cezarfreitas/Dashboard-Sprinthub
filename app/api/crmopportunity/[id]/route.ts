@@ -314,6 +314,27 @@ export async function PATCH(
             values.push(null)
           }
         }
+        // Processar loss_reason: extrair apenas o ID se for objeto, remover "Motivo " se presente
+        else if (key === 'loss_reason') {
+          if (value && typeof value === 'object' && !Array.isArray(value) && 'id' in value) {
+            // Se for objeto, pegar apenas o ID
+            values.push(String((value as { id: any }).id))
+          } else if (value !== null && value !== undefined) {
+            // Se for string ou número, remover "Motivo " se estiver presente
+            let strValue = String(value).trim()
+            if (strValue.startsWith('Motivo ')) {
+              strValue = strValue.replace(/^Motivo\s+/, '')
+            }
+            // Garantir que seja apenas número
+            if (/^\d+$/.test(strValue)) {
+              values.push(strValue)
+            } else {
+              values.push(null)
+            }
+          } else {
+            values.push(null)
+          }
+        }
         // Outros campos
         else {
           values.push(value)
