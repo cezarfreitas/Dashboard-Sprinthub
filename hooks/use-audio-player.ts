@@ -1,73 +1,129 @@
 "use client"
 
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useEffect, useState } from 'react'
 
 export function useAudioPlayer() {
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioBufferRef = useRef<ArrayBuffer | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const isInitializedRef = useRef(false)
+  const [isReady, setIsReady] = useState(false)
+  const isInitializingRef = useRef(false)
 
-  // Inicializar AudioContext na primeira interação do usuário
-  const initAudioContext = useCallback(() => {
-    if (!isInitializedRef.current && typeof window !== 'undefined') {
+  // Preload do áudio imediatamente
+  useEffect(() => {
+    const preloadAudio = async () => {
       try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
-        audioContextRef.current = new AudioContextClass()
-        isInitializedRef.current = true
+        const response = await fetch('/audio/bell.wav')
+        const arrayBuffer = await response.arrayBuffer()
+        audioBufferRef.current = arrayBuffer
       } catch (error) {
         // Fallback silencioso
       }
     }
+    
+    preloadAudio()
   }, [])
 
-  // Tentar inicializar no primeiro clique do usuário
+  // Inicializar AudioContext automaticamente
+  const initAudioContext = useCallback(async () => {
+    if (isInitializingRef.current || isReady) return true
+    if (typeof window === 'undefined') return false
+
+    try {
+      isInitializingRef.current = true
+      
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+      
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContextClass()
+      }
+
+      // Tentar retomar contexto se estiver suspenso
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume()
+      }
+
+      setIsReady(true)
+      return true
+    } catch (error) {
+      return false
+    } finally {
+      isInitializingRef.current = false
+    }
+  }, [isReady])
+
+  // Listener universal para inicializar áudio com qualquer interação
   useEffect(() => {
-    const handleFirstInteraction = () => {
+    const events = ['click', 'touchstart', 'touchend', 'mousedown', 'keydown']
+    
+    const handleInteraction = () => {
       initAudioContext()
-      // Remover listener após primeira interação
-      document.removeEventListener('click', handleFirstInteraction)
-      document.removeEventListener('touchstart', handleFirstInteraction)
     }
 
-    document.addEventListener('click', handleFirstInteraction)
-    document.addEventListener('touchstart', handleFirstInteraction)
+    // Adicionar listeners em todos os eventos possíveis
+    events.forEach(event => {
+      document.addEventListener(event, handleInteraction, { once: true, passive: true })
+    })
+
+    // Tentar inicializar imediatamente (pode falhar, mas tentamos)
+    initAudioContext()
 
     return () => {
-      document.removeEventListener('click', handleFirstInteraction)
-      document.removeEventListener('touchstart', handleFirstInteraction)
+      events.forEach(event => {
+        document.removeEventListener(event, handleInteraction)
+      })
     }
   }, [initAudioContext])
 
-  const playAudio = useCallback((audioPath: string, volume: number = 0.7) => {
+  const playAudio = useCallback(async (audioPath: string, volume: number = 0.7) => {
     try {
-      // Garantir que AudioContext está inicializado
-      initAudioContext()
-
-      // Criar novo áudio a cada chamada para evitar conflitos
-      const audio = new Audio(audioPath)
-      audio.volume = Math.max(0, Math.min(1, volume))
-      audio.preload = 'auto'
-      
-      // Tentar tocar com várias estratégias
-      const playPromise = audio.play()
-      
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            // Som tocado com sucesso
-          })
-          .catch(() => {
-            // Fallback: tentar novamente após pequeno delay
-            setTimeout(() => {
-              audio.play().catch(() => {
-                // Silencioso - usuário pode não ter interagido ainda
-              })
-            }, 100)
-          })
+      // Garantir que está inicializado
+      const ready = await initAudioContext()
+      if (!ready) {
+        // Fallback: tentar HTML5 Audio
+        const audio = new Audio(audioPath)
+        audio.volume = volume
+        audio.play().catch(() => {
+          // Silencioso
+        })
+        return
       }
+
+      // Usar Web Audio API com buffer pré-carregado
+      const context = audioContextRef.current
+      if (!context) return
+
+      const source = context.createBufferSource()
+      const gainNode = context.createGain()
       
+      // Se temos buffer pré-carregado e é o bell.wav
+      if (audioBufferRef.current && audioPath.includes('bell.wav')) {
+        const audioBuffer = await context.decodeAudioData(audioBufferRef.current.slice(0))
+        source.buffer = audioBuffer
+      } else {
+        // Carregar on-demand
+        const response = await fetch(audioPath)
+        const arrayBuffer = await response.arrayBuffer()
+        const audioBuffer = await context.decodeAudioData(arrayBuffer)
+        source.buffer = audioBuffer
+      }
+
+      gainNode.gain.value = Math.max(0, Math.min(1, volume))
+      
+      source.connect(gainNode)
+      gainNode.connect(context.destination)
+      
+      source.start(0)
     } catch (error) {
-      // Fallback silencioso
+      // Fallback final: HTML5 Audio
+      try {
+        const audio = new Audio(audioPath)
+        audio.volume = volume
+        audio.play().catch(() => {
+          // Silencioso
+        })
+      } catch {
+        // Falhou completamente
+      }
     }
   }, [initAudioContext])
 
@@ -77,6 +133,7 @@ export function useAudioPlayer() {
 
   return {
     playAudio,
-    playBellSound
+    playBellSound,
+    isReady // Expor estado de prontidão
   }
 }

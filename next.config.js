@@ -31,8 +31,6 @@ const nextConfig = {
         'node_modules/.cache/**/*',
       ],
     },
-    // Otimizar CSS
-    optimizeCss: true,
     // Usar workers paralelos para build mais rápido
     workerThreads: true,
     cpus: 4, // Usar 4 CPUs em paralelo

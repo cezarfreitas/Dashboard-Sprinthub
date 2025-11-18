@@ -55,7 +55,9 @@ export default function PainelPage() {
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
-  const { playAudio, playBellSound } = useAudioPlayer()
+  const { playAudio, playBellSound, isReady: audioReady } = useAudioPlayer()
+  const [sseConnected, setSseConnected] = useState(false)
+  const sseRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // Calcular datas iniciais para "Este Mês"
   const periodoInicial = useMemo(() => {
@@ -623,33 +625,79 @@ export default function PainelPage() {
     fetchUnidadesList()
   }, [fetchGraficos, fetchStats, fetchNotificacoes, fetchFunis, fetchGrupos, fetchUnidadesList])
 
-  // Conectar ao SSE para atualizações em tempo real
+  // Conectar ao SSE com retry inteligente
   useEffect(() => {
-    const eventSource = new EventSource('/api/sse')
-    
-    eventSource.onopen = () => {
-      // Conexão estabelecida
-    }
+    let eventSource: EventSource | null = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+    const baseDelay = 1000
 
-    eventSource.onmessage = (event) => {
+    const connectSSE = () => {
       try {
-        const data = JSON.parse(event.data)
+        eventSource = new EventSource('/api/sse')
         
-        // Se receber evento de nova notificação, atualizar a lista com flag de nova
-        if (data.type === 'nova_notificacao') {
-          fetchNotificacoes(true)
+        eventSource.onopen = () => {
+          setSseConnected(true)
+          reconnectAttempts = 0
+          
+          // Limpar timeout de retry se houver
+          if (sseRetryTimeoutRef.current) {
+            clearTimeout(sseRetryTimeoutRef.current)
+            sseRetryTimeoutRef.current = null
+          }
         }
-      } catch (err) {
-        // Ignorar erros de parsing
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            
+            // Heartbeat - manter conexão viva
+            if (data.type === 'heartbeat' || data.type === 'connected') {
+              setSseConnected(true)
+              return
+            }
+            
+            // Nova notificação - atualizar e tocar som
+            if (data.type === 'nova_notificacao') {
+              fetchNotificacoes(true)
+            }
+          } catch (err) {
+            // Ignorar erros de parsing
+          }
+        }
+
+        eventSource.onerror = () => {
+          setSseConnected(false)
+          
+          if (eventSource) {
+            eventSource.close()
+          }
+          
+          // Retry com backoff exponencial
+          if (reconnectAttempts < maxReconnectAttempts) {
+            const delay = baseDelay * Math.pow(2, reconnectAttempts)
+            reconnectAttempts++
+            
+            sseRetryTimeoutRef.current = setTimeout(() => {
+              connectSSE()
+            }, delay)
+          }
+        }
+      } catch (error) {
+        setSseConnected(false)
       }
     }
 
-    eventSource.onerror = () => {
-      // Erro na conexão SSE - continuar tentando reconectar
-    }
+    // Conectar imediatamente
+    connectSSE()
 
     return () => {
-      eventSource.close()
+      if (eventSource) {
+        eventSource.close()
+      }
+      if (sseRetryTimeoutRef.current) {
+        clearTimeout(sseRetryTimeoutRef.current)
+      }
     }
   }, [fetchNotificacoes])
 
@@ -689,6 +737,34 @@ export default function PainelPage() {
 
   return (
     <div className="min-h-screen bg-black flex relative">
+      {/* Indicadores de Status (SSE e Áudio) */}
+      <div className="fixed top-4 right-4 z-50 flex gap-2">
+        {/* Status SSE */}
+        <div 
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${
+            sseConnected 
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+              : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+          }`}
+          title={sseConnected ? 'Notificações em tempo real ativas' : 'Reconectando notificações...'}
+        >
+          <span className={`w-2 h-2 rounded-full ${sseConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400 animate-pulse'}`} />
+          {sseConnected ? 'Online' : 'Reconectando'}
+        </div>
+        
+        {/* Status Áudio */}
+        {!audioReady && (
+          <div 
+            className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 cursor-pointer hover:bg-blue-500/30 transition-all"
+            onClick={() => playBellSound()}
+            title="Clique para ativar sons"
+          >
+            <span className="w-2 h-2 rounded-full bg-blue-400" />
+            Clique para ativar sons
+          </div>
+        )}
+      </div>
+
       {/* Botão de Colapsar - FORA da sidebar para sempre ficar visível */}
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
