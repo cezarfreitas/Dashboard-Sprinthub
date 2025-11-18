@@ -34,6 +34,7 @@ interface PainelUnidadeDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+
 function calcularPeriodo(tipo: string): { inicio: string; fim: string } {
   const hoje = new Date()
   const inicio = new Date()
@@ -104,6 +105,23 @@ export const PainelUnidadeDialog = memo(function PainelUnidadeDialog({
   const [searchTerm, setSearchTerm] = useState('')
   const [sortField, setSortField] = useState<SortField>('id')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [crmBaseUrl, setCrmBaseUrl] = useState<string>('https://grupointeli.sprinthub.app')
+
+  // Buscar URL base do CRM via API
+  useEffect(() => {
+    const fetchCrmUrl = async () => {
+      try {
+        const response = await fetch('/api/configuracoes/env')
+        const data = await response.json()
+        if (data.success && data.config?.URLPATCH && data.config.URLPATCH !== 'Não configurado') {
+          setCrmBaseUrl(data.config.URLPATCH)
+        }
+      } catch (err) {
+        // Manter URL padrão em caso de erro
+      }
+    }
+    fetchCrmUrl()
+  }, [])
 
   useEffect(() => {
     if (!open || !unidadeId) {
@@ -641,7 +659,7 @@ export const PainelUnidadeDialog = memo(function PainelUnidadeDialog({
                 >
                   <div className="text-sm font-mono">
                     <a
-                      href={`https://grupointeli.sprinthub.app/sh/crm?opportunityID=${op.id}`}
+                      href={`${crmBaseUrl}/sh/crm?opportunityID=${op.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
