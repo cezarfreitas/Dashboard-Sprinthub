@@ -118,11 +118,14 @@ export async function GET(request: NextRequest) {
       ? `AND ${oportunidadeFiltros.join(' AND ')}` 
       : ''
     
-    const [abertas, ganhas, perdidas] = await Promise.all([
+    const [abertas, ganhas, perdidas, metas] = await Promise.all([
       // Oportunidades abertas (sem filtro de data - todas as abertas no momento)
       // Excluir oportunidades arquivadas
       executeQuery(`
-        SELECT o.user, COUNT(*) as total
+        SELECT 
+          o.user,
+          COUNT(*) as total,
+          COALESCE(SUM(o.value), 0) as valor
         FROM oportunidades o
         ${joinFunil}
         WHERE o.user IN (${placeholders})
@@ -158,7 +161,10 @@ export async function GET(request: NextRequest) {
       // Oportunidades perdidas no período especificado
       // Usar lost_date como critério principal (mais confiável que status)
       executeQuery(`
-        SELECT o.user, COUNT(*) as total
+        SELECT 
+          o.user,
+          COUNT(*) as total,
+          COALESCE(SUM(o.value), 0) as valor
         FROM oportunidades o
         ${joinFunil}
         WHERE o.user IN (${placeholders})
@@ -173,17 +179,37 @@ export async function GET(request: NextRequest) {
         ...todosVendedoresIds,
         ...(usarDataCustomizada ? [dataInicio, dataFim] : [mesAtual, anoAtual]),
         ...oportunidadeParams
+      ]) as Promise<any[]>,
+
+      // Buscar metas mensais dos vendedores
+      executeQuery(`
+        SELECT 
+          vendedor_id,
+          COALESCE(SUM(meta_valor), 0) as meta_total
+        FROM metas_mensais
+        WHERE vendedor_id IN (${placeholders})
+          AND mes = ?
+          AND ano = ?
+          AND status = 'ativa'
+        GROUP BY vendedor_id
+      `, [
+        ...todosVendedoresIds,
+        mesAtual,
+        anoAtual
       ]) as Promise<any[]>
     ])
 
     // Criar mapas para acesso rápido
     // Converter user para número para garantir compatibilidade
-    const abertasMap = new Map<number, number>()
+    const abertasMap = new Map<number, { total: number; valor: number }>()
     abertas.forEach(o => {
       const userId = typeof o.user === 'string' ? parseInt(o.user) : Number(o.user)
       if (!isNaN(userId)) {
-        const currentTotal = abertasMap.get(userId) || 0
-        abertasMap.set(userId, currentTotal + Number(o.total || 0))
+        const current = abertasMap.get(userId) || { total: 0, valor: 0 }
+        abertasMap.set(userId, {
+          total: current.total + Number(o.total || 0),
+          valor: current.valor + Number(o.valor || 0)
+        })
       }
     })
 
@@ -199,12 +225,23 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const perdidasMap = new Map<number, number>()
+    const perdidasMap = new Map<number, { total: number; valor: number }>()
     perdidas.forEach(o => {
       const userId = typeof o.user === 'string' ? parseInt(o.user) : Number(o.user)
       if (!isNaN(userId)) {
-        const currentTotal = perdidasMap.get(userId) || 0
-        perdidasMap.set(userId, currentTotal + Number(o.total || 0))
+        const current = perdidasMap.get(userId) || { total: 0, valor: 0 }
+        perdidasMap.set(userId, {
+          total: current.total + Number(o.total || 0),
+          valor: current.valor + Number(o.valor || 0)
+        })
+      }
+    })
+
+    const metasMap = new Map<number, number>()
+    metas.forEach(m => {
+      const vendedorId = typeof m.vendedor_id === 'string' ? parseInt(m.vendedor_id) : Number(m.vendedor_id)
+      if (!isNaN(vendedorId)) {
+        metasMap.set(vendedorId, Number(m.meta_total || 0))
       }
     })
 
@@ -226,7 +263,10 @@ export async function GET(request: NextRequest) {
           oportunidades_abertas: 0,
           oportunidades_ganhas: 0,
           oportunidades_perdidas: 0,
-          valor_ganho: 0
+          valor_aberto: 0,
+          valor_ganho: 0,
+          valor_perdido: 0,
+          meta_valor: 0
         }
       }
 
@@ -234,7 +274,10 @@ export async function GET(request: NextRequest) {
       let totalAbertas = 0
       let totalGanhas = 0
       let totalPerdidas = 0
+      let totalValorAberto = 0
       let totalValor = 0
+      let totalValorPerdido = 0
+      let totalMeta = 0
 
       vendedoresIds.forEach(vendedorId => {
         // Garantir que o vendedorId é um número
@@ -242,8 +285,11 @@ export async function GET(request: NextRequest) {
         if (isNaN(userId)) return
 
         // Somar oportunidades abertas
-        const abertasCount = abertasMap.get(userId) || 0
-        totalAbertas += abertasCount
+        const aberto = abertasMap.get(userId)
+        if (aberto) {
+          totalAbertas += Number(aberto.total) || 0
+          totalValorAberto += Number(aberto.valor) || 0
+        }
         
         // Somar oportunidades ganhas
         const ganho = ganhasMap.get(userId)
@@ -253,8 +299,17 @@ export async function GET(request: NextRequest) {
         }
         
         // Somar oportunidades perdidas
-        const perdidasCount = perdidasMap.get(userId) || 0
-        totalPerdidas += perdidasCount
+        const perdido = perdidasMap.get(userId)
+        if (perdido) {
+          totalPerdidas += Number(perdido.total) || 0
+          totalValorPerdido += Number(perdido.valor) || 0
+        }
+
+        // Somar metas
+        const meta = metasMap.get(userId)
+        if (meta) {
+          totalMeta += Number(meta) || 0
+        }
       })
 
       return {
@@ -265,7 +320,10 @@ export async function GET(request: NextRequest) {
         oportunidades_abertas: Number(totalAbertas) || 0,
         oportunidades_ganhas: Number(totalGanhas) || 0,
         oportunidades_perdidas: Number(totalPerdidas) || 0,
-        valor_ganho: Number(totalValor) || 0
+        valor_aberto: Number(totalValorAberto) || 0,
+        valor_ganho: Number(totalValor) || 0,
+        valor_perdido: Number(totalValorPerdido) || 0,
+        meta_valor: Number(totalMeta) || 0
       }
     })
 

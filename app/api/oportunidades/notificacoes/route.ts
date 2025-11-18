@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '20') || 20))
+    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '15') || 15))
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0') || 0)
 
     // Buscar notificações ordenadas por consultado_em (mais recente primeiro)
     const notificacoes = await executeQuery(`
@@ -25,10 +26,23 @@ export async function GET(request: NextRequest) {
       FROM notificacao_oportunidades
       ORDER BY consultado_em DESC
       LIMIT ${limit}
+      OFFSET ${offset}
     `) as any[]
+    
+    // Contar total de notificações
+    const totalResult = await executeQuery(`
+      SELECT COUNT(*) as total
+      FROM notificacao_oportunidades
+    `) as any[]
+    
+    const total = totalResult[0]?.total || 0
 
     return NextResponse.json({
       success: true,
+      total,
+      offset,
+      limit,
+      hasMore: offset + notificacoes.length < total,
       historico: notificacoes.map(item => {
         // Função helper para converter Date para formato MySQL (local time)
         const formatDateToMySQL = (date: Date | string | null | undefined): string | null => {

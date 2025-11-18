@@ -95,15 +95,26 @@ export const UnidadeCard = memo(function UnidadeCard({
                 Equipe
               </span>
               <div className="flex flex-wrap gap-1.5">
-                {unidade.vendedores.map((vendedor, index) => (
-                  <Badge 
-                    key={index} 
-                    variant="secondary" 
-                    className="text-xs h-6 px-2"
-                  >
-                    {vendedor}
-                  </Badge>
-                ))}
+                {unidade.vendedores.map((vendedorId, index) => {
+                  // Buscar nome do vendedor em vendedores_detalhes
+                  const vendedorDetalhe = unidade.vendedores_detalhes?.find(
+                    v => String(v.id) === String(vendedorId)
+                  )
+                  const nomeVendedor = vendedorDetalhe 
+                    ? `${vendedorDetalhe.name} ${vendedorDetalhe.lastName || ''}`.trim()
+                    : vendedorId
+                  
+                  return (
+                    <Badge 
+                      key={index} 
+                      variant="secondary" 
+                      className="text-xs h-6 px-2"
+                      title={vendedorDetalhe ? `ID: ${vendedorId}` : undefined}
+                    >
+                      {nomeVendedor}
+                    </Badge>
+                  )
+                })}
               </div>
             </div>
           </div>

@@ -84,18 +84,21 @@ export async function GET(
     filtros.push(`o.user IN (${placeholders})`)
     queryParams.push(...vendedoresIds)
 
-    filtros.push('o.gain_date IS NOT NULL')
+    // Oportunidades perdidas
+    filtros.push('o.lost_date IS NOT NULL')
+    filtros.push('o.status IN (?, ?, ?)')
+    queryParams.push('lost', 'perdida', 'closed')
 
-    // Filtro de período
+    // Filtro de período (por data de perda)
     if (dataInicio && dataFim) {
-      filtros.push('DATE(o.gain_date) BETWEEN ? AND ?')
+      filtros.push('DATE(o.lost_date) BETWEEN ? AND ?')
       queryParams.push(dataInicio, dataFim)
     } else {
       // Se não houver período, buscar do mês atual
       const hoje = new Date()
       const mesAtual = hoje.getMonth() + 1
       const anoAtual = hoje.getFullYear()
-      filtros.push('MONTH(o.gain_date) = ? AND YEAR(o.gain_date) = ?')
+      filtros.push('MONTH(o.lost_date) = ? AND YEAR(o.lost_date) = ?')
       queryParams.push(mesAtual, anoAtual)
     }
 
@@ -107,19 +110,26 @@ export async function GET(
       queryParams.push(parseInt(funilId))
     }
 
-    // Buscar oportunidades ganhas
+    // Buscar oportunidades perdidas
     const oportunidades = await executeQuery(`
       SELECT 
         o.id,
         o.title as nome,
         o.value as valor,
         o.createDate as data_criacao,
-        o.gain_date as data_ganho,
+        o.lost_date as data_perda,
+        COALESCE(mp.motivo, o.loss_reason) as motivo_perda,
         o.user as vendedor_id
       FROM oportunidades o
+      LEFT JOIN motivos_de_perda mp ON (
+        o.loss_reason IS NOT NULL 
+        AND o.loss_reason != '' 
+        AND o.loss_reason REGEXP '^[0-9]+$'
+        AND CAST(o.loss_reason AS UNSIGNED) = mp.id
+      )
       ${joinFunil}
       WHERE ${filtros.join(' AND ')}
-      ORDER BY o.gain_date DESC, o.value DESC
+      ORDER BY o.lost_date DESC, o.value DESC
     `, queryParams) as any[]
 
     // Buscar nomes dos vendedores separadamente
@@ -155,8 +165,9 @@ export async function GET(
           id: op.id,
           nome: op.nome,
           valor: Number(op.valor) || 0,
-          data: op.data_ganho,
+          data: op.data_perda,
           dataCriacao: op.data_criacao,
+          motivoPerda: op.motivo_perda || null,
           vendedorId: vendedorId,
           vendedorNome: vendedorNome
         }
@@ -170,7 +181,7 @@ export async function GET(
     return NextResponse.json(
       { 
         success: false, 
-        message: 'Erro ao buscar oportunidades ganhas',
+        message: 'Erro ao buscar oportunidades perdidas',
         error: errorMessage,
         stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
       },

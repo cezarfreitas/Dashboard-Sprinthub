@@ -200,6 +200,199 @@ console.log(data)`}
         </CardContent>
       </Card>
 
+      {/* API Notificações */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Code className="h-5 w-5" />
+            <span>API - Enviar Notificações de Oportunidades</span>
+          </CardTitle>
+          <CardDescription>
+            Como enviar notificações para o painel através do endpoint de consulta de oportunidades
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Endpoint */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Endpoint</Label>
+            <div className="bg-muted p-3 rounded-md">
+              <code className="text-sm font-mono">
+                GET /api/op?id={`{oportunidade_id}`}&msg={`{status}`}&cor={`{cor}`}
+              </code>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ao consultar uma oportunidade, uma notificação é criada automaticamente no painel
+            </p>
+          </div>
+
+          <Separator />
+
+          {/* Parâmetros */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Parâmetros</Label>
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <p><strong>Query Parameters:</strong></p>
+              <ul className="list-disc list-inside ml-2 space-y-1">
+                <li><code className="bg-muted px-1 rounded">id</code> (obrigatório): ID da oportunidade no SprintHub</li>
+                <li><code className="bg-muted px-1 rounded">msg</code> (opcional): Status personalizado para exibir no badge</li>
+                <li><code className="bg-muted px-1 rounded">cor</code> (opcional): Cor em formato hex para o badge (ex: "#ff9900" ou "ff9900")</li>
+              </ul>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Exemplos */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Exemplos de Uso</Label>
+            <div className="space-y-4">
+              {/* Exemplo 1 */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground">1. Notificação simples (usa status da oportunidade)</p>
+                <div className="bg-muted p-3 rounded-md overflow-x-auto">
+                  <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+{`GET /api/op?id=12345`}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Exemplo 2 */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground">2. Notificação com status personalizado</p>
+                <div className="bg-muted p-3 rounded-md overflow-x-auto">
+                  <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+{`GET /api/op?id=12345&msg=PERDIDA`}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Exemplo 3 */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground">3. Notificação com status e cor personalizada</p>
+                <div className="bg-muted p-3 rounded-md overflow-x-auto">
+                  <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+{`GET /api/op?id=12345&msg=VALOR%20ATUALIZADO&cor=ff9900`}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Exemplo 4 */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground">4. Notificação de oportunidade ganha</p>
+                <div className="bg-muted p-3 rounded-md overflow-x-auto">
+                  <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+{`GET /api/op?id=12345&msg=GANHA&cor=10b981`}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Exemplo cURL */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Exemplo com cURL</Label>
+            <div className="bg-muted p-3 rounded-md overflow-x-auto">
+              <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+{`curl "http://localhost:3000/api/op?id=12345&msg=PERDIDA&cor=ef4444"`}
+              </pre>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Exemplo JavaScript */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Exemplo com JavaScript/Fetch</Label>
+            <div className="bg-muted p-3 rounded-md overflow-x-auto">
+              <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+{`// Notificação de oportunidade perdida
+await fetch('/api/op?id=12345&msg=PERDIDA&cor=ef4444')
+
+// Notificação de valor atualizado
+await fetch('/api/op?id=12345&msg=VALOR%20ATUALIZADO&cor=ff9900')
+
+// Notificação de oportunidade criada
+await fetch('/api/op?id=12345&msg=CRIADA&cor=3b82f6')`}
+              </pre>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Status disponíveis */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Status Disponíveis para o parâmetro "msg"</Label>
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <ul className="list-disc list-inside ml-2 space-y-1">
+                <li><code className="bg-muted px-1 rounded">PERDIDA</code> / <code className="bg-muted px-1 rounded">PERDIDO</code> - Oportunidade perdida (cor vermelha)</li>
+                <li><code className="bg-muted px-1 rounded">GANHA</code> / <code className="bg-muted px-1 rounded">GANHO</code> - Oportunidade ganha (cor verde)</li>
+                <li><code className="bg-muted px-1 rounded">CRIADA</code> - Nova oportunidade criada (cor azul)</li>
+                <li><code className="bg-muted px-1 rounded">VALOR ATUALIZADO</code> - Valor da oportunidade foi atualizado (cor laranja)</li>
+                <li>Qualquer outro texto personalizado</li>
+              </ul>
+              <p className="mt-2"><strong>Nota:</strong> Se não passar <code className="bg-muted px-1 rounded">msg</code>, o sistema usa o status da oportunidade no SprintHub (open, gain, lost) para determinar o badge.</p>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Cores sugeridas */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Cores Sugeridas</Label>
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <ul className="list-disc list-inside ml-2 space-y-1">
+                <li>Vermelho: <code className="bg-muted px-1 rounded">#ef4444</code> (perdidas)</li>
+                <li>Verde: <code className="bg-muted px-1 rounded">#10b981</code> (ganhas)</li>
+                <li>Azul: <code className="bg-muted px-1 rounded">#3b82f6</code> (criadas)</li>
+                <li>Laranja: <code className="bg-muted px-1 rounded">#ff9900</code> (atualizações)</li>
+                <li>Amarelo: <code className="bg-muted px-1 rounded">#f59e0b</code> (pendentes)</li>
+              </ul>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Resposta */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Resposta de Sucesso</Label>
+            <div className="bg-muted p-3 rounded-md overflow-x-auto">
+              <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+{`{
+  "success": true,
+  "data": {
+    "id": 12345,
+    "title": "Belchu Bel! ♥️ SC OUTDOOR",
+    "value": 0,
+    "status": "lost",
+    ...
+  },
+  "sync": {
+    "status": "updated",
+    "message": "Oportunidade atualizada no banco de dados"
+  }
+}`}
+              </pre>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Como funciona */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Como Funciona</Label>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <p>• Ao consultar uma oportunidade, ela é buscada no SprintHub</p>
+              <p>• A oportunidade é salva/atualizada no banco de dados local</p>
+              <p>• Uma notificação é criada automaticamente na tabela <code className="bg-muted px-1 rounded">notificacao_oportunidades</code></p>
+              <p>• A notificação aparece no painel (<code className="bg-muted px-1 rounded">/painel</code>) na sidebar esquerda</p>
+              <p>• A notificação exibe: nome, status (badge), vendedor, unidade, valor e tempo decorrido</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tabela de Unidades */}
       <Card>
         <CardHeader>

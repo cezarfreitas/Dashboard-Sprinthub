@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery } from '@/lib/database'
+import { broadcastEvent } from '@/lib/sse'
 
 export const dynamic = 'force-dynamic'
 
@@ -386,6 +387,20 @@ export async function GET(request: NextRequest) {
         unidadeNome,
         corNormalizada
       ])
+
+      // Enviar evento SSE para atualizar o painel em tempo real
+      broadcastEvent({
+        type: 'nova_notificacao',
+        data: {
+          oportunidadeId: data.id,
+          nome: data.title || 'Sem nome',
+          valor: typeof data.value === 'string' ? parseFloat(data.value || '0') : (data.value || 0),
+          status: statusParaBadge,
+          vendedor: vendedorNome,
+          unidade: unidadeNome,
+          cor: corNormalizada
+        }
+      })
     } catch (historyError) {
       // Ignorar erro ao salvar histórico - não é crítico
     }

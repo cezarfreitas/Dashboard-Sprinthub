@@ -16,7 +16,7 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
   anoAtual
 }: PainelUnidadesGridProps) {
   const { unidades, loading, error } = usePainelUnidades(filtros, mesAtual, anoAtual)
-  const [selectedUnidade, setSelectedUnidade] = useState<{ id: number; nome: string } | null>(null)
+  const [selectedUnidade, setSelectedUnidade] = useState<{ id: number; nome: string; status: 'abertas' | 'ganhas' | 'perdidas' } | null>(null)
 
   const unidadesFiltradas = useMemo(() => {
     // Remover duplicatas baseado no ID antes de filtrar
@@ -66,10 +66,6 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
     )
   }
 
-  const handleCardClick = (unidade: { id: number; nome: string }) => {
-    setSelectedUnidade(unidade)
-  }
-
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 4k:grid-cols-8 gap-4">
@@ -82,15 +78,14 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
           const uniqueKey = `unidade-${unidade.id}-${index}`
           
           return (
-            <div
-              key={uniqueKey}
-              onClick={() => handleCardClick({ id: unidade.id, nome: nomeExibicao })}
-              className="cursor-pointer"
-            >
+            <div key={uniqueKey}>
               <PainelUnidadeCard
                 unidade={unidade}
                 posicao={posicao}
                 color={color}
+                onClickAbertas={() => setSelectedUnidade({ id: unidade.id, nome: nomeExibicao, status: 'abertas' })}
+                onClickGanhas={() => setSelectedUnidade({ id: unidade.id, nome: nomeExibicao, status: 'ganhas' })}
+                onClickPerdidas={() => setSelectedUnidade({ id: unidade.id, nome: nomeExibicao, status: 'perdidas' })}
               />
             </div>
           )
@@ -100,6 +95,7 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
       <PainelUnidadeDialog
         unidadeId={selectedUnidade?.id || null}
         unidadeNome={selectedUnidade?.nome || ''}
+        status={selectedUnidade?.status || 'ganhas'}
         filtros={filtros}
         mesAtual={mesAtual}
         anoAtual={anoAtual}

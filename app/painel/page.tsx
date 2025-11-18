@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { TrendingUp, CheckCircle, XCircle, Target, DollarSign, Filter, X, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAudioPlayer } from "@/hooks/use-audio-player"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ export default function PainelPage() {
     abertasTotal: 0,
     abertasCriadasNoMes: 0,
     abertasCriadasAntes: 0,
+    valorTotalAbertas: 0,
     perdidasMes: 0,
     perdidasCriadasNoMes: 0,
     perdidasCriadasAntes: 0,
@@ -46,8 +48,14 @@ export default function PainelPage() {
   const [loadingStats, setLoadingStats] = useState(true)
   const [oportunidadesRecentes, setOportunidadesRecentes] = useState<any[]>([])
   const [loadingRecentes, setLoadingRecentes] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMoreNotificacoes, setHasMoreNotificacoes] = useState(true)
+  const [offsetNotificacoes, setOffsetNotificacoes] = useState(0)
+  const [novasNotificacoes, setNovasNotificacoes] = useState<Set<number>>(new Set())
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const observerTarget = useRef<HTMLDivElement>(null)
+  const { playAudio, playBellSound } = useAudioPlayer()
   
   // Calcular datas iniciais para "Este Mês"
   const periodoInicial = useMemo(() => {
@@ -346,6 +354,9 @@ export default function PainelPage() {
         const abertasCriadasAntes = abertasData.success 
           ? (abertasData.data?.abertasMesesAnteriores || 0)
           : 0
+        const valorTotalAbertas = abertasData.success 
+          ? (abertasData.data?.valorTotalAbertas || 0)
+          : 0
         
         // Perdidas Mês
         const perdidasResponse = await fetch(`/api/oportunidades/perdidos?mes=${mesHoje}&ano=${anoHoje}`)
@@ -445,6 +456,7 @@ export default function PainelPage() {
           abertasTotal,
           abertasCriadasNoMes,
           abertasCriadasAntes,
+          valorTotalAbertas,
           perdidasMes,
           perdidasCriadasNoMes,
           perdidasCriadasAntes,
@@ -465,26 +477,103 @@ export default function PainelPage() {
     }
   }, [mesAtual, anoAtual, diaAtual])
 
-  // Função para buscar notificações de oportunidades
-  const fetchNotificacoes = useCallback(async () => {
+  // Inicializar AudioContext e carregar som
+
+  // Função para buscar notificações de oportunidades (inicial)
+  const fetchNotificacoes = useCallback(async (isNewNotification = false) => {
     try {
-      const response = await fetch('/api/oportunidades/notificacoes?limit=20')
+      if (!isNewNotification) {
+        setLoadingRecentes(true)
+      }
+      const response = await fetch('/api/oportunidades/notificacoes?limit=20&offset=0')
       const data = await response.json()
       
       if (data.success && data.historico && data.historico.length > 0) {
+        // Garantir que não há duplicatas usando ID único
         const uniqueHistorico = Array.from(
           new Map(data.historico.map((item: any) => [item.id, item])).values()
         )
+        
+        // Se for uma nova notificação, marcar como nova para animar
+        if (isNewNotification && uniqueHistorico.length > 0) {
+          const primeiraNotificacao = uniqueHistorico[0] as any
+          if (primeiraNotificacao?.id) {
+            // Verificar se é uma notificação de ganho para tocar som
+            const statusLower = String(primeiraNotificacao.status || '').toLowerCase()
+            const isGanho = statusLower === 'gain' || 
+                           statusLower === 'ganha' || 
+                           statusLower === 'ganho' ||
+                           statusLower === 'won' ||
+                           String(primeiraNotificacao.status || '').toUpperCase().includes('GANH')
+            
+            if (isGanho) {
+              // Tocar som bell.wav
+              playAudio('/audio/bell.wav', 0.7)
+            }
+            
+            setNovasNotificacoes(prev => {
+              const novo = new Set(prev)
+              novo.add(primeiraNotificacao.id)
+              return novo
+            })
+            
+            // Remover a flag após a animação (500ms)
+            setTimeout(() => {
+              setNovasNotificacoes(prev => {
+                const novo = new Set(prev)
+                novo.delete(primeiraNotificacao.id)
+                return novo
+              })
+            }, 500)
+          }
+        }
+        
         setOportunidadesRecentes(uniqueHistorico)
+        setHasMoreNotificacoes(data.hasMore)
+        setOffsetNotificacoes(15)
       } else {
         setOportunidadesRecentes([])
+        setHasMoreNotificacoes(false)
       }
     } catch (err) {
       setOportunidadesRecentes([])
+      setHasMoreNotificacoes(false)
     } finally {
-      setLoadingRecentes(false)
+      if (!isNewNotification) {
+        setLoadingRecentes(false)
+      }
     }
-  }, [])
+  }, [playAudio])
+
+  // Função para carregar mais notificações
+  const loadMoreNotificacoes = useCallback(async () => {
+    if (loadingMore || !hasMoreNotificacoes) return
+
+    try {
+      setLoadingMore(true)
+      const response = await fetch(`/api/oportunidades/notificacoes?limit=15&offset=${offsetNotificacoes}`)
+      const data = await response.json()
+      
+      if (data.success && data.historico && data.historico.length > 0) {
+        setOportunidadesRecentes(prev => {
+          // Combinar e remover duplicatas
+          const combined = [...prev, ...data.historico]
+          const uniqueHistorico = Array.from(
+            new Map(combined.map((item: any) => [item.id, item])).values()
+          )
+          return uniqueHistorico
+        })
+        setHasMoreNotificacoes(data.hasMore)
+        setOffsetNotificacoes(prev => prev + 15)
+      } else {
+        setHasMoreNotificacoes(false)
+      }
+    } catch (err) {
+      setHasMoreNotificacoes(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasMoreNotificacoes, offsetNotificacoes])
 
   const fetchFunis = useCallback(async () => {
     try {
@@ -534,16 +623,69 @@ export default function PainelPage() {
     fetchUnidadesList()
   }, [fetchGraficos, fetchStats, fetchNotificacoes, fetchFunis, fetchGrupos, fetchUnidadesList])
 
-  // Atualizar notificações a cada 10 segundos
+  // Conectar ao SSE para atualizações em tempo real
+  useEffect(() => {
+    const eventSource = new EventSource('/api/sse')
+    
+    eventSource.onopen = () => {
+      // Conexão estabelecida
+    }
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        
+        // Se receber evento de nova notificação, atualizar a lista com flag de nova
+        if (data.type === 'nova_notificacao') {
+          fetchNotificacoes(true)
+        }
+      } catch (err) {
+        // Ignorar erros de parsing
+      }
+    }
+
+    eventSource.onerror = () => {
+      // Erro na conexão SSE - continuar tentando reconectar
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [fetchNotificacoes])
+
+  // Fallback: Atualizar notificações a cada 60 segundos (caso SSE falhe)
   useEffect(() => {
     const interval = setInterval(() => {
       fetchNotificacoes()
-    }, 10000) // 10 segundos
+    }, 60000) // 60 segundos (fallback)
 
     return () => {
       clearInterval(interval)
     }
   }, [fetchNotificacoes])
+
+  // IntersectionObserver para infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMoreNotificacoes && !loadingMore && !loadingRecentes) {
+          loadMoreNotificacoes()
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    )
+
+    const currentTarget = observerTarget.current
+    if (currentTarget) {
+      observer.observe(currentTarget)
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget)
+      }
+    }
+  }, [hasMoreNotificacoes, loadingMore, loadingRecentes, loadMoreNotificacoes])
 
   return (
     <div className="min-h-screen bg-black flex relative">
@@ -570,7 +712,7 @@ export default function PainelPage() {
           sidebarCollapsed ? "w-0 border-r-0" : "w-64"
         )}
       >
-        <div className={cn("p-3 space-y-2", sidebarCollapsed && "hidden")}>
+        <div className={cn("p-3 notifications-container", sidebarCollapsed && "hidden")}>
           {loadingRecentes ? (
             <div className="text-center py-8">
               <span className="text-gray-400 text-sm">Carregando...</span>
@@ -580,28 +722,17 @@ export default function PainelPage() {
               <span className="text-gray-400 text-sm">Nenhuma oportunidade recente</span>
             </div>
           ) : (
-            oportunidadesRecentes.map((op) => {
+            // Limitar a 20 notificações visíveis para performance
+            oportunidadesRecentes.slice(0, 20).map((op, index) => {
+              const isNova = novasNotificacoes.has(op.id)
+              const animationClass = isNova ? 'animate-notification-pop' : 'notification-card'
+              
               // Função para converter hex para rgba com opacidade
               const hexToRgba = (hex: string, alpha: number) => {
                 const r = parseInt(hex.slice(1, 3), 16)
                 const g = parseInt(hex.slice(3, 5), 16)
                 const b = parseInt(hex.slice(5, 7), 16)
                 return `rgba(${r}, ${g}, ${b}, ${alpha})`
-              }
-
-              // Função para calcular luminância e determinar se precisa de texto claro ou escuro
-              const calcularLuminancia = (hex: string): number => {
-                const r = parseInt(hex.slice(1, 3), 16) / 255
-                const g = parseInt(hex.slice(3, 5), 16) / 255
-                const b = parseInt(hex.slice(5, 7), 16) / 255
-
-                // Aplicar gamma correction
-                const rLinear = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4)
-                const gLinear = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4)
-                const bLinear = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4)
-
-                // Calcular luminância relativa (W3C)
-                return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear
               }
 
               // Verificar se há cor customizada (aceita com ou sem #)
@@ -625,10 +756,6 @@ export default function PainelPage() {
                 }
               }
               const temCorCustomizada = !!corHex
-              
-              // Calcular se a cor é clara ou escura
-              // Threshold 0.45: cores mais brilhantes que isso = texto preto, senão texto branco
-              const isCorClara = temCorCustomizada ? calcularLuminancia(corHex!) > 0.45 : false
               
               const statusConfig = {
                 gain: { 
@@ -666,40 +793,40 @@ export default function PainelPage() {
               }
               
               // Aplicar cor customizada se disponível (sempre tem prioridade)
-              // Usar opacidade maior para cores claras para melhor visibilidade
+              // Sempre usar opacidade de 0.2 para todas as cores
               const cardStyle: React.CSSProperties = temCorCustomizada ? {
-                backgroundColor: hexToRgba(corHex!, isCorClara ? 0.25 : 0.15),
+                backgroundColor: hexToRgba(corHex!, 0.2),
                 borderColor: corHex!,
                 borderWidth: '1px',
                 borderStyle: 'solid'
               } : {}
               
+              // Badge sempre com cor sólida e texto preto
               const badgeStyle: React.CSSProperties = temCorCustomizada ? {
                 backgroundColor: corHex!,
-                color: isCorClara ? '#000000' : '#ffffff'
+                color: '#000000'
               } : {}
               
-              // Valor usa preto ou branco puro (sem cor customizada)
+              // Todos os textos sempre brancos
               const valorStyle: React.CSSProperties = temCorCustomizada ? {
-                color: isCorClara ? '#000000' : '#FFFFFF',
+                color: '#FFFFFF',
                 fontWeight: 'bold'
               } : {}
               
-              // Cores de texto: PRETO ou BRANCO puro (100%)
               const textColorStyle = temCorCustomizada ? {
-                color: isCorClara ? '#000000' : '#FFFFFF'
+                color: '#FFFFFF'
               } : {}
               
               const textSecondaryStyle = temCorCustomizada ? {
-                color: isCorClara ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)'
+                color: 'rgba(255, 255, 255, 0.9)'
               } : {}
                 
               const textTertiaryStyle = temCorCustomizada ? {
-                color: isCorClara ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)'
+                color: 'rgba(255, 255, 255, 0.7)'
               } : {}
                 
               const borderStyle = temCorCustomizada ? {
-                borderColor: isCorClara ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'
+                borderColor: 'rgba(255, 255, 255, 0.2)'
               } : {}
               
               // Classes CSS (só aplicar se não houver cor customizada)
@@ -716,7 +843,7 @@ export default function PainelPage() {
                 return (
                   <div
                     key={op.id}
-                    className={cardClasses}
+                    className={cn(cardClasses, animationClass)}
                     style={cardStyle}
                   >
                     <div className="p-3">
@@ -724,7 +851,7 @@ export default function PainelPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span 
-                            className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold !text-black"
                             style={badgeStyle}
                           >
                             {badgeText}
@@ -759,7 +886,7 @@ export default function PainelPage() {
               return (
                 <Card
                   key={op.id}
-                  className={cardClasses}
+                  className={cn(cardClasses, animationClass)}
                 >
                   <CardContent className="p-3">
                     <div className="flex items-start justify-between mb-1.5">
@@ -790,6 +917,26 @@ export default function PainelPage() {
                 </Card>
               )
             })
+          )}
+          
+          {/* Indicador de carregamento progressivo */}
+          {loadingMore && (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+              <span className="ml-2 text-gray-400 text-xs">Carregando mais...</span>
+            </div>
+          )}
+          
+          {/* Elemento observador para infinite scroll */}
+          {hasMoreNotificacoes && !loadingRecentes && (
+            <div ref={observerTarget} className="h-4" />
+          )}
+          
+          {/* Indicador de fim da lista */}
+          {!hasMoreNotificacoes && oportunidadesRecentes.length > 0 && !loadingRecentes && (
+            <div className="text-center py-4">
+              <span className="text-gray-500 text-xs">Fim das notificações</span>
+            </div>
           )}
         </div>
       </div>
@@ -919,6 +1066,11 @@ export default function PainelPage() {
                     <p className="text-white text-xl font-bold">...</p>
                   ) : (
                     <p className="text-white text-2xl font-black">{stats.abertasTotal}</p>
+                  )}
+                  {!loadingStats && (
+                    <p className="text-cyan-100 text-sm font-semibold mt-0.5">
+                      {formatCurrency(stats.valorTotalAbertas)}
+                    </p>
                   )}
                 </div>
                 <FolderOpen className="h-7 w-7 text-cyan-200 opacity-80 flex-shrink-0 ml-2" />

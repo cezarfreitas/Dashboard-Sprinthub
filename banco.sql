@@ -83,6 +83,20 @@ CREATE TABLE motivos_de_perda (
   updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE notificacao_oportunidades (
+  id int NOT NULL,
+  oportunidade_id bigint UNSIGNED NOT NULL,
+  nome varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  valor decimal(15,2) DEFAULT '0.00',
+  status varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'open',
+  data_criacao datetime NOT NULL,
+  vendedor varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  unidade varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  cor varchar(7) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Cor customizada em formato hex (#RRGGBB)',
+  consultado_em timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE oportunidades (
   id bigint UNSIGNED NOT NULL,
   title varchar(255) NOT NULL,
@@ -239,42 +253,27 @@ ALTER TABLE motivos_de_perda
   ADD PRIMARY KEY (id),
   ADD KEY idx_motivo (motivo);
 
+ALTER TABLE notificacao_oportunidades
+  ADD PRIMARY KEY (id),
+  ADD KEY idx_oportunidade_id (oportunidade_id),
+  ADD KEY idx_consultado_em (consultado_em),
+  ADD KEY idx_status (status);
+
 ALTER TABLE oportunidades
   ADD PRIMARY KEY (id),
   ADD KEY idx_created_at (created_at),
   ADD KEY idx_coluna_funil_id (coluna_funil_id);
 
-CREATE TABLE notificacao_oportunidades (
-  id int NOT NULL AUTO_INCREMENT,
-  oportunidade_id bigint UNSIGNED NOT NULL,
-  nome varchar(255) NOT NULL,
-  valor decimal(15,2) DEFAULT '0.00',
-  status varchar(50) DEFAULT 'open',
-  data_criacao datetime NOT NULL,
-  vendedor varchar(255) DEFAULT NULL,
-  unidade varchar(255) DEFAULT NULL,
-  cor varchar(7) DEFAULT NULL COMMENT 'Cor customizada em formato hex (#RRGGBB)',
-  consultado_em timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_oportunidade_id (oportunidade_id),
-  KEY idx_consultado_em (consultado_em),
-  KEY idx_status (status),
-  CONSTRAINT fk_notificacao_oportunidades_oportunidade 
-    FOREIGN KEY (oportunidade_id) REFERENCES oportunidades(id) 
-    ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 ALTER TABLE unidades
   ADD PRIMARY KEY (id),
   ADD KEY idx_nome (nome),
-  ADD KEY idx_grupo_id (grupo_id),
   ADD KEY idx_name (name),
   ADD KEY idx_department_id (department_id),
   ADD KEY idx_ativo (ativo),
   ADD KEY idx_synced_at (synced_at),
   ADD KEY idx_dpto_gestao (dpto_gestao),
-  ADD KEY idx_user_gestao (user_gestao);
+  ADD KEY idx_user_gestao (user_gestao),
+  ADD KEY idx_grupo_id (grupo_id);
 
 ALTER TABLE unidade_grupos
   ADD PRIMARY KEY (id),
@@ -312,6 +311,9 @@ ALTER TABLE fila_leads_log
 ALTER TABLE metas_mensais
   MODIFY id int NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE notificacao_oportunidades
+  MODIFY id int NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE unidades
   MODIFY id int NOT NULL AUTO_INCREMENT;
 
@@ -324,6 +326,9 @@ ALTER TABLE usuarios_sistema
 
 ALTER TABLE colunas_funil
   ADD CONSTRAINT colunas_funil_ibfk_1 FOREIGN KEY (id_funil) REFERENCES funis (id) ON DELETE CASCADE;
+
+ALTER TABLE notificacao_oportunidades
+  ADD CONSTRAINT fk_notificacao_oportunidades_oportunidade FOREIGN KEY (oportunidade_id) REFERENCES oportunidades (id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

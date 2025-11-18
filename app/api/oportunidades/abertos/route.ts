@@ -15,18 +15,22 @@ export async function GET(request: NextRequest) {
     const mesAtual = mes ? parseInt(mes) : dataAtual.getMonth() + 1
     const anoAtual = ano ? parseInt(ano) : dataAtual.getFullYear()
 
-    // Buscar oportunidades abertas criadas no mês atual
+    // Buscar oportunidades abertas criadas no mês atual (com valor)
     const queryMesAtual = `
-      SELECT COUNT(*) as total
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       WHERE MONTH(o.createDate) = ? 
         AND YEAR(o.createDate) = ?
         AND o.status IN ('open', 'aberta', 'active')
     `
 
-    // Buscar oportunidades abertas criadas em meses anteriores
+    // Buscar oportunidades abertas criadas em meses anteriores (com valor)
     const queryMesesAnteriores = `
-      SELECT COUNT(*) as total
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       WHERE (
         YEAR(o.createDate) < ? OR 
@@ -35,20 +39,30 @@ export async function GET(request: NextRequest) {
       AND o.status IN ('open', 'aberta', 'active')
     `
 
-    const [resultMesAtual, resultMesesAnteriores] = await Promise.all([
+    // Buscar valor total de todas as oportunidades abertas
+    const queryValorTotal = `
+      SELECT COALESCE(SUM(o.value), 0) as valor_total
+      FROM oportunidades o
+      WHERE o.status IN ('open', 'aberta', 'active')
+    `
+
+    const [resultMesAtual, resultMesesAnteriores, resultValorTotal] = await Promise.all([
       executeQuery(queryMesAtual, [mesAtual, anoAtual]),
-      executeQuery(queryMesesAnteriores, [anoAtual, anoAtual, mesAtual])
-    ]) as [any[], any[]]
+      executeQuery(queryMesesAnteriores, [anoAtual, anoAtual, mesAtual]),
+      executeQuery(queryValorTotal, [])
+    ]) as [any[], any[], any[]]
 
     const abertasMesAtual = resultMesAtual[0]?.total || 0
     const abertasMesesAnteriores = resultMesesAnteriores[0]?.total || 0
+    const valorTotalAbertas = Number(resultValorTotal[0]?.valor_total || 0)
 
     return NextResponse.json({
       success: true,
       data: {
         abertasMesAtual,
         abertasMesesAnteriores,
-        totalOportunidades: abertasMesAtual + abertasMesesAnteriores
+        totalOportunidades: abertasMesAtual + abertasMesesAnteriores,
+        valorTotalAbertas
       },
       periodo: {
         mes: mesAtual,

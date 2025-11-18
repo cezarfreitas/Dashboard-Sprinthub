@@ -16,7 +16,7 @@ export function useSSE() {
   const [lastEvent, setLastEvent] = useState<SSEEvent | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const { celebrate } = useCelebration()
-  const { playBellTwice } = useAudioPlayer()
+  const { playBellSound } = useAudioPlayer()
 
   const openDialog = useCallback(() => {
     console.log('Abrindo dialog via SSE')
@@ -45,8 +45,8 @@ export function useSSE() {
           console.log('🎯 Objetivo alcançado via SSE - iniciando celebração')
           console.log('🎉 Chamando celebrate()...')
           celebrate() // 🎉 Apenas fogos (sem sons sintéticos)
-          console.log('🔔 Chamando playBellTwice()...')
-          playBellTwice() // 🔔 bell.wav duas vezes
+          console.log('🔔 Chamando playBellSound()...')
+          playBellSound() // 🔔 bell.wav
           console.log('📱 Chamando openDialog()...')
           openDialog()
         }

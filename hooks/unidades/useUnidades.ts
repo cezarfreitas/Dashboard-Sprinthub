@@ -100,10 +100,28 @@ export function useUnidades(): UseUnidadesReturn {
         signal: controller.signal
       })
       
-      const data = await response.json()
-      
       if (!response.ok) {
-        throw new Error(data.message || 'Erro ao carregar unidades')
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          throw new Error(`Erro ${response.status}: ${response.statusText}`)
+        }
+        throw new Error(errorData.message || 'Erro ao carregar unidades')
+      }
+      
+      const text = await response.text()
+      if (!text || text.trim() === '') {
+        throw new Error('Resposta vazia do servidor')
+      }
+      
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch (parseError) {
+        console.error('Erro ao parsear JSON:', parseError, 'Resposta:', text)
+        throw new Error('Resposta inválida do servidor')
       }
       
       // Only update if this request wasn't cancelled
@@ -137,9 +155,31 @@ export function useUnidades(): UseUnidadesReturn {
         body: JSON.stringify({ ativo: !currentStatus })
       })
       
-      const data = await response.json()
-      
       if (!response.ok) {
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          throw new Error(`Erro ${response.status}: ${response.statusText}`)
+        }
+        throw new Error(errorData.message || 'Erro ao alterar status da unidade')
+      }
+      
+      const text = await response.text()
+      if (!text || text.trim() === '') {
+        throw new Error('Resposta vazia do servidor')
+      }
+      
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch (parseError) {
+        console.error('Erro ao parsear JSON:', parseError, 'Resposta:', text)
+        throw new Error('Resposta inválida do servidor')
+      }
+      
+      if (!data.success) {
         throw new Error(data.message || 'Erro ao alterar status da unidade')
       }
       
@@ -165,7 +205,30 @@ export function useUnidades(): UseUnidadesReturn {
       })
 
       if (!response.ok) {
-        const data = await response.json()
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          throw new Error(`Erro ${response.status}: ${response.statusText}`)
+        }
+        throw new Error(errorData.message || 'Erro ao salvar fila')
+      }
+
+      const text = await response.text()
+      if (!text || text.trim() === '') {
+        throw new Error('Resposta vazia do servidor')
+      }
+      
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch (parseError) {
+        console.error('Erro ao parsear JSON:', parseError, 'Resposta:', text)
+        throw new Error('Resposta inválida do servidor')
+      }
+
+      if (!data.success) {
         throw new Error(data.message || 'Erro ao salvar fila')
       }
       
