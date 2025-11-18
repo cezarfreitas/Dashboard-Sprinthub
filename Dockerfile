@@ -1,7 +1,10 @@
 # =============================================================================
-# Dockerfile Otimizado para Next.js em VPS
-# Multi-stage build com cache otimizado, segurança e health checks
+# Dockerfile Ultra-Otimizado para Next.js em VPS
+# Multi-stage build com cache BuildKit, paralelização e otimizações agressivas
 # =============================================================================
+
+# Habilitar BuildKit para cache avançado (adicione no docker-compose ou comando)
+# syntax=docker/dockerfile:1.4
 
 # -----------------------------------------------------------------------------
 # Stage 1: Base Image com dependências do sistema
@@ -10,20 +13,19 @@ FROM node:18-alpine AS base
 
 # Metadata
 LABEL maintainer="DevOps Team"
-LABEL version="2.0.0"
-LABEL description="Dashboard Inteligente - Production Ready"
+LABEL version="3.0.0"
+LABEL description="Dashboard Inteligente - Ultra Optimized"
 
 # Build arguments
 ARG NODE_ENV=production
 ARG NEXT_TELEMETRY_DISABLED=1
 
-# Instalar dependências do sistema e ferramentas de segurança
-RUN apk add --no-cache \
+# Instalar dependências do sistema otimizadas
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add --no-cache \
     libc6-compat \
     dumb-init \
-    curl \
-    tzdata \
-    && rm -rf /var/cache/apk/*
+    curl
 
 # Configurar timezone
 ENV TZ=America/Sao_Paulo
@@ -31,64 +33,65 @@ ENV TZ=America/Sao_Paulo
 WORKDIR /app
 
 # -----------------------------------------------------------------------------
-# Stage 2: Dependencies - Instalar dependências do projeto
+# Stage 2: Dependencies - Instalar dependências com cache
 # -----------------------------------------------------------------------------
 FROM base AS deps
 
-# Copiar apenas arquivos de dependências (melhor cache)
+# Copiar apenas arquivos de dependências (cache layer)
 COPY package.json package-lock.json* ./
 
-# Limpar cache do npm antes da instalação
-RUN npm cache clean --force
+# Usar cache mount do BuildKit para npm
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --loglevel=error
 
-# Instalar dependências de produção e desenvolvimento
-RUN npm ci --prefer-offline --no-audit
-
-# Instalar apenas dependências de produção em camada separada
+# -----------------------------------------------------------------------------
+# Stage 3: Production Dependencies (separado para melhor cache)
+# -----------------------------------------------------------------------------
 FROM base AS prod-deps
 
 COPY package.json package-lock.json* ./
 
-RUN npm ci --only=production --prefer-offline --no-audit \
-    && npm cache clean --force
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production --prefer-offline --no-audit --loglevel=error
 
 # -----------------------------------------------------------------------------
-# Stage 3: Builder - Build da aplicação
+# Stage 4: Builder - Build da aplicação com máxima otimização
 # -----------------------------------------------------------------------------
 FROM base AS builder
 
-# Variáveis de ambiente para build
+# Variáveis de ambiente para build otimizado
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 WORKDIR /app
 
-# Copiar dependências
+# Copiar dependências (cache layer)
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copiar código fonte
-COPY . .
+# Copiar apenas arquivos necessários para build
+COPY package.json next.config.js tsconfig.json ./
+COPY app ./app
+COPY components ./components
+COPY lib ./lib
+COPY hooks ./hooks
+COPY contexts ./contexts
+COPY types ./types
+COPY config ./config
+COPY public ./public
+COPY middleware.ts ./
 
-# Criar diretórios necessários
-RUN mkdir -p .next prisma/migrations
+# Build paralelo com cache
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
-# Build da aplicação com otimizações
-RUN npm run build
-
-# Remover arquivos desnecessários após build
-RUN rm -rf \
-    .git \
-    .github \
-    .vscode \
-    node_modules/.cache \
-    **/*.md \
-    **/*.test.* \
-    **/*.spec.* \
-    **/tests
+# Limpeza agressiva pós-build
+RUN find . -name "*.test.*" -o -name "*.spec.*" | xargs rm -rf && \
+    rm -rf node_modules/.cache
 
 # -----------------------------------------------------------------------------
-# Stage 4: Runner - Imagem final de produção
+# Stage 5: Runner - Imagem final ultra-compacta
 # -----------------------------------------------------------------------------
 FROM base AS runner
 
@@ -104,39 +107,27 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Criar usuário não-privilegiado para segurança
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs \
-    && chown -R nextjs:nodejs /app
+# Criar usuário não-privilegiado
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Copiar apenas arquivos necessários para produção
-COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Copiar apenas o essencial (standalone já contém node_modules necessários)
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Copiar arquivos de configuração necessários
-COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
 
-# Criar diretório para cache com permissões corretas
-RUN mkdir -p .next/cache \
-    && chown -R nextjs:nodejs .next
-
-# Health check nativo do Docker
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+# Health check otimizado
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=2 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Mudar para usuário não-privilegiado
+# Usuário não-privilegiado
 USER nextjs
 
-# Expor porta
 EXPOSE 3000
 
-# Usar dumb-init para gerenciamento correto de processos
+# Comando otimizado
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-
-# Comando de inicialização
 CMD ["node", "server.js"]
 
 # -----------------------------------------------------------------------------
