@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
     }
     
     query += `
-      WHERE o.status = 'gain' 
+      WHERE o.status = 'gain'
+        AND o.gain_date IS NOT NULL
         AND MONTH(o.gain_date) = ? 
         AND YEAR(o.gain_date) = ?
     `

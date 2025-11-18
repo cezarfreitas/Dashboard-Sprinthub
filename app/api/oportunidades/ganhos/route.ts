@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const mesAtual = mes ? parseInt(mes) : dataAtual.getMonth() + 1
     const anoAtual = ano ? parseInt(ano) : dataAtual.getFullYear()
 
-    // Buscar oportunidades com gain_date no mês atual
+    // Buscar oportunidades com status='gain' E gain_date no mês atual
     const queryGanhas = `
       SELECT 
         COUNT(*) as total_oportunidades,
@@ -23,29 +23,35 @@ export async function GET(request: NextRequest) {
         COALESCE(MIN(value), 0) as menor_valor,
         COALESCE(MAX(value), 0) as maior_valor
       FROM oportunidades o
-      WHERE MONTH(o.gain_date) = ? 
+      WHERE o.status = 'gain'
+        AND o.gain_date IS NOT NULL
+        AND MONTH(o.gain_date) = ? 
         AND YEAR(o.gain_date) = ?
     `
 
-    // Buscar oportunidades com gain_date no mês atual E criadas no mês atual
+    // Buscar oportunidades com status='gain', gain_date no mês atual E criadas no mês atual
     const queryGanhasCriadasMes = `
       SELECT 
         COUNT(*) as total_oportunidades,
         COALESCE(SUM(value), 0) as total_valor
       FROM oportunidades o
-      WHERE MONTH(o.gain_date) = ? 
+      WHERE o.status = 'gain'
+        AND o.gain_date IS NOT NULL
+        AND MONTH(o.gain_date) = ? 
         AND YEAR(o.gain_date) = ?
         AND MONTH(o.createDate) = ? 
         AND YEAR(o.createDate) = ?
     `
 
-    // Buscar oportunidades com gain_date no mês atual mas criadas em meses anteriores
+    // Buscar oportunidades com status='gain', gain_date no mês atual mas criadas em meses anteriores
     const queryGanhasCriadasAnterior = `
       SELECT 
         COUNT(*) as total_oportunidades,
         COALESCE(SUM(value), 0) as total_valor
       FROM oportunidades o
-      WHERE MONTH(o.gain_date) = ? 
+      WHERE o.status = 'gain'
+        AND o.gain_date IS NOT NULL
+        AND MONTH(o.gain_date) = ? 
         AND YEAR(o.gain_date) = ?
         AND (
           YEAR(o.createDate) < ? OR 
