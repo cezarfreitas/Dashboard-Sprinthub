@@ -35,10 +35,10 @@ export const GestorFunilVendas = memo(function GestorFunilVendas({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Funil de Vendas da Equipe</CardTitle>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">Funil de Vendas da Equipe</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-1">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <tbody>

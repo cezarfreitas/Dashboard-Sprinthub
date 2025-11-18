@@ -11,13 +11,17 @@ interface ResumoUnidadeData {
   valor_ganho: number
   ganhas_criadas_no_periodo: number
   ganhas_criadas_periodo_anterior: number
+  crescimento_ganhas_percentual: number
   oportunidades_perdidas: number
   perdidas_criadas_no_periodo: number
   perdidas_criadas_periodo_anterior: number
+  crescimento_perdidas_percentual: number
   oportunidades_abertas: number
   abertas_criadas_no_periodo: number
   abertas_criadas_periodo_anterior: number
   meta_mes: number
+  maior_valor_ganho: number
+  menor_valor_ganho: number
 }
 
 interface GestorResumoUnidadeProps {
@@ -68,13 +72,17 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
             valor_ganho: Number(unidade.valor_ganho) || 0,
             ganhas_criadas_no_periodo: Number(unidade.ganhas_criadas_no_periodo) || 0,
             ganhas_criadas_periodo_anterior: Number(unidade.ganhas_criadas_periodo_anterior) || 0,
+            crescimento_ganhas_percentual: Number(unidade.crescimento_ganhas_percentual) || 0,
             oportunidades_perdidas: Number(unidade.oportunidades_perdidas) || 0,
             perdidas_criadas_no_periodo: Number(unidade.perdidas_criadas_no_periodo) || 0,
             perdidas_criadas_periodo_anterior: Number(unidade.perdidas_criadas_periodo_anterior) || 0,
+            crescimento_perdidas_percentual: Number(unidade.crescimento_perdidas_percentual) || 0,
             oportunidades_abertas: Number(unidade.oportunidades_abertas) || 0,
             abertas_criadas_no_periodo: Number(unidade.abertas_criadas_no_periodo) || 0,
             abertas_criadas_periodo_anterior: Number(unidade.abertas_criadas_periodo_anterior) || 0,
-            meta_mes: Number(unidade.meta_mes) || 0
+            meta_mes: Number(unidade.meta_mes) || 0,
+            maior_valor_ganho: Number(unidade.maior_valor_ganho) || 0,
+            menor_valor_ganho: Number(unidade.menor_valor_ganho) || 0
           })
         }
       } catch {
@@ -106,9 +114,9 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
     : 0
 
   return (
-    <div className="grid grid-cols-5 gap-4">
+    <>
       {metaMes > 0 && (
-        <Card className="relative overflow-hidden border-2 bg-white">
+        <Card className="relative overflow-hidden border-2 bg-white w-full h-full">
           {/* Background base */}
           <div className={`absolute inset-0 bg-gradient-to-br ${
             percentualMeta >= 100 
@@ -134,17 +142,17 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
           />
           
           {/* Conteúdo - sempre acima da "água" */}
-          <CardContent className="relative z-10 p-3">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-1">
-                <DollarSign className={`h-3 w-3 ${
+          <CardContent className="relative z-10 p-4">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <DollarSign className={`h-4 w-4 flex-shrink-0 ${
                   percentualMeta >= 100 
                     ? 'text-green-600' 
                     : percentualMeta >= 75
                     ? 'text-yellow-600'
                     : 'text-red-600'
                 }`} />
-                <span className={`text-[9px] font-semibold uppercase ${
+                <span className={`text-xs font-semibold uppercase ${
                   percentualMeta >= 100 
                     ? 'text-green-700' 
                     : percentualMeta >= 75
@@ -152,7 +160,7 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
                     : 'text-red-700'
                 }`}>Meta / Realizado</span>
               </div>
-              <p className={`text-xl font-bold leading-none ${
+              <p className={`text-2xl font-bold leading-tight whitespace-nowrap ${
                 percentualMeta >= 100 
                   ? 'text-green-900' 
                   : percentualMeta >= 75
@@ -161,7 +169,7 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
               }`}>
                 {formatCurrency(valorGanho)}
               </p>
-              <div className="pt-1.5 space-y-1">
+              <div className="pt-2 space-y-1.5">
                 {/* Barra de progresso */}
                 <div className="relative w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
                   <div 
@@ -179,8 +187,8 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
                 </div>
                 {/* Labels */}
                 <div className="flex items-baseline justify-between gap-2">
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-sm font-bold ${
+                  <div className="flex items-baseline gap-1 whitespace-nowrap">
+                    <span className={`text-base font-bold ${
                       percentualMeta >= 100 
                         ? 'text-green-800' 
                         : percentualMeta >= 75
@@ -189,7 +197,7 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
                     }`}>
                       {isNaN(percentualMeta) ? '0.0' : percentualMeta.toFixed(1)}%
                     </span>
-                    <span className={`text-[10px] ${
+                    <span className={`text-xs ${
                       percentualMeta >= 100 
                         ? 'text-green-700/70' 
                         : percentualMeta >= 75
@@ -199,7 +207,7 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
                       da meta
                     </span>
                   </div>
-                  <span className={`text-xs ${
+                  <span className={`text-xs truncate ${
                     percentualMeta >= 100 
                       ? 'text-green-700/70' 
                       : percentualMeta >= 75
@@ -215,116 +223,177 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
         </Card>
       )}
 
-      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-        <CardContent className="p-3">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-blue-600" />
-              <span className="text-[9px] font-semibold text-blue-700 uppercase">Criadas</span>
+      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 w-full h-full">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <TrendingUp className="h-4 w-4 flex-shrink-0 text-blue-600" />
+              <span className="text-xs font-semibold text-blue-700 uppercase">Novas Oportunidades</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <p className="text-xl font-bold text-blue-900 leading-none">
+              <p className="text-2xl font-bold text-blue-900 leading-tight whitespace-nowrap">
                 {data.oportunidades_criadas}
               </p>
               {data.oportunidades_criadas_mes_anterior > 0 && (
-                <div className={`flex items-center gap-0.5 ${
+                <div className={`flex items-center gap-1 whitespace-nowrap ${
                   data.crescimento_criadas_percentual >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {data.crescimento_criadas_percentual >= 0 ? (
-                    <TrendingUp className="h-3 w-3" />
+                    <TrendingUp className="h-4 w-4" />
                   ) : (
-                    <TrendingDown className="h-3 w-3" />
+                    <TrendingDown className="h-4 w-4" />
                   )}
                   <span className="text-xs font-semibold">
-                    {Math.abs(data.crescimento_criadas_percentual).toFixed(1)}%
+                    {data.crescimento_criadas_percentual >= 0 ? '+' : ''}{data.crescimento_criadas_percentual.toFixed(1)}%
                   </span>
                 </div>
               )}
             </div>
-            {data.oportunidades_criadas_mes_anterior > 0 && (
-              <p className="text-xs text-blue-700/70">
-                vs mês anterior: {data.oportunidades_criadas_mes_anterior}
+            <div className="pt-1.5 border-t border-blue-200/50 space-y-1">
+              <p className="text-xs text-blue-700/90 font-medium">
+                Criadas até hoje ({new Date().toLocaleDateString('pt-BR')})
               </p>
-            )}
+              {data.oportunidades_criadas_mes_anterior > 0 && (
+                <p className="text-xs text-blue-700/70">
+                  Mesmo período mês anterior: <span className="font-bold text-blue-800">{data.oportunidades_criadas_mes_anterior}</span>
+                </p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-        <CardContent className="p-3">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1">
-              <Circle className="h-3 w-3 text-yellow-600" />
-              <span className="text-[9px] font-semibold text-yellow-700 uppercase">Abertas</span>
+      <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 w-full h-full">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <Circle className="h-4 w-4 flex-shrink-0 text-yellow-600" />
+              <span className="text-xs font-semibold text-yellow-700 uppercase">Abertos</span>
             </div>
-            <p className="text-xl font-bold text-yellow-900 leading-none">
+            <p className="text-2xl font-bold text-yellow-900 leading-tight whitespace-nowrap">
               {data.oportunidades_abertas}
             </p>
-            <div className="flex items-baseline gap-2 pt-1 border-t border-yellow-200/50">
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm font-bold text-yellow-800">{data.abertas_criadas_no_periodo || 0}</span>
-                <span className="text-[10px] text-yellow-700/70">Atual</span>
-              </div>
-              <span className="text-yellow-300">•</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm font-bold text-yellow-800">{data.abertas_criadas_periodo_anterior || 0}</span>
-                <span className="text-[10px] text-yellow-700/70">Anterior</span>
+            <div className="pt-1.5 border-t border-yellow-200/50 space-y-1">
+              <p className="text-xs text-yellow-700/90 font-medium">
+                Total de oportunidades abertas
+              </p>
+              <div className="space-y-0.5">
+                <p className="text-xs text-yellow-700/70">
+                  Criadas este mês: <span className="font-bold text-yellow-800">{data.abertas_criadas_no_periodo || 0}</span>
+                </p>
+                <p className="text-xs text-yellow-700/70">
+                  Criadas anteriormente: <span className="font-bold text-yellow-800">{data.abertas_criadas_periodo_anterior || 0}</span>
+                </p>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-        <CardContent className="p-3">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1">
-              <XCircle className="h-3 w-3 text-red-600" />
-              <span className="text-[9px] font-semibold text-red-700 uppercase">Perdidas</span>
+      <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 w-full h-full">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
+              <span className="text-xs font-semibold text-red-700 uppercase">Perdidos</span>
             </div>
-            <p className="text-xl font-bold text-red-900 leading-none">
+            <p className="text-2xl font-bold text-red-900 leading-tight whitespace-nowrap">
               {data.oportunidades_perdidas}
             </p>
-            <div className="flex items-baseline gap-2 pt-1 border-t border-red-200/50">
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm font-bold text-red-800">{data.perdidas_criadas_no_periodo || 0}</span>
-                <span className="text-[10px] text-red-700/70">Atual</span>
-              </div>
-              <span className="text-red-300">•</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm font-bold text-red-800">{data.perdidas_criadas_periodo_anterior || 0}</span>
-                <span className="text-[10px] text-red-700/70">Anterior</span>
+            <div className="pt-1.5 border-t border-red-200/50 space-y-1">
+              <p className="text-xs text-red-700/90 font-medium">
+                Perdidas em {new Date(dataInicio).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' })}
+              </p>
+              <div className="space-y-0.5">
+                <p className="text-xs text-red-700/70">
+                  Perdidos e criados no mês: <span className="font-bold text-red-800">{data.perdidas_criadas_no_periodo || 0}</span>
+                </p>
+                <p className="text-xs text-red-700/70">
+                  Perdidos no mês, criados antes: <span className="font-bold text-red-800">{(data.oportunidades_perdidas || 0) - (data.perdidas_criadas_no_periodo || 0)}</span>
+                </p>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-        <CardContent className="p-3">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1">
-              <CheckCircle className="h-3 w-3 text-green-600" />
-              <span className="text-[9px] font-semibold text-green-700 uppercase">Ganhas</span>
+      <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 w-full h-full">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+              <span className="text-xs font-semibold text-green-700 uppercase">Ganhas</span>
             </div>
-            <p className="text-xl font-bold text-green-900 leading-none">
-              {data.oportunidades_ganhas}
+            <p className="text-2xl font-bold text-green-900 leading-tight whitespace-nowrap">
+              {formatCurrency(data.valor_ganho)}
             </p>
-            <div className="flex items-baseline gap-2 pt-1 border-t border-green-200/50">
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm font-bold text-green-800">{data.ganhas_criadas_no_periodo || 0}</span>
-                <span className="text-[10px] text-green-700/70">Atual</span>
-              </div>
-              <span className="text-green-300">•</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm font-bold text-green-800">{data.ganhas_criadas_periodo_anterior || 0}</span>
-                <span className="text-[10px] text-green-700/70">Anterior</span>
+            <div className="pt-1.5 border-t border-green-200/50 space-y-1">
+              <p className="text-xs text-green-700/90 font-medium">
+                Ganhas em {new Date(dataInicio).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' })}
+              </p>
+              <div className="space-y-0.5">
+                <p className="text-xs text-green-700/70">
+                  Ganhas e criadas no mês: <span className="font-bold text-green-800">{data.ganhas_criadas_no_periodo || 0}</span>
+                </p>
+                <p className="text-xs text-green-700/70">
+                  Ganhas no mês, criadas antes: <span className="font-bold text-green-800">{(data.oportunidades_ganhas || 0) - (data.ganhas_criadas_no_periodo || 0)}</span>
+                </p>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
-    </div>
+
+      {/* Taxa de Conversão */}
+      <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 w-full h-full">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <TrendingUp className="h-4 w-4 flex-shrink-0 text-purple-600" />
+              <span className="text-xs font-semibold text-purple-700 uppercase">Taxa de Conversão</span>
+            </div>
+            <p className="text-2xl font-bold text-purple-900 leading-tight whitespace-nowrap">
+              {data.oportunidades_criadas > 0 
+                ? ((data.oportunidades_ganhas / data.oportunidades_criadas) * 100).toFixed(1)
+                : '0.0'}%
+            </p>
+            <div className="pt-1.5 border-t border-purple-200/50 space-y-1">
+              <p className="text-xs text-purple-700/70">
+                {data.oportunidades_ganhas} ganhas de {data.oportunidades_criadas} criadas
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Ticket Médio */}
+      <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 w-full h-full">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <DollarSign className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+              <span className="text-xs font-semibold text-emerald-700 uppercase">Ticket Médio</span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-900 leading-tight whitespace-nowrap">
+              {formatCurrency(data.oportunidades_ganhas > 0 ? data.valor_ganho / data.oportunidades_ganhas : 0)}
+            </p>
+            <div className="pt-1.5 border-t border-emerald-200/50 space-y-1">
+              <p className="text-xs text-emerald-700/90 font-medium">
+                Baseado em {data.oportunidades_ganhas} {data.oportunidades_ganhas === 1 ? 'negócio ganho' : 'negócios ganhos'}
+              </p>
+              <div className="space-y-0.5">
+                <p className="text-xs text-emerald-700/70">
+                  Maior: <span className="font-bold text-emerald-800">{formatCurrency(data.maior_valor_ganho || 0)}</span>
+                </p>
+                <p className="text-xs text-emerald-700/70">
+                  Menor: <span className="font-bold text-emerald-800">{formatCurrency(data.menor_valor_ganho || 0)}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 })
 

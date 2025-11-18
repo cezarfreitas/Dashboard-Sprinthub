@@ -277,7 +277,7 @@ export function useGestorDashboard() {
       })
 
       // Criar headers base
-      const csvHeaders = [
+      const excelHeaders = [
         'ID',
         'Título',
         'Valor',
@@ -296,12 +296,12 @@ export function useGestorDashboard() {
 
       // Adicionar headers dos campos fields (com prefixo "Fields - ")
       Array.from(allFieldsKeys).sort().forEach(key => {
-        csvHeaders.push(`Fields - ${key}`)
+        excelHeaders.push(`Fields - ${key}`)
       })
 
       // Adicionar headers dos campos dataLead (com prefixo "DataLead - ")
       Array.from(allDataLeadKeys).sort().forEach(key => {
-        csvHeaders.push(`DataLead - ${key}`)
+        excelHeaders.push(`DataLead - ${key}`)
       })
 
       const formatarData = (data: string | null) => {
@@ -327,7 +327,7 @@ export function useGestorDashboard() {
       const fieldsKeysArray = Array.from(allFieldsKeys).sort()
       const dataLeadKeysArray = Array.from(allDataLeadKeys).sort()
 
-      const csvRows = oportunidades.map((opp: any) => {
+      const excelRows = oportunidades.map((opp: any) => {
         // Parsear fields
         let fieldsObj: any = {}
         if (opp.fields) {
@@ -354,25 +354,25 @@ export function useGestorDashboard() {
           }
         }
 
-        // Criar linha base
+        // Criar linha base (sem formatação de CSV, valores diretos)
         const row: any[] = [
           opp.id,
-          `"${opp.title?.replace(/"/g, '""') || '-'}"`,
-          formatarValor(opp.value || 0),
+          opp.title || '-',
+          opp.value || 0, // Valor numérico para Excel
           formatarStatus(opp.status),
           formatarData(opp.createDate),
           formatarData(opp.gain_date),
           formatarData(opp.lost_date),
           (() => {
             const nome = ((opp.vendedor_nome || '') + ' ' + (opp.vendedor_sobrenome || '')).trim()
-            return nome ? `"${nome}"` : '-'
+            return nome || '-'
           })(),
-          `"${opp.unidade_nome || '-'}"`,
+          opp.unidade_nome || '-',
           opp.crm_column || '-',
-          `"${opp.loss_reason || '-'}"`,
-          `"${opp.gain_reason || '-'}"`,
-          `"${opp.sale_channel || '-'}"`,
-          `"${opp.campaign || '-'}"`
+          opp.loss_reason || '-',
+          opp.gain_reason || '-',
+          opp.sale_channel || '-',
+          opp.campaign || '-'
         ]
 
         // Adicionar valores dos campos fields
@@ -381,9 +381,9 @@ export function useGestorDashboard() {
           if (value === null || value === undefined) {
             row.push('-')
           } else if (typeof value === 'object') {
-            row.push(`"${JSON.stringify(value).replace(/"/g, '""')}"`)
+            row.push(JSON.stringify(value))
           } else {
-            row.push(`"${String(value).replace(/"/g, '""')}"`)
+            row.push(String(value))
           }
         })
 
@@ -393,28 +393,55 @@ export function useGestorDashboard() {
           if (value === null || value === undefined) {
             row.push('-')
           } else if (typeof value === 'object') {
-            row.push(`"${JSON.stringify(value).replace(/"/g, '""')}"`)
+            row.push(JSON.stringify(value))
           } else {
-            row.push(`"${String(value).replace(/"/g, '""')}"`)
+            row.push(String(value))
           }
         })
 
         return row
       })
 
-      const csvContent = [
-        csvHeaders.join(','),
-        ...csvRows.map((row: any[]) => row.join(','))
-      ].join('\n')
+      // Importar xlsx dinamicamente (client-side)
+      const XLSX = await import('xlsx')
+      
+      // Preparar dados para Excel (headers + rows)
+      const excelData = [
+        excelHeaders,
+        ...excelRows
+      ]
 
-      const BOM = '\uFEFF'
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+      // Criar workbook e worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.aoa_to_sheet(excelData)
+      
+      // Ajustar largura das colunas
+      const colWidths = excelHeaders.map((header: string, idx: number) => {
+        const maxLength = Math.max(
+          header.length,
+          ...excelData.slice(1).map((row: any[]) => {
+            const cell = row[idx]
+            return cell ? String(cell).length : 0
+          })
+        )
+        return { wch: Math.min(Math.max(maxLength + 2, 10), 50) }
+      })
+      ws['!cols'] = colWidths
+      
+      // Adicionar worksheet ao workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Oportunidades')
+      
+      // Gerar arquivo Excel
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      })
       
       const link = document.createElement('a')
       const urlBlob = URL.createObjectURL(blob)
       
       const nomeUnidade = gestor?.unidades.find(u => u.id === unidadeSelecionada)?.nome || 'Unidade'
-      const nomeArquivo = `oportunidades_${nomeUnidade.replace(/\s+/g, '_')}_${dataInicio}_${dataFim}.csv`
+      const nomeArquivo = `oportunidades_${nomeUnidade.replace(/\s+/g, '_')}_${dataInicio}_${dataFim}.xlsx`
       
       link.setAttribute('href', urlBlob)
       link.setAttribute('download', nomeArquivo)

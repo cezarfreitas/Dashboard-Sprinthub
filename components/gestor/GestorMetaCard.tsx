@@ -28,25 +28,25 @@ export const GestorMetaCard = memo(function GestorMetaCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Meta da Equipe</CardTitle>
+    <Card className="w-full h-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold whitespace-nowrap">Meta da Equipe</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-2xl font-bold text-purple-600">
+      <CardContent className="pt-1 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap truncate">
               {formatCurrency(metaTotal)}
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1 truncate">
               Meta estabelecida
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-lg font-semibold text-purple-600">
+          <div className="text-right flex-shrink-0">
+            <p className="text-xl font-semibold text-purple-600 leading-tight whitespace-nowrap">
               {percentualMeta}%
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               Atingida
             </p>
           </div>

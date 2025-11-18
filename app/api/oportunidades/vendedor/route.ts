@@ -43,11 +43,6 @@ export async function GET(request: NextRequest) {
       query += ` AND DATE(o.created_date) <= DATE(?)`
       params.push(data_fim)
     }
-    
-    console.log('=== API oportunidades/vendedor ===')
-    console.log('Vendedor ID:', vendedor_id)
-    console.log('Data Início:', data_inicio)
-    console.log('Data Fim:', data_fim)
 
     query += ` ORDER BY o.created_date DESC`
 
@@ -59,8 +54,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Erro ao buscar oportunidades do vendedor:', error)
-    
     return NextResponse.json(
       { 
         success: false, 

@@ -60,23 +60,10 @@ export function GestorMatrizTabs({
         return
       }
 
-      const escapeCsv = (value: string | number | null | undefined) => {
-        if (value === null || value === undefined) return ''
-        const str = String(value)
-        if (/[",\n]/.test(str)) {
-          return `"${str.replace(/"/g, '""')}"`
-        }
-        return str
-      }
-
       const formatarData = (data: string | null) => {
         if (!data) return '-'
         const d = new Date(data)
         return d.toLocaleDateString('pt-BR')
-      }
-
-      const formatarValor = (valor: number) => {
-        return `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       }
 
       const formatarStatus = (status: string) => {
@@ -93,7 +80,37 @@ export function GestorMatrizTabs({
         activeTab === 'perdidas' ? 'Perdidas' :
         'Criadas'
 
-      const csvHeaders = [
+      // Processar campos JSON (fields e dataLead) para extrair todas as chaves
+      const allFieldsKeys = new Set<string>()
+      const allDataLeadKeys = new Set<string>()
+      
+      oportunidades.forEach((opp: any) => {
+        // Processar fields
+        if (opp.fields) {
+          try {
+            const fields = typeof opp.fields === 'string' ? JSON.parse(opp.fields) : opp.fields
+            if (fields && typeof fields === 'object') {
+              Object.keys(fields).forEach(key => allFieldsKeys.add(key))
+            }
+          } catch (e) {
+            // Ignorar erro ao parsear
+          }
+        }
+        
+        // Processar dataLead
+        if (opp.dataLead) {
+          try {
+            const dataLead = typeof opp.dataLead === 'string' ? JSON.parse(opp.dataLead) : opp.dataLead
+            if (dataLead && typeof dataLead === 'object') {
+              Object.keys(dataLead).forEach(key => allDataLeadKeys.add(key))
+            }
+          } catch (e) {
+            // Ignorar erro ao parsear
+          }
+        }
+      })
+
+      const excelHeaders = [
         'ID',
         'Título',
         'Valor',
@@ -110,34 +127,131 @@ export function GestorMatrizTabs({
         'Campanha'
       ]
 
-      const csvRows = oportunidades.map((opp: any) => [
-        opp.id,
-        escapeCsv(opp.title),
-        formatarValor(opp.value || 0),
-        formatarStatus(opp.status),
-        formatarData(opp.createDate),
-        formatarData(opp.gain_date),
-        formatarData(opp.lost_date),
-        escapeCsv(`${opp.vendedor_nome || ''} ${opp.vendedor_sobrenome || ''}`.trim()),
-        escapeCsv(opp.unidade_nome || '-'),
-        escapeCsv(opp.crm_column || '-'),
-        escapeCsv(opp.loss_reason || '-'),
-        escapeCsv(opp.gain_reason || '-'),
-        escapeCsv(opp.sale_channel || '-'),
-        escapeCsv(opp.campaign || '-')
-      ])
+      // Adicionar headers dos campos fields (com prefixo "Fields - ")
+      Array.from(allFieldsKeys).sort().forEach(key => {
+        excelHeaders.push(`Fields - ${key}`)
+      })
 
-      const csvContent = [
-        csvHeaders.map(escapeCsv).join(','),
-        ...csvRows.map((row: any[]) => row.join(','))
-      ].join('\n')
+      // Adicionar headers dos campos dataLead (com prefixo "DataLead - ")
+      Array.from(allDataLeadKeys).sort().forEach(key => {
+        excelHeaders.push(`DataLead - ${key}`)
+      })
 
-      const BOM = '\uFEFF'
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+      // Converter Sets para Arrays ordenados para manter consistência
+      const fieldsKeysArray = Array.from(allFieldsKeys).sort()
+      const dataLeadKeysArray = Array.from(allDataLeadKeys).sort()
+
+      const excelRows = oportunidades.map((opp: any) => {
+        // Parsear fields
+        let fieldsObj: any = {}
+        if (opp.fields) {
+          try {
+            fieldsObj = typeof opp.fields === 'string' ? JSON.parse(opp.fields) : opp.fields
+            if (!fieldsObj || typeof fieldsObj !== 'object') {
+              fieldsObj = {}
+            }
+          } catch (e) {
+            fieldsObj = {}
+          }
+        }
+
+        // Parsear dataLead
+        let dataLeadObj: any = {}
+        if (opp.dataLead) {
+          try {
+            dataLeadObj = typeof opp.dataLead === 'string' ? JSON.parse(opp.dataLead) : opp.dataLead
+            if (!dataLeadObj || typeof dataLeadObj !== 'object') {
+              dataLeadObj = {}
+            }
+          } catch (e) {
+            dataLeadObj = {}
+          }
+        }
+
+        // Criar linha base
+        const row: any[] = [
+          opp.id,
+          opp.title || '-',
+          opp.value || 0, // Valor numérico para Excel
+          formatarStatus(opp.status),
+          formatarData(opp.createDate),
+          formatarData(opp.gain_date),
+          formatarData(opp.lost_date),
+          `${opp.vendedor_nome || ''} ${opp.vendedor_sobrenome || ''}`.trim() || '-',
+          opp.unidade_nome || '-',
+          opp.crm_column || '-',
+          opp.loss_reason || '-',
+          opp.gain_reason || '-',
+          opp.sale_channel || '-',
+          opp.campaign || '-'
+        ]
+
+        // Adicionar valores dos campos fields
+        fieldsKeysArray.forEach(key => {
+          const value = fieldsObj[key]
+          if (value === null || value === undefined) {
+            row.push('-')
+          } else if (typeof value === 'object') {
+            row.push(JSON.stringify(value))
+          } else {
+            row.push(String(value))
+          }
+        })
+
+        // Adicionar valores dos campos dataLead
+        dataLeadKeysArray.forEach(key => {
+          const value = dataLeadObj[key]
+          if (value === null || value === undefined) {
+            row.push('-')
+          } else if (typeof value === 'object') {
+            row.push(JSON.stringify(value))
+          } else {
+            row.push(String(value))
+          }
+        })
+
+        return row
+      })
+
+      // Importar xlsx dinamicamente (client-side)
+      const XLSX = await import('xlsx')
+      
+      // Preparar dados para Excel (headers + rows)
+      const excelData = [
+        excelHeaders,
+        ...excelRows
+      ]
+
+      // Criar workbook e worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.aoa_to_sheet(excelData)
+      
+      // Ajustar largura das colunas
+      const colWidths = excelHeaders.map((header: string, idx: number) => {
+        const maxLength = Math.max(
+          header.length,
+          ...excelData.slice(1).map((row: any[]) => {
+            const cell = row[idx]
+            return cell ? String(cell).length : 0
+          })
+        )
+        return { wch: Math.min(Math.max(maxLength + 2, 10), 50) }
+      })
+      ws['!cols'] = colWidths
+      
+      // Adicionar worksheet ao workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Oportunidades')
+      
+      // Gerar arquivo Excel
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      })
+      
       const link = document.createElement('a')
       const urlBlob = URL.createObjectURL(blob)
       
-      const nomeArquivo = `oportunidades_${tipoLabel.toLowerCase()}_${dataInicio}_${dataFim}.csv`
+      const nomeArquivo = `oportunidades_${tipoLabel.toLowerCase()}_${dataInicio}_${dataFim}.xlsx`
       
       link.setAttribute('href', urlBlob)
       link.setAttribute('download', nomeArquivo)
@@ -164,44 +278,52 @@ export function GestorMatrizTabs({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-semibold">
-            Matrizes de Oportunidades
-          </CardTitle>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-1 bg-purple-600 rounded-full" />
+            <div>
+              <CardTitle className="text-base font-bold text-gray-900">
+                Matrizes de Oportunidades
+              </CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Visualização detalhada por vendedor e status
+              </p>
+            </div>
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportar}
             disabled={exportando}
-            className="gap-2"
+            className="gap-2 h-8 px-3 text-xs font-medium hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700"
           >
-            <FileDown className="h-4 w-4" />
+            <FileDown className="h-3.5 w-3.5" />
             {exportando ? 'Exportando...' : 'Exportar Excel'}
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-2">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-9 p-1 mb-3">
+          <TabsList className="grid w-full grid-cols-3 h-9 p-1 mb-3 bg-gray-100/50">
             <TabsTrigger 
               value="criadas" 
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium"
+              className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all duration-200 hover:bg-blue-50 data-[state=inactive]:text-gray-600"
             >
-              <FileText className="h-3.5 w-3.5" />
+              <FileText className="h-4 w-4" />
               <span>Criadas</span>
             </TabsTrigger>
             <TabsTrigger 
               value="ganhas" 
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium"
+              className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all duration-200 hover:bg-green-50 data-[state=inactive]:text-gray-600"
             >
-              <TrendingUp className="h-3.5 w-3.5" />
+              <TrendingUp className="h-4 w-4" />
               <span>Ganhas</span>
             </TabsTrigger>
             <TabsTrigger 
               value="perdidas" 
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium"
+              className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all duration-200 hover:bg-red-50 data-[state=inactive]:text-gray-600"
             >
-              <TrendingDown className="h-3.5 w-3.5" />
+              <TrendingDown className="h-4 w-4" />
               <span>Perdidas</span>
             </TabsTrigger>
           </TabsList>

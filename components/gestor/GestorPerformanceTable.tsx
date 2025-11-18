@@ -2,19 +2,17 @@ import { memo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Eye, Download } from "lucide-react"
+import { Eye } from "lucide-react"
 import { VendedorStats } from "@/hooks/gestor/useGestorDashboard"
 
 interface GestorPerformanceTableProps {
   vendedores: VendedorStats[]
   onVerOportunidades: (vendedor: VendedorStats) => void
-  onExportarOportunidades: (vendedor: VendedorStats) => void
 }
 
 export const GestorPerformanceTable = memo(function GestorPerformanceTable({
   vendedores,
-  onVerOportunidades,
-  onExportarOportunidades
+  onVerOportunidades
 }: GestorPerformanceTableProps) {
   const formatCurrency = useCallback((value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
@@ -31,10 +29,10 @@ export const GestorPerformanceTable = memo(function GestorPerformanceTable({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Performance da Equipe</CardTitle>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">Performance da Equipe</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-1">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -96,26 +94,15 @@ export const GestorPerformanceTable = memo(function GestorPerformanceTable({
                       ) : '-'}
                     </td>
                     <td className="text-center py-3 px-2">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onVerOportunidades(vendedor)}
-                          className="h-8 w-8 p-0 hover:bg-purple-50 hover:text-purple-600"
-                          title="Ver oportunidades"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onExportarOportunidades(vendedor)}
-                          className="h-8 w-8 p-0 hover:bg-emerald-50 hover:text-emerald-600"
-                          title="Exportar para CSV"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onVerOportunidades(vendedor)}
+                        className="h-8 w-8 p-0 hover:bg-purple-50 hover:text-purple-600"
+                        title="Ver oportunidades"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </td>
                   </tr>
                 )

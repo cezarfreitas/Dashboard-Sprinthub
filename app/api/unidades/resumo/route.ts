@@ -399,7 +399,9 @@ export async function GET(request: NextRequest) {
         ganhasNoPeriodoQuery = `
           SELECT 
             COUNT(*) as total, 
-            COALESCE(SUM(o.value), 0) as valor_total
+            COALESCE(SUM(o.value), 0) as valor_total,
+            COALESCE(MAX(o.value), 0) as maior_valor,
+            COALESCE(MIN(o.value), 0) as menor_valor
           FROM oportunidades o
           WHERE o.status = 'gain'
             AND o.gain_date >= ? AND o.gain_date <= ?
@@ -410,7 +412,9 @@ export async function GET(request: NextRequest) {
         ganhasNoPeriodoQuery = `
           SELECT 
             COUNT(*) as total, 
-            COALESCE(SUM(o.value), 0) as valor_total
+            COALESCE(SUM(o.value), 0) as valor_total,
+            COALESCE(MAX(o.value), 0) as maior_valor,
+            COALESCE(MIN(o.value), 0) as menor_valor
           FROM oportunidades o
           WHERE o.status = 'gain'
             AND MONTH(o.gain_date) = ? AND YEAR(o.gain_date) = ?
@@ -472,9 +476,20 @@ export async function GET(request: NextRequest) {
       const valorTotalGanhas = Number(ganhasNoPeriodo[0]?.valor_total || 0)
       const totalGanhasAnterior = Number(ganhasPeriodoAnterior[0]?.total || 0)
       
+      // Calcular percentual de crescimento de ganhas
+      let crescimentoGanhasPercentual = 0
+      if (totalGanhasAnterior > 0) {
+        crescimentoGanhasPercentual = ((totalGanhas - totalGanhasAnterior) / totalGanhasAnterior) * 100
+      } else if (totalGanhas > 0) {
+        crescimentoGanhasPercentual = 100
+      }
+      if (isNaN(crescimentoGanhasPercentual)) crescimentoGanhasPercentual = 0
+      
       const oportunidadesGanhas = [{
         total: totalGanhas,
-        valor_total: isNaN(valorTotalGanhas) ? 0 : valorTotalGanhas
+        valor_total: isNaN(valorTotalGanhas) ? 0 : valorTotalGanhas,
+        maior_valor: Number(ganhasNoPeriodo[0]?.maior_valor) || 0,
+        menor_valor: Number(ganhasNoPeriodo[0]?.menor_valor) || 0
       }]
 
       // Oportunidades perdidas no período atual (baseado em lost_date)
@@ -547,6 +562,15 @@ export async function GET(request: NextRequest) {
       // Total de perdidas (baseado em lost_date)
       const totalPerdidas = Number(perdidasNoPeriodo[0]?.total || 0)
       const totalPerdidasAnterior = Number(perdidasPeriodoAnterior[0]?.total || 0)
+      
+      // Calcular percentual de crescimento de perdidas
+      let crescimentoPerdidasPercentual = 0
+      if (totalPerdidasAnterior > 0) {
+        crescimentoPerdidasPercentual = ((totalPerdidas - totalPerdidasAnterior) / totalPerdidasAnterior) * 100
+      } else if (totalPerdidas > 0) {
+        crescimentoPerdidasPercentual = 100
+      }
+      if (isNaN(crescimentoPerdidasPercentual)) crescimentoPerdidasPercentual = 0
       
       const oportunidadesPerdidas = [{
         total: totalPerdidas
@@ -631,11 +655,15 @@ export async function GET(request: NextRequest) {
         crescimento_criadas_percentual: Number(crescimentoPercentual) || 0,
         oportunidades_ganhas: Number(oportunidadesGanhas[0]?.total) || 0,
         valor_ganho: Number(oportunidadesGanhas[0]?.valor_total) || 0,
+        maior_valor_ganho: Number(oportunidadesGanhas[0]?.maior_valor) || 0,
+        menor_valor_ganho: Number(oportunidadesGanhas[0]?.menor_valor) || 0,
         ganhas_criadas_no_periodo: totalGanhas, // Atual
         ganhas_criadas_periodo_anterior: totalGanhasAnterior, // Anterior
+        crescimento_ganhas_percentual: Number(crescimentoGanhasPercentual) || 0,
         oportunidades_perdidas: oportunidadesPerdidas[0]?.total || 0,
         perdidas_criadas_no_periodo: totalPerdidas, // Atual
         perdidas_criadas_periodo_anterior: totalPerdidasAnterior, // Anterior
+        crescimento_perdidas_percentual: Number(crescimentoPerdidasPercentual) || 0,
         oportunidades_abertas: oportunidadesAbertas[0]?.total || 0,
         abertas_criadas_no_periodo: abertasCriadasNoPeriodo[0]?.total || 0,
         abertas_criadas_periodo_anterior: abertasCriadasPeriodoAnterior[0]?.total || 0,

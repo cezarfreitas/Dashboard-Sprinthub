@@ -1,6 +1,6 @@
 import { memo, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Calendar as CalendarIcon, FileDown } from "lucide-react"
+import { Calendar as CalendarIcon } from "lucide-react"
 import {
   Popover,
   PopoverContent,
@@ -16,8 +16,6 @@ interface GestorPeriodoFilterProps {
   setDataInicioPersonalizada: (data: Date | undefined) => void
   dataFimPersonalizada: Date | undefined
   setDataFimPersonalizada: (data: Date | undefined) => void
-  onExportar?: () => void
-  exportando?: boolean
 }
 
 export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
@@ -26,23 +24,22 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
   dataInicioPersonalizada,
   setDataInicioPersonalizada,
   dataFimPersonalizada,
-  setDataFimPersonalizada,
-  onExportar,
-  exportando = false
+  setDataFimPersonalizada
 }: GestorPeriodoFilterProps) {
   const [popoverPersonalizadoOpen, setPopoverPersonalizadoOpen] = useState(false)
 
   return (
     <div className="bg-white border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="max-w-[1900px] mx-auto px-20 py-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-700">Período:</span>
-            <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-gray-700">Período:</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
             <Button
               variant={periodoFiltro === 'hoje' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setPeriodoFiltro('hoje')}
+              className="h-7 text-xs px-2.5"
             >
               Hoje
             </Button>
@@ -50,6 +47,7 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
               variant={periodoFiltro === 'ontem' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setPeriodoFiltro('ontem')}
+              className="h-7 text-xs px-2.5"
             >
               Ontem
             </Button>
@@ -57,6 +55,7 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
               variant={periodoFiltro === 'esta-semana' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setPeriodoFiltro('esta-semana')}
+              className="h-7 text-xs px-2.5"
             >
               Esta Semana
             </Button>
@@ -64,6 +63,7 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
               variant={periodoFiltro === 'semana-passada' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setPeriodoFiltro('semana-passada')}
+              className="h-7 text-xs px-2.5"
             >
               Semana Passada
             </Button>
@@ -71,6 +71,7 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
               variant={periodoFiltro === 'este-mes' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setPeriodoFiltro('este-mes')}
+              className="h-7 text-xs px-2.5"
             >
               Este Mês
             </Button>
@@ -78,6 +79,7 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
               variant={periodoFiltro === 'mes-passado' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setPeriodoFiltro('mes-passado')}
+              className="h-7 text-xs px-2.5"
             >
               Mês Passado
             </Button>
@@ -87,8 +89,9 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
                   variant={periodoFiltro === 'personalizado' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPeriodoFiltro('personalizado')}
+                  className="h-7 text-xs px-2.5"
                 >
-                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
                   Personalizado
                 </Button>
               </PopoverTrigger>
@@ -139,19 +142,6 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
             </Popover>
           </div>
           </div>
-          
-          {onExportar && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExportar}
-              disabled={exportando}
-              className="gap-2"
-            >
-              <FileDown className="h-4 w-4" />
-              {exportando ? 'Exportando...' : 'Exportar Excel'}
-            </Button>
-          )}
         </div>
       </div>
     </div>

@@ -125,8 +125,7 @@ export function GestorMatrizVendedores({
         } else {
           setMatrizDados([])
         }
-      } catch (error) {
-        console.error('Erro ao buscar matriz:', error)
+      } catch {
         setMatrizDados([])
       } finally {
         setLoading(false)

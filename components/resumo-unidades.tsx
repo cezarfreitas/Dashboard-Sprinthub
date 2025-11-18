@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, memo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users, Download, CheckCircle, Circle } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { RefreshCw, Building2, TrendingUp, DollarSign, XCircle, Clock, Target, Users, CheckCircle, Circle } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 interface VendedorMatriz {
@@ -279,108 +278,6 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
     return meses[mes - 1] || ''
   }, [])
 
-  const escapeCsv = useCallback((value: string | number | null | undefined) => {
-    if (value === null || value === undefined) return ''
-    const str = String(value)
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`
-    }
-    return str
-  }, [])
-
-
-  const handleExportarPerformanceVendedores = useCallback(async (unidadeId: number, mesAtual?: number, anoAtual?: number) => {
-    try {
-      // Buscar unidade nos dados já carregados
-      const unidade = data?.unidades.find((u: any) => u.id === unidadeId)
-      if (!unidade || !unidade.vendedores || unidade.vendedores.length === 0) {
-        alert('Nenhum vendedor encontrado para esta unidade')
-        return
-      }
-
-      // Criar CSV com a tabela de Performance por Vendedor
-      const headers = [
-        'Vendedor',
-        'Criados',
-        'Perdidas',
-        'Ganhas',
-        'Abertas',
-        'Valor Ganho',
-        '% Meta',
-        'Meta',
-        'W.T (dias)',
-        'T.C%',
-        'T.Méd'
-      ]
-      
-      const csvContent = [
-        headers.map(escapeCsv).join(','),
-        ...unidade.vendedores.map((vendedor: any) => {
-          const percentualMeta = vendedor.meta > 0 
-            ? ((vendedor.valor / vendedor.meta) * 100).toFixed(0)
-            : '0'
-          const taxaConversao = vendedor.taxa_conversao !== undefined 
-            ? vendedor.taxa_conversao.toFixed(0)
-            : vendedor.criadas > 0
-              ? ((vendedor.ganhas / vendedor.criadas) * 100).toFixed(0)
-              : '0'
-          const ticketMedio = vendedor.ticket_medio !== undefined
-            ? vendedor.ticket_medio.toFixed(2)
-            : vendedor.ganhas > 0
-              ? (vendedor.valor / vendedor.ganhas).toFixed(2)
-              : '0'
-          
-          return [
-            escapeCsv(vendedor.nome || ''),
-            escapeCsv(vendedor.criadas || 0),
-            escapeCsv(vendedor.perdidas || 0),
-            escapeCsv(vendedor.ganhas || 0),
-            escapeCsv(vendedor.abertas || 0),
-            escapeCsv(vendedor.valor ? vendedor.valor.toFixed(2) : '0'),
-            escapeCsv(`${percentualMeta}%`),
-            escapeCsv(vendedor.meta ? vendedor.meta.toFixed(2) : '0'),
-            escapeCsv(vendedor.won_time_dias !== null && vendedor.won_time_dias !== undefined ? vendedor.won_time_dias.toString() : '-'),
-            escapeCsv(`${taxaConversao}%`),
-            escapeCsv(ticketMedio)
-          ].join(',')
-        }),
-        // Linha de total
-        [
-          escapeCsv('TOTAL'),
-          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.criadas || 0), 0).toString()),
-          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.perdidas || 0), 0).toString()),
-          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.ganhas || 0), 0).toString()),
-          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.abertas || 0), 0).toString()),
-          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.valor || 0), 0).toFixed(2)),
-          escapeCsv(''),
-          escapeCsv(unidade.vendedores.reduce((sum: number, v: any) => sum + (v.meta || 0), 0).toFixed(2)),
-          escapeCsv(''),
-          escapeCsv(''),
-          escapeCsv('')
-        ].join(',')
-      ].join('\n')
-
-      // Adicionar BOM para Excel reconhecer UTF-8
-      const BOM = '\uFEFF'
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      
-      // Nome do arquivo - sanitizar nome da unidade
-      const mesPeriodo = mesAtual || mes || new Date().getMonth() + 1
-      const anoPeriodo = anoAtual || ano || new Date().getFullYear()
-      const nomeUnidadeSanitizado = unidade.nome.replace(/[^a-zA-Z0-9_-]/g, '_')
-      link.download = `performance_vendedores_${nomeUnidadeSanitizado}_${getMesNome(mesPeriodo)}_${anoPeriodo}.csv`
-      link.click()
-      
-      // Liberar memória
-      setTimeout(() => URL.revokeObjectURL(link.href), 100)
-    } catch (err) {
-      console.error('Erro ao exportar performance de vendedores:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido'
-      alert(`Erro ao exportar: ${errorMessage}`)
-    }
-  }, [data, mes, ano, escapeCsv, getMesNome])
 
   const fetchData = useCallback(async () => {
     try {
@@ -560,26 +457,13 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3">
-                    {/* Botão Exportar */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportarPerformanceVendedores(unidade.id, mes, ano)}
-                      className="h-8 text-xs whitespace-nowrap"
-                    >
-                      <Download className="h-3 w-3 mr-1.5" />
-                      Exportar
-                    </Button>
-                    
-                    <button 
-                      onClick={fetchData}
-                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Atualizar
-                    </button>
-                  </div>
+                  <button 
+                    onClick={fetchData}
+                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Atualizar
+                  </button>
                 </div>
 
                 {/* Cards Estatísticos - Todos em uma linha */}

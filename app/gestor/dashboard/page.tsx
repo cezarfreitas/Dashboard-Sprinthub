@@ -17,6 +17,8 @@ import { GestorMatrizTabs } from "@/components/gestor/GestorMatrizTabs"
 import { GestorPerformanceVendedores } from "@/components/gestor/GestorPerformanceVendedores"
 import { GestorAtendimentosWhatsapp } from "@/components/gestor/GestorAtendimentosWhatsapp"
 import { GestorFunilColunas } from "@/components/gestor/GestorFunilColunas"
+import { GestorMatrizPerdasVendedor } from "@/components/gestor/GestorMatrizPerdasVendedor"
+import { GestorNegociosGanhos } from "@/components/gestor/GestorNegociosGanhos"
 
 export default function GestorDashboard() {
   const {
@@ -34,9 +36,7 @@ export default function GestorDashboard() {
     setDataFimPersonalizada,
     getPeriodoDatas,
     fetchStats,
-    handleLogout,
-    exportarOportunidades,
-    exportando
+    handleLogout
   } = useGestorDashboard()
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -44,68 +44,10 @@ export default function GestorDashboard() {
 
   const periodoDatas = useMemo(() => getPeriodoDatas(), [getPeriodoDatas])
 
-  const getInicioMesAtual = useCallback(() => {
-    const dataInicioObj = new Date(periodoDatas.dataInicio)
-    return {
-      ano: dataInicioObj.getFullYear(),
-      mes: dataInicioObj.getMonth() + 1,
-      primeiraDataMes: periodoDatas.dataInicio,
-    }
-  }, [periodoDatas])
-
-  const escapeCsv = useCallback((value: string | number | null | undefined) => {
-    if (value === null || value === undefined) return ''
-    const str = String(value)
-    if (/[",\n]/.test(str)) {
-      return `"${str.replace(/"/g, '""')}"`
-    }
-    return str
-  }, [])
-
   const handleVerOportunidades = useCallback((vendedor: VendedorStats) => {
     setVendedorSelecionado(vendedor)
     setDialogOpen(true)
   }, [])
-
-  const handleExportarOportunidades = useCallback(async (vendedor: VendedorStats) => {
-    try {
-      const { mes, ano } = getInicioMesAtual()
-
-      const response = await fetch(
-        `/api/oportunidades/vendedor?vendedor_id=${vendedor.id}&data_inicio=${periodoDatas.dataInicio}&data_fim=${periodoDatas.dataFim}`
-      )
-
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success && data.oportunidades) {
-        const headers = ['ID', 'Título', 'Valor', 'Status', 'Etapa', 'Data Criação', 'Motivo Perda']
-        const csvContent = [
-          headers.map(escapeCsv).join(','),
-          ...data.oportunidades.map((op: any) => [
-            escapeCsv(op.id),
-            escapeCsv(op.titulo),
-            escapeCsv(op.valor),
-            escapeCsv(op.ganho === 1 ? 'Ganha' : op.perda === 1 ? 'Perdida' : 'Aberta'),
-            escapeCsv(op.coluna_nome || ''),
-            escapeCsv(new Date(op.created_date).toLocaleDateString('pt-BR')),
-            escapeCsv(op.motivo_perda || '')
-          ].join(','))
-        ].join('\n')
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-        const link = document.createElement('a')
-        link.href = URL.createObjectURL(blob)
-        link.download = `oportunidades_${vendedor.name}_${vendedor.lastName}_${mes}_${ano}.csv`
-        link.click()
-      }
-    } catch (err) {
-      // Erro silencioso - pode adicionar toast notification aqui
-    }
-  }, [getInicioMesAtual, periodoDatas, escapeCsv])
 
   if (!gestor) {
     return (
@@ -137,18 +79,16 @@ export default function GestorDashboard() {
         setDataInicioPersonalizada={setDataInicioPersonalizada}
         dataFimPersonalizada={dataFimPersonalizada}
         setDataFimPersonalizada={setDataFimPersonalizada}
-        onExportar={exportarOportunidades}
-        exportando={exportando}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1900px] mx-auto px-20 py-3">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="ml-2 text-muted-foreground">Carregando dados...</p>
           </div>
         ) : error ? (
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-red-200 bg-red-50 max-w-4xl mx-auto">
             <CardContent className="pt-6">
               <div className="text-center text-red-700">
                 <p className="font-medium">Erro ao carregar dados</p>
@@ -160,7 +100,7 @@ export default function GestorDashboard() {
             </CardContent>
           </Card>
         ) : !stats ? (
-          <Card>
+          <Card className="max-w-4xl mx-auto">
             <CardContent className="pt-6">
               <div className="text-center text-muted-foreground py-12">
                 <p className="font-medium mb-2">Nenhum dado disponível</p>
@@ -174,22 +114,23 @@ export default function GestorDashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
-            <GestorResumoUnidade
-              unidadeId={unidadeSelecionada}
-              dataInicio={periodoDatas.dataInicio}
-              dataFim={periodoDatas.dataFim}
-            />
+          <div className="space-y-3">
+            <div className="grid grid-cols-7 gap-3 w-full">
+              <GestorResumoUnidade
+                unidadeId={unidadeSelecionada}
+                dataInicio={periodoDatas.dataInicio}
+                dataFim={periodoDatas.dataFim}
+              />
 
-            <GestorMetaCard
-              metaTotal={stats.meta_total}
-              valorGanho={stats.valor_ganho}
-            />
+              <GestorMetaCard
+                metaTotal={stats.meta_total}
+                valorGanho={stats.valor_ganho}
+              />
+            </div>
 
             <GestorPerformanceTable
               vendedores={stats.vendedores}
               onVerOportunidades={handleVerOportunidades}
-              onExportarOportunidades={handleExportarOportunidades}
             />
 
             <GestorFunilVendas etapasFunil={stats.etapas_funil} />
@@ -205,13 +146,27 @@ export default function GestorDashboard() {
               }))}
             />
 
-            <GestorPerformanceVendedores
+            <div className="grid grid-cols-2 gap-3">
+              <GestorPerformanceVendedores
+                unidadeId={unidadeSelecionada}
+                dataInicio={periodoDatas.dataInicio}
+                dataFim={periodoDatas.dataFim}
+              />
+
+              <GestorAtendimentosWhatsapp
+                unidadeId={unidadeSelecionada}
+                dataInicio={periodoDatas.dataInicio}
+                dataFim={periodoDatas.dataFim}
+              />
+            </div>
+
+            <GestorMatrizPerdasVendedor
               unidadeId={unidadeSelecionada}
               dataInicio={periodoDatas.dataInicio}
               dataFim={periodoDatas.dataFim}
             />
 
-            <GestorAtendimentosWhatsapp
+            <GestorNegociosGanhos
               unidadeId={unidadeSelecionada}
               dataInicio={periodoDatas.dataInicio}
               dataFim={periodoDatas.dataFim}

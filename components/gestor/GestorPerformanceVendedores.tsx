@@ -72,19 +72,8 @@ export const GestorPerformanceVendedores = memo(function GestorPerformanceVended
         
         if (result.success && result.unidades && result.unidades.length > 0) {
           const unidade = result.unidades[0]
-          console.log('🔍 [PERFORMANCE] Dados da unidade:', unidade)
-          console.log('🔍 [PERFORMANCE] Vendedores raw:', unidade.vendedores)
           
           const vendedoresData = (unidade.vendedores || []).map((v: any) => {
-            console.log('🔍 [PERFORMANCE] Vendedor:', v.nome, {
-              criadas: v.criadas,
-              ganhas: v.ganhas,
-              perdidas: v.perdidas,
-              abertas: v.abertas,
-              valor: v.valor,
-              meta: v.meta
-            })
-            
             const criadas = Number(v.criadas) || 0
             const ganhas = Number(v.ganhas) || 0
             const valor = Number(v.valor) || 0
@@ -112,10 +101,8 @@ export const GestorPerformanceVendedores = memo(function GestorPerformanceVended
             }
           })
           
-          console.log('🔍 [PERFORMANCE] Vendedores processados:', vendedoresData)
           setVendedores(vendedoresData)
         } else {
-          console.log('❌ [PERFORMANCE] Nenhum dado retornado:', result)
           setVendedores([])
         }
       } catch {
@@ -179,9 +166,19 @@ export const GestorPerformanceVendedores = memo(function GestorPerformanceVended
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">Performance por Vendedor</CardTitle>
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-1 bg-blue-600 rounded-full" />
+          <div>
+            <CardTitle className="text-base font-bold text-gray-900">
+              Performance por Vendedor
+            </CardTitle>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Análise detalhada de resultados individuais
+            </p>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-1">
         <div className="rounded-md border overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
