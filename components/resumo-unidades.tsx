@@ -456,14 +456,14 @@ export default function ResumoUnidades({ mes, ano, vendedorId, unidadeId, dataIn
                       )}
                     </div>
                   </div>
-                  
-                  <button 
-                    onClick={fetchData}
-                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Atualizar
-                  </button>
+                    
+                    <button 
+                      onClick={fetchData}
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Atualizar
+                    </button>
                 </div>
 
                 {/* Cards Estatísticos - Todos em uma linha */}

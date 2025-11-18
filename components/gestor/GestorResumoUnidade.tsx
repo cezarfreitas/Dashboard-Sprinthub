@@ -253,11 +253,11 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
               <p className="text-xs text-blue-700/90 font-medium">
                 Criadas até hoje ({new Date().toLocaleDateString('pt-BR')})
               </p>
-              {data.oportunidades_criadas_mes_anterior > 0 && (
+            {data.oportunidades_criadas_mes_anterior > 0 && (
                 <p className="text-xs text-blue-700/70">
                   Mesmo período mês anterior: <span className="font-bold text-blue-800">{data.oportunidades_criadas_mes_anterior}</span>
-                </p>
-              )}
+              </p>
+            )}
             </div>
           </div>
         </CardContent>
@@ -373,7 +373,7 @@ export const GestorResumoUnidade = memo(function GestorResumoUnidade({
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <DollarSign className="h-4 w-4 flex-shrink-0 text-emerald-600" />
               <span className="text-xs font-semibold text-emerald-700 uppercase">Ticket Médio</span>
-            </div>
+              </div>
             <p className="text-2xl font-bold text-emerald-900 leading-tight whitespace-nowrap">
               {formatCurrency(data.oportunidades_ganhas > 0 ? data.valor_ganho / data.oportunidades_ganhas : 0)}
             </p>

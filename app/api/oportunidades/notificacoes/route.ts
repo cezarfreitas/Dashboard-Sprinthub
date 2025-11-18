@@ -59,7 +59,8 @@ export async function GET(request: NextRequest) {
         const dataCriacao = formatDateToMySQL(item.data_criacao)
         
         return {
-          id: item.oportunidade_id,
+          id: item.id,
+          oportunidadeId: item.oportunidade_id,
           nome: item.nome,
           valor: parseFloat(item.valor || 0),
           status: item.status || 'open',

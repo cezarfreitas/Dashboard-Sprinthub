@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     const queryGanhas = `
       SELECT 
         COUNT(*) as total_oportunidades,
-        COALESCE(SUM(value), 0) as total_valor
+        COALESCE(SUM(value), 0) as total_valor,
+        COALESCE(MIN(value), 0) as menor_valor,
+        COALESCE(MAX(value), 0) as maior_valor
       FROM oportunidades o
       WHERE MONTH(o.gain_date) = ? 
         AND YEAR(o.gain_date) = ?
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest) {
       executeQuery(queryGanhasCriadasAnterior, [mesAtual, anoAtual, anoAtual, anoAtual, mesAtual])
     ]) as [any[], any[], any[]]
 
-    const dataGanhas = resultGanhas[0] || { total_oportunidades: 0, total_valor: 0 }
+    const dataGanhas = resultGanhas[0] || { total_oportunidades: 0, total_valor: 0, menor_valor: 0, maior_valor: 0 }
     const dataGanhasCriadasMes = resultGanhasCriadasMes[0] || { total_oportunidades: 0, total_valor: 0 }
     const dataGanhasCriadasAnterior = resultGanhasCriadasAnterior[0] || { total_oportunidades: 0, total_valor: 0 }
 
@@ -66,6 +68,8 @@ export async function GET(request: NextRequest) {
       data: {
         totalOportunidades: dataGanhas.total_oportunidades,
         totalValor: dataGanhas.total_valor,
+        menorValor: dataGanhas.menor_valor,
+        maiorValor: dataGanhas.maior_valor,
         ganhasCriadasMes: dataGanhasCriadasMes.total_oportunidades,
         ganhasCriadasAnterior: dataGanhasCriadasAnterior.total_oportunidades
       },
@@ -76,8 +80,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Erro ao buscar ganhos:', error)
-    
     return NextResponse.json(
       { 
         success: false, 

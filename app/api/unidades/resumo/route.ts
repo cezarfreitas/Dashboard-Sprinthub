@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
         COALESCE(nome, name) as nome, 
         users,
         fila_leads,
-        user_gestao
+        user_gestao,
+        dpto_gestao
       FROM unidades 
       WHERE ativo = 1
     `
@@ -68,6 +69,17 @@ export async function GET(request: NextRequest) {
       SELECT id, name, lastName FROM vendedores
     `) as any[]
     const vendedoresMap = new Map(todosVendedores.map(v => [v.id, v]))
+    
+    // Debug: verificar se há gestores não encontrados
+    const unidadesComGestor = unidades.filter(u => u.user_gestao)
+    const gestoresNaoEncontrados = unidadesComGestor.filter(u => !vendedoresMap.has(u.user_gestao))
+    if (gestoresNaoEncontrados.length > 0) {
+      console.warn('⚠️ Gestores não encontrados na tabela vendedores:', gestoresNaoEncontrados.map(u => ({
+        unidade_id: u.id,
+        unidade_nome: u.nome,
+        user_gestao: u.user_gestao
+      })))
+    }
 
     // Processar cada unidade
     const unidadesComResumo = await Promise.all(unidades.map(async (unidade) => {
@@ -310,10 +322,53 @@ export async function GET(request: NextRequest) {
 
       // Nome do gestor
       let nomeGestor = null
-      if (unidade.user_gestao) {
-        const gestor = vendedoresMap.get(unidade.user_gestao)
+      let userGestaoFinal = unidade.user_gestao
+      
+      // Se não tem user_gestao mas tem dpto_gestao, buscar o user_gestao da unidade de gestão
+      if (!userGestaoFinal && unidade.dpto_gestao) {
+        const unidadeGestao = await executeQuery(`
+          SELECT user_gestao, users FROM unidades WHERE id = ?
+        `, [unidade.dpto_gestao]) as any[]
+        
+        if (unidadeGestao && unidadeGestao.length > 0) {
+          const gestao = unidadeGestao[0]
+          // Se a unidade de gestão tem user_gestao, usar ele
+          if (gestao.user_gestao) {
+            userGestaoFinal = gestao.user_gestao
+          } else if (gestao.users) {
+            // Se não tem user_gestao mas tem users, pegar o primeiro
+            try {
+              const usersArray = typeof gestao.users === 'string' ? JSON.parse(gestao.users) : gestao.users
+              if (Array.isArray(usersArray) && usersArray.length > 0) {
+                const primeiroUser = usersArray[0]
+                userGestaoFinal = typeof primeiroUser === 'object' ? primeiroUser.id : primeiroUser
+              }
+            } catch (e) {
+              // Ignorar erro de parsing
+            }
+          }
+        }
+      }
+      
+      if (userGestaoFinal) {
+        const gestor = vendedoresMap.get(userGestaoFinal)
         if (gestor) {
-          nomeGestor = gestor.name
+          nomeGestor = gestor.lastName 
+            ? `${gestor.name} ${gestor.lastName}`.trim() 
+            : gestor.name
+        } else {
+          // Se o gestor não foi encontrado no Map, tentar buscar diretamente
+          const gestorDireto = await executeQuery(`
+            SELECT id, name, lastName FROM vendedores WHERE id = ?
+          `, [userGestaoFinal]) as any[]
+          if (gestorDireto && gestorDireto.length > 0) {
+            const gestorEncontrado = gestorDireto[0]
+            nomeGestor = gestorEncontrado.lastName 
+              ? `${gestorEncontrado.name} ${gestorEncontrado.lastName}`.trim() 
+              : gestorEncontrado.name
+            // Adicionar ao Map para próximas consultas
+            vendedoresMap.set(userGestaoFinal, gestorEncontrado)
+          }
         }
       }
 

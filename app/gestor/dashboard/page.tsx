@@ -116,16 +116,16 @@ export default function GestorDashboard() {
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-7 gap-3 w-full">
-              <GestorResumoUnidade
-                unidadeId={unidadeSelecionada}
-                dataInicio={periodoDatas.dataInicio}
-                dataFim={periodoDatas.dataFim}
-              />
+            <GestorResumoUnidade
+              unidadeId={unidadeSelecionada}
+              dataInicio={periodoDatas.dataInicio}
+              dataFim={periodoDatas.dataFim}
+            />
 
-              <GestorMetaCard
-                metaTotal={stats.meta_total}
-                valorGanho={stats.valor_ganho}
-              />
+            <GestorMetaCard
+              metaTotal={stats.meta_total}
+              valorGanho={stats.valor_ganho}
+            />
             </div>
 
             <GestorPerformanceTable
@@ -147,13 +147,13 @@ export default function GestorDashboard() {
             />
 
             <div className="grid grid-cols-2 gap-3">
-              <GestorPerformanceVendedores
-                unidadeId={unidadeSelecionada}
-                dataInicio={periodoDatas.dataInicio}
-                dataFim={periodoDatas.dataFim}
-              />
+            <GestorPerformanceVendedores
+              unidadeId={unidadeSelecionada}
+              dataInicio={periodoDatas.dataInicio}
+              dataFim={periodoDatas.dataFim}
+            />
 
-              <GestorAtendimentosWhatsapp
+            <GestorAtendimentosWhatsapp
                 unidadeId={unidadeSelecionada}
                 dataInicio={periodoDatas.dataInicio}
                 dataFim={periodoDatas.dataFim}

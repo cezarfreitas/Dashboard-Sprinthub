@@ -2,88 +2,14 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { TrendingUp, CheckCircle, XCircle, Target, DollarSign, Filter, X } from "lucide-react"
+import { TrendingUp, CheckCircle, XCircle, Target, DollarSign, Filter, X, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-
-interface Unidade {
-  id: number
-  nome?: string
-  name?: string
-  nome_exibicao?: string
-  grupo_id?: number | null
-  oportunidades_abertas: number
-  oportunidades_ganhas: number
-  oportunidades_perdidas: number
-  valor_ganho: number
-}
-
-// Array de cores bonitas para os cards
-const cardColors = [
-  {
-    bg: "bg-gradient-to-br from-blue-500 to-blue-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-purple-500 to-purple-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-pink-500 to-pink-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-indigo-500 to-indigo-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-cyan-500 to-cyan-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-emerald-500 to-emerald-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-teal-500 to-teal-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-violet-500 to-violet-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-rose-500 to-rose-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-orange-500 to-orange-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-amber-500 to-amber-600",
-    text: "text-white"
-  },
-  {
-    bg: "bg-gradient-to-br from-lime-500 to-lime-600",
-    text: "text-white"
-  }
-]
-
-// Função para obter cor baseada no ID (determinística mas variada) - Memoizada
-const getCardColor = (id: number) => {
-  return cardColors[id % cardColors.length]
-}
-
-// Memoizar cores para evitar recálculos
-const cardColorsMemo = cardColors
+import { PainelUnidadesGrid } from "@/components/painel/PainelUnidadesGrid"
 
 export default function PainelPage() {
-  const [unidades, setUnidades] = useState<Unidade[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [oportunidadesCriadas, setOportunidadesCriadas] = useState<any[]>([])
   const [receitaDiaria, setReceitaDiaria] = useState<any[]>([])
   const [loadingGraficos, setLoadingGraficos] = useState(true)
@@ -101,14 +27,27 @@ export default function PainelPage() {
     acumuladoMesAnterior: 0,
     metaMes: 0,
     metaVsMesAnterior: 0,
+    abertasTotal: 0,
+    abertasCriadasNoMes: 0,
+    abertasCriadasAntes: 0,
     perdidasMes: 0,
+    perdidasCriadasNoMes: 0,
+    perdidasCriadasAntes: 0,
+    valorTotalPerdido: 0,
     taxaConversao: 0,
-    ticketMedio: 0
+    taxaConversaoAnterior: 0,
+    diferencaTaxaConversao: 0,
+    ticketMedio: 0,
+    ticketMedioAnterior: 0,
+    diferencaTicketMedio: 0,
+    menorTicket: 0,
+    maiorTicket: 0
   })
   const [loadingStats, setLoadingStats] = useState(true)
   const [oportunidadesRecentes, setOportunidadesRecentes] = useState<any[]>([])
   const [loadingRecentes, setLoadingRecentes] = useState(true)
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   
   // Calcular datas iniciais para "Este Mês"
   const periodoInicial = useMemo(() => {
@@ -134,6 +73,7 @@ export default function PainelPage() {
   })
   const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
   const [grupos, setGrupos] = useState<Array<{ id: number; nome: string }>>([])
+  const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
   
   // Memoizar datas para evitar re-renders constantes
   const { mesAtual, anoAtual, diaAtual } = useMemo(() => {
@@ -299,26 +239,6 @@ export default function PainelPage() {
   }, [filtros])
 
   // Memoizar fetch functions para evitar re-renders
-  const fetchUnidades = useCallback(async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/unidades/painel')
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Erro ao carregar unidades')
-      }
-
-      setUnidades(data.unidades || [])
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido')
-      setUnidades([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   const fetchGraficos = useCallback(async () => {
     try {
       setLoadingGraficos(true)
@@ -414,11 +334,33 @@ export default function PainelPage() {
           ? ((metaMes - acumuladoMesAnterior) / acumuladoMesAnterior) * 100
           : 0
         
+        // Abertas
+        const abertasResponse = await fetch(`/api/oportunidades/abertos?mes=${mesHoje}&ano=${anoHoje}`)
+        const abertasData = await abertasResponse.json()
+        const abertasTotal = abertasData.success 
+          ? (abertasData.data?.totalOportunidades || 0)
+          : 0
+        const abertasCriadasNoMes = abertasData.success 
+          ? (abertasData.data?.abertasMesAtual || 0)
+          : 0
+        const abertasCriadasAntes = abertasData.success 
+          ? (abertasData.data?.abertasMesesAnteriores || 0)
+          : 0
+        
         // Perdidas Mês
         const perdidasResponse = await fetch(`/api/oportunidades/perdidos?mes=${mesHoje}&ano=${anoHoje}`)
         const perdidasData = await perdidasResponse.json()
         const perdidasMes = perdidasData.success 
           ? (perdidasData.data?.totalOportunidades || 0)
+          : 0
+        const perdidasCriadasNoMes = perdidasData.success 
+          ? (perdidasData.data?.perdidasCriadasMes || 0)
+          : 0
+        const perdidasCriadasAntes = perdidasData.success 
+          ? (perdidasData.data?.perdidasCriadasAnterior || 0)
+          : 0
+        const valorTotalPerdido = perdidasData.success 
+          ? (perdidasData.data?.valorTotalPerdido || 0)
           : 0
         
         // Oportunidades Ganhas no Mês (para taxa de conversão e ticket médio)
@@ -451,9 +393,39 @@ export default function PainelPage() {
           ? (totalGanhasMes / totalCriadasMes) * 100
           : 0
         
+        // Calcular Taxa de Conversão do Mês Anterior
+        const taxaConversaoAnterior = totalCriadasMesAnterior > 0
+          ? (totalGanhasMesAnterior / totalCriadasMesAnterior) * 100
+          : 0
+        
+        // Calcular Diferença da Taxa de Conversão
+        const diferencaTaxaConversao = taxaConversaoAnterior > 0
+          ? taxaConversao - taxaConversaoAnterior
+          : 0
+        
         // Calcular Ticket Médio
         const ticketMedio = totalGanhasMes > 0
           ? valorTotalGanhasMes / totalGanhasMes
+          : 0
+        
+        // Calcular Ticket Médio do Mês Anterior
+        const ticketMedioAnterior = totalGanhasMesAnterior > 0
+          ? valorTotalGanhasMesAnterior / totalGanhasMesAnterior
+          : 0
+        
+        // Calcular Diferença do Ticket Médio
+        const diferencaTicketMedio = ticketMedioAnterior > 0
+          ? ((ticketMedio - ticketMedioAnterior) / ticketMedioAnterior) * 100
+          : 0
+        
+        // Buscar Menor e Maior Ticket do Mês Atual
+        const ticketRangeResponse = await fetch(`/api/oportunidades/ganhos?mes=${mesHoje}&ano=${anoHoje}`)
+        const ticketRangeData = await ticketRangeResponse.json()
+        const menorTicket = ticketRangeData.success 
+          ? (ticketRangeData.data?.menorValor || 0)
+          : 0
+        const maiorTicket = ticketRangeData.success 
+          ? (ticketRangeData.data?.maiorValor || 0)
           : 0
         
         setStats({
@@ -470,9 +442,21 @@ export default function PainelPage() {
           acumuladoMesAnterior,
           metaMes,
           metaVsMesAnterior,
+          abertasTotal,
+          abertasCriadasNoMes,
+          abertasCriadasAntes,
           perdidasMes,
+          perdidasCriadasNoMes,
+          perdidasCriadasAntes,
+          valorTotalPerdido,
           taxaConversao,
-          ticketMedio
+          taxaConversaoAnterior,
+          diferencaTaxaConversao,
+          ticketMedio,
+          ticketMedioAnterior,
+          diferencaTicketMedio,
+          menorTicket,
+          maiorTicket
         })
       } catch (err) {
         // Error handling silencioso
@@ -488,12 +472,14 @@ export default function PainelPage() {
       const data = await response.json()
       
       if (data.success && data.historico && data.historico.length > 0) {
-        setOportunidadesRecentes(data.historico)
+        const uniqueHistorico = Array.from(
+          new Map(data.historico.map((item: any) => [item.id, item])).values()
+        )
+        setOportunidadesRecentes(uniqueHistorico)
       } else {
         setOportunidadesRecentes([])
       }
     } catch (err) {
-      // Error handling silencioso
       setOportunidadesRecentes([])
     } finally {
       setLoadingRecentes(false)
@@ -526,14 +512,27 @@ export default function PainelPage() {
     }
   }, [])
 
+  const fetchUnidadesList = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades/list')
+      const data = await response.json()
+      if (data.success && data.unidades) {
+        setUnidadesList(data.unidades)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setUnidadesList([])
+    }
+  }, [])
+
   useEffect(() => {
-    fetchUnidades()
     fetchGraficos()
     fetchStats()
     fetchNotificacoes()
     fetchFunis()
     fetchGrupos()
-  }, [fetchUnidades, fetchGraficos, fetchStats, fetchNotificacoes, fetchFunis, fetchGrupos])
+    fetchUnidadesList()
+  }, [fetchGraficos, fetchStats, fetchNotificacoes, fetchFunis, fetchGrupos, fetchUnidadesList])
 
   // Atualizar notificações a cada 10 segundos
   useEffect(() => {
@@ -546,27 +545,32 @@ export default function PainelPage() {
     }
   }, [fetchNotificacoes])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="text-gray-400">Carregando unidades...</div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="text-red-500">Erro: {error}</div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="min-h-screen bg-black flex relative">
+      {/* Botão de Colapsar - FORA da sidebar para sempre ficar visível */}
+      <button
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        className={cn(
+          "fixed bottom-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-r-full p-1.5 shadow-lg transition-all duration-300 border border-blue-500",
+          sidebarCollapsed ? "left-0" : "left-64"
+        )}
+        title={sidebarCollapsed ? "Mostrar notificações" : "Esconder notificações"}
+      >
+        {sidebarCollapsed ? (
+          <ChevronRight className="h-4 w-4" />
+        ) : (
+          <ChevronLeft className="h-4 w-4" />
+        )}
+      </button>
+
       {/* Sidebar de Oportunidades Recentes */}
-      <div className="w-64 bg-gray-900 border-r border-gray-800 overflow-y-auto max-h-screen sticky top-0 scrollbar-hide">
-        <div className="p-3 space-y-2">
+      <div 
+        className={cn(
+          "bg-gray-900 border-r border-gray-800 overflow-y-auto max-h-screen sticky top-0 scrollbar-hide transition-all duration-300",
+          sidebarCollapsed ? "w-0 border-r-0" : "w-64"
+        )}
+      >
+        <div className={cn("p-3 space-y-2", sidebarCollapsed && "hidden")}>
           {loadingRecentes ? (
             <div className="text-center py-8">
               <span className="text-gray-400 text-sm">Carregando...</span>
@@ -583,6 +587,21 @@ export default function PainelPage() {
                 const g = parseInt(hex.slice(3, 5), 16)
                 const b = parseInt(hex.slice(5, 7), 16)
                 return `rgba(${r}, ${g}, ${b}, ${alpha})`
+              }
+
+              // Função para calcular luminância e determinar se precisa de texto claro ou escuro
+              const calcularLuminancia = (hex: string): number => {
+                const r = parseInt(hex.slice(1, 3), 16) / 255
+                const g = parseInt(hex.slice(3, 5), 16) / 255
+                const b = parseInt(hex.slice(5, 7), 16) / 255
+
+                // Aplicar gamma correction
+                const rLinear = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4)
+                const gLinear = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4)
+                const bLinear = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4)
+
+                // Calcular luminância relativa (W3C)
+                return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear
               }
 
               // Verificar se há cor customizada (aceita com ou sem #)
@@ -606,6 +625,10 @@ export default function PainelPage() {
                 }
               }
               const temCorCustomizada = !!corHex
+              
+              // Calcular se a cor é clara ou escura
+              // Threshold 0.45: cores mais brilhantes que isso = texto preto, senão texto branco
+              const isCorClara = temCorCustomizada ? calcularLuminancia(corHex!) > 0.45 : false
               
               const statusConfig = {
                 gain: { 
@@ -643,8 +666,9 @@ export default function PainelPage() {
               }
               
               // Aplicar cor customizada se disponível (sempre tem prioridade)
+              // Usar opacidade maior para cores claras para melhor visibilidade
               const cardStyle: React.CSSProperties = temCorCustomizada ? {
-                backgroundColor: hexToRgba(corHex!, 0.15),
+                backgroundColor: hexToRgba(corHex!, isCorClara ? 0.25 : 0.15),
                 borderColor: corHex!,
                 borderWidth: '1px',
                 borderStyle: 'solid'
@@ -652,26 +676,40 @@ export default function PainelPage() {
               
               const badgeStyle: React.CSSProperties = temCorCustomizada ? {
                 backgroundColor: corHex!,
-                color: '#ffffff'
+                color: isCorClara ? '#000000' : '#ffffff'
               } : {}
               
+              // Valor usa preto ou branco puro (sem cor customizada)
               const valorStyle: React.CSSProperties = temCorCustomizada ? {
-                color: corHex!
+                color: isCorClara ? '#000000' : '#FFFFFF',
+                fontWeight: 'bold'
+              } : {}
+              
+              // Cores de texto: PRETO ou BRANCO puro (100%)
+              const textColorStyle = temCorCustomizada ? {
+                color: isCorClara ? '#000000' : '#FFFFFF'
+              } : {}
+              
+              const textSecondaryStyle = temCorCustomizada ? {
+                color: isCorClara ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)'
+              } : {}
+                
+              const textTertiaryStyle = temCorCustomizada ? {
+                color: isCorClara ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)'
+              } : {}
+                
+              const borderStyle = temCorCustomizada ? {
+                borderColor: isCorClara ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'
               } : {}
               
               // Classes CSS (só aplicar se não houver cor customizada)
-              // Quando há cor customizada, usar apenas classes básicas sem background/border
               const cardClasses = temCorCustomizada 
                 ? "rounded-lg border shadow-sm transition-colors bg-transparent" 
                 : cn("rounded-lg border shadow-sm transition-colors", statusConfig[op.status as keyof typeof statusConfig]?.bg || 'bg-blue-900/30', statusConfig[op.status as keyof typeof statusConfig]?.border || 'border-blue-700')
               
-              const badgeClasses = temCorCustomizada
-                ? "px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
-                : cn("px-1.5 py-0.5 rounded text-[10px] font-bold text-white", statusConfig[op.status as keyof typeof statusConfig]?.badge || 'bg-blue-600')
+              const badgeClasses = cn("px-1.5 py-0.5 rounded text-[10px] font-bold text-white", statusConfig[op.status as keyof typeof statusConfig]?.badge || 'bg-blue-600')
               
-              const valorClasses = temCorCustomizada
-                ? "font-bold text-xs"
-                : cn("font-bold text-xs", statusConfig[op.status as keyof typeof statusConfig]?.valorColor || 'text-blue-400')
+              const valorClasses = cn("font-bold text-xs", statusConfig[op.status as keyof typeof statusConfig]?.valorColor || 'text-blue-400')
               
               // Usar div quando há cor customizada para evitar conflitos com classes do Card
               if (temCorCustomizada) {
@@ -686,27 +724,27 @@ export default function PainelPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span 
-                            className={badgeClasses}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold"
                             style={badgeStyle}
                           >
                             {badgeText}
                           </span>
                         </div>
-                        <p className="text-white font-semibold text-xs truncate">{op.nome}</p>
-                        <p className="text-gray-400 text-[10px] mt-0.5 truncate" title={op.unidade}>
+                        <p className="font-semibold text-xs truncate" style={textColorStyle}>{op.nome}</p>
+                        <p className="text-[10px] mt-0.5 truncate" style={textSecondaryStyle} title={op.unidade}>
                           {op.unidade}
                         </p>
                       </div>
-                      <span className="text-gray-500 text-[10px] flex-shrink-0 ml-1.5">
+                      <span className="text-[10px] flex-shrink-0 ml-1.5" style={textTertiaryStyle}>
                         {formatTimeAgo(op.consultadoEm || op.dataCriacao)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-700">
-                      <span className="text-gray-400 text-[10px] truncate" title={op.vendedor}>
+                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t" style={borderStyle}>
+                      <span className="text-[10px] truncate" style={textSecondaryStyle} title={op.vendedor}>
                         {op.vendedor}
                       </span>
                       <span 
-                        className={valorClasses}
+                        className="font-bold text-xs"
                         style={valorStyle}
                       >
                         {formatCurrency(op.valor)}
@@ -760,7 +798,7 @@ export default function PainelPage() {
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         <div className="p-6">
       {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 mb-4">
         {/* Criadas Hoje */}
         <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-0">
           <CardContent className="p-4">
@@ -870,19 +908,64 @@ export default function PainelPage() {
           </CardContent>
         </Card>
 
+        {/* Abertos */}
+        <Card className="bg-gradient-to-br from-cyan-600 to-cyan-700 border-0">
+          <CardContent className="p-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-cyan-100 text-xs uppercase font-semibold mb-0.5">Abertos</p>
+                  {loadingStats ? (
+                    <p className="text-white text-xl font-bold">...</p>
+                  ) : (
+                    <p className="text-white text-2xl font-black">{stats.abertasTotal}</p>
+                  )}
+                </div>
+                <FolderOpen className="h-7 w-7 text-cyan-200 opacity-80 flex-shrink-0 ml-2" />
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[10px] pt-1 border-t border-cyan-500/30">
+                <div className="flex items-center gap-1">
+                  <span className="text-cyan-100/80">Criados no mês:</span>
+                  <span className="text-white font-semibold">{loadingStats ? '...' : stats.abertasCriadasNoMes}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-cyan-100/80">Criados antes:</span>
+                  <span className="text-white font-semibold">{loadingStats ? '...' : stats.abertasCriadasAntes}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Perdidas Mês */}
         <Card className="bg-gradient-to-br from-red-600 to-red-700 border-0">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-red-100 text-xs uppercase font-semibold mb-0.5">Perdidas Mês</p>
-                {loadingStats ? (
-                  <p className="text-white text-xl font-bold">...</p>
-                ) : (
-                  <p className="text-white text-2xl font-black">{stats.perdidasMes}</p>
-                )}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-red-100 text-xs uppercase font-semibold mb-0.5">Perdidas Mês</p>
+                  {loadingStats ? (
+                    <p className="text-white text-xl font-bold">...</p>
+                  ) : (
+                    <p className="text-white text-2xl font-black">{stats.perdidasMes}</p>
+                  )}
+                </div>
+                <XCircle className="h-7 w-7 text-red-200 opacity-80 flex-shrink-0 ml-2" />
               </div>
-              <XCircle className="h-7 w-7 text-red-200 opacity-80 flex-shrink-0 ml-2" />
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] pt-1 border-t border-red-500/30">
+                <div className="flex items-center gap-1">
+                  <span className="text-red-100/80">Criados no mês:</span>
+                  <span className="text-white font-semibold">{loadingStats ? '...' : stats.perdidasCriadasNoMes}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-red-100/80">Criados antes:</span>
+                  <span className="text-white font-semibold">{loadingStats ? '...' : stats.perdidasCriadasAntes}</span>
+                </div>
+                <div className="flex items-center gap-1 col-span-2">
+                  <span className="text-red-100/80">Valor Total:</span>
+                  <span className="text-white font-semibold truncate">{loadingStats ? '...' : formatCurrency(stats.valorTotalPerdido)}</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -890,16 +973,30 @@ export default function PainelPage() {
         {/* Taxa de Conversão */}
         <Card className="bg-gradient-to-br from-amber-600 to-amber-700 border-0">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-amber-100 text-xs uppercase font-semibold mb-0.5">Taxa Conversão</p>
-                {loadingStats ? (
-                  <p className="text-white text-xl font-bold">...</p>
-                ) : (
-                  <p className="text-white text-2xl font-black">{Math.round(stats.taxaConversao)}%</p>
-                )}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-amber-100 text-xs uppercase font-semibold mb-0.5">Taxa Conversão</p>
+                  {loadingStats ? (
+                    <p className="text-white text-xl font-bold">...</p>
+                  ) : (
+                    <p className="text-white text-2xl font-black">{Math.round(stats.taxaConversao)}%</p>
+                  )}
+                </div>
+                <Target className="h-7 w-7 text-amber-200 opacity-80 flex-shrink-0 ml-2" />
               </div>
-              <Target className="h-7 w-7 text-amber-200 opacity-80 flex-shrink-0 ml-2" />
+              <div className="flex items-center justify-between gap-2 text-[10px] pt-1 border-t border-amber-500/30">
+                <div className="flex items-center gap-1">
+                  <span className="text-amber-100/80">Período ant:</span>
+                  <span className="text-white font-semibold">{loadingStats ? '...' : `${Math.round(stats.taxaConversaoAnterior)}%`}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-amber-100/80">Diferença:</span>
+                  <span className={`font-semibold ${stats.diferencaTaxaConversao >= 0 ? 'text-green-200' : 'text-red-200'}`}>
+                    {loadingStats ? '...' : `${stats.diferencaTaxaConversao >= 0 ? '+' : ''}${stats.diferencaTaxaConversao.toFixed(1)}pp`}
+                  </span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -907,16 +1004,38 @@ export default function PainelPage() {
         {/* Ticket Médio */}
         <Card className="bg-gradient-to-br from-teal-600 to-teal-700 border-0">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-teal-100 text-xs uppercase font-semibold mb-0.5">Ticket Médio</p>
-                {loadingStats ? (
-                  <p className="text-white text-xl font-bold">...</p>
-                ) : (
-                  <p className="text-white text-lg font-black truncate">{formatCurrency(stats.ticketMedio)}</p>
-                )}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-teal-100 text-xs uppercase font-semibold mb-0.5">Ticket Médio</p>
+                  {loadingStats ? (
+                    <p className="text-white text-xl font-bold">...</p>
+                  ) : (
+                    <p className="text-white text-lg font-black truncate">{formatCurrency(stats.ticketMedio)}</p>
+                  )}
+                </div>
+                <DollarSign className="h-7 w-7 text-teal-200 opacity-80 flex-shrink-0 ml-2" />
               </div>
-              <DollarSign className="h-7 w-7 text-teal-200 opacity-80 flex-shrink-0 ml-2" />
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] pt-1 border-t border-teal-500/30">
+                <div className="flex items-center gap-1">
+                  <span className="text-teal-100/80">Período ant:</span>
+                  <span className="text-white font-semibold truncate">{loadingStats ? '...' : formatCurrency(stats.ticketMedioAnterior)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-teal-100/80">Dif:</span>
+                  <span className={`font-semibold ${stats.diferencaTicketMedio >= 0 ? 'text-green-200' : 'text-red-200'}`}>
+                    {loadingStats ? '...' : `${stats.diferencaTicketMedio >= 0 ? '+' : ''}${Math.round(stats.diferencaTicketMedio)}%`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-teal-100/80">Menor:</span>
+                  <span className="text-white font-semibold truncate">{loadingStats ? '...' : formatCurrency(stats.menorTicket)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-teal-100/80">Maior:</span>
+                  <span className="text-white font-semibold truncate">{loadingStats ? '...' : formatCurrency(stats.maiorTicket)}</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1041,95 +1160,11 @@ export default function PainelPage() {
       </div>
 
       {/* Cards de Unidades */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 4k:grid-cols-8 gap-4">
-        {unidades
-          .filter(unidade => {
-            // Aplicar filtro de unidade
-            if (filtros.unidadeSelecionada !== 'todas' && unidade.id !== parseInt(filtros.unidadeSelecionada)) {
-              return false
-            }
-            // Aplicar filtro de grupo
-            if (filtros.grupoSelecionado !== 'todos') {
-              const grupoId = parseInt(filtros.grupoSelecionado)
-              if (!unidade.grupo_id || unidade.grupo_id !== grupoId) {
-                return false
-              }
-            }
-            return true
-          })
-          .sort((a, b) => b.valor_ganho - a.valor_ganho)
-          .map((unidade, index) => {
-          const nomeExibicao = unidade.nome_exibicao || unidade.nome || unidade.name || 'Sem nome'
-          const valorFormatado = new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL'
-          }).format(unidade.valor_ganho)
-          
-          const posicao = index + 1
-          const color = getCardColor(unidade.id)
-          
-          return (
-            <Card 
-              key={unidade.id} 
-              className={cn(
-                "hover:shadow-xl transition-all duration-300 cursor-pointer border-0 overflow-hidden",
-                color.bg,
-                "hover:scale-105"
-              )}
-            >
-              <CardContent className={cn("p-6", color.text)}>
-                <div className="mb-4 flex items-start justify-between gap-2">
-                  <span className="font-black text-base uppercase tracking-wide truncate flex-1">{nomeExibicao}</span>
-                  <div className={cn(
-                    "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-sm",
-                    posicao <= 3 ? "bg-yellow-400 text-yellow-900" : "bg-white/20 text-white"
-                  )}>
-                    {posicao}
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  {/* Abertas, Ganhas e Perdidas em uma linha */}
-                  <div className="flex items-center justify-between gap-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2">
-                    {/* Abertas */}
-                    <div className="flex flex-col items-center gap-1 flex-1">
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="h-3.5 w-3.5 opacity-90" />
-                        <span className="text-xs opacity-90">Abertas</span>
-                      </div>
-                      <span className="text-xs font-bold">{unidade.oportunidades_abertas}</span>
-                    </div>
-                    
-                    {/* Ganhas */}
-                    <div className="flex flex-col items-center gap-1 flex-1 border-x border-white/20 px-2">
-                      <div className="flex items-center gap-1">
-                        <CheckCircle className="h-3.5 w-3.5 opacity-90 text-green-200" />
-                        <span className="text-xs opacity-90">Ganhas</span>
-                      </div>
-                      <span className="text-xs font-bold text-green-200">{unidade.oportunidades_ganhas}</span>
-                    </div>
-                    
-                    {/* Perdidas */}
-                    <div className="flex flex-col items-center gap-1 flex-1">
-                      <div className="flex items-center gap-1">
-                        <XCircle className="h-3.5 w-3.5 opacity-90 text-red-200" />
-                        <span className="text-xs opacity-90">Perdidas</span>
-                      </div>
-                      <span className="text-xs font-bold text-red-200">{unidade.oportunidades_perdidas}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Valor Ganho */}
-                  <div className="flex items-center justify-between pt-2 border-t border-white/20">
-                    <span className="text-xs opacity-90">Valor Ganho</span>
-                    <span className="text-sm font-bold text-green-200">{valorFormatado}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+      <PainelUnidadesGrid 
+        filtros={filtros}
+        mesAtual={mesAtual}
+        anoAtual={anoAtual}
+      />
         </div>
       </div>
 
@@ -1171,9 +1206,9 @@ export default function PainelPage() {
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="todas">Todas as Unidades</option>
-                {unidades.map(unidade => (
+                {unidadesList.map(unidade => (
                   <option key={unidade.id} value={unidade.id}>
-                    {unidade.nome_exibicao || unidade.nome || unidade.name}
+                    {unidade.nome}
                   </option>
                 ))}
               </select>

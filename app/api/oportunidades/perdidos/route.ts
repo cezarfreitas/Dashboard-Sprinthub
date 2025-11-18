@@ -17,7 +17,9 @@ export async function GET(request: NextRequest) {
 
     // Buscar oportunidades perdidas no mês atual
     const queryPerdidas = `
-      SELECT COUNT(*) as total
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       WHERE MONTH(o.lost_date) = ? 
         AND YEAR(o.lost_date) = ?
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
     ]) as [any[], any[], any[]]
 
     const totalOportunidades = resultPerdidas[0]?.total || 0
+    const valorTotalPerdido = parseFloat(resultPerdidas[0]?.valor_total || 0)
     const perdidasCriadasMes = resultPerdidasCriadasMes[0]?.total || 0
     const perdidasCriadasAnterior = resultPerdidasCriadasAnterior[0]?.total || 0
 
@@ -62,6 +65,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         totalOportunidades,
+        valorTotalPerdido,
         perdidasCriadasMes,
         perdidasCriadasAnterior
       },
@@ -72,8 +76,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Erro ao buscar oportunidades perdidas:', error)
-    
     return NextResponse.json(
       { 
         success: false, 

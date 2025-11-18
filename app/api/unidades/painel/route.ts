@@ -14,9 +14,40 @@ function parseJSON(value: any): any[] {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Buscar todas as unidades ativas
+    const { searchParams } = new URL(request.url)
+    const mes = searchParams.get('mes')
+    const ano = searchParams.get('ano')
+    const unidadeId = searchParams.get('unidade_id')
+    const grupoId = searchParams.get('grupo_id')
+    const funilId = searchParams.get('funil_id')
+    const dataInicio = searchParams.get('data_inicio')
+    const dataFim = searchParams.get('data_fim')
+
+    // Priorizar data customizada se fornecida, senão usar mês/ano
+    const usarDataCustomizada = dataInicio && dataFim
+    
+    // Usar mês e ano atual se não fornecidos e não houver data customizada
+    const dataAtual = new Date()
+    const mesAtual = mes ? parseInt(mes) : dataAtual.getMonth() + 1
+    const anoAtual = ano ? parseInt(ano) : dataAtual.getFullYear()
+
+    // Construir filtros para unidades
+    const unidadeFiltros: string[] = ['u.ativo = 1', '(u.nome IS NOT NULL OR u.name IS NOT NULL)']
+    const unidadeParams: any[] = []
+
+    if (unidadeId) {
+      unidadeFiltros.push('u.id = ?')
+      unidadeParams.push(parseInt(unidadeId))
+    }
+
+    if (grupoId) {
+      unidadeFiltros.push('u.grupo_id = ?')
+      unidadeParams.push(parseInt(grupoId))
+    }
+
+    // Buscar todas as unidades ativas com filtros
     const unidades = await executeQuery(`
       SELECT 
         u.id, 
@@ -24,10 +55,9 @@ export async function GET() {
         u.users,
         u.grupo_id
       FROM unidades u
-      WHERE u.ativo = 1
-        AND (u.nome IS NOT NULL OR u.name IS NOT NULL)
+      WHERE ${unidadeFiltros.join(' AND ')}
       ORDER BY COALESCE(u.nome, u.name)
-    `) as any[]
+    `, unidadeParams) as any[]
 
     // Buscar todos os vendedores uma vez
     const todosVendedores = await executeQuery(`
@@ -73,45 +103,118 @@ export async function GET() {
     // Buscar oportunidades de todos os vendedores de uma vez
     const placeholders = todosVendedoresIds.map(() => '?').join(',')
     
+    // Construir filtros adicionais para oportunidades
+    const oportunidadeFiltros: string[] = []
+    const oportunidadeParams: any[] = []
+    let joinFunil = ''
+
+    if (funilId) {
+      joinFunil = 'LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id'
+      oportunidadeFiltros.push('cf.id_funil = ?')
+      oportunidadeParams.push(parseInt(funilId))
+    }
+
+    const oportunidadeFiltroSQL = oportunidadeFiltros.length > 0 
+      ? `AND ${oportunidadeFiltros.join(' AND ')}` 
+      : ''
+    
     const [abertas, ganhas, perdidas] = await Promise.all([
-      // Oportunidades abertas
+      // Oportunidades abertas (sem filtro de data - todas as abertas no momento)
+      // Excluir oportunidades arquivadas
       executeQuery(`
-        SELECT user, COUNT(*) as total
-        FROM oportunidades
-        WHERE user IN (${placeholders})
-          AND status IN ('open', 'aberta', 'active')
-        GROUP BY user
-      `, todosVendedoresIds) as Promise<any[]>,
+        SELECT o.user, COUNT(*) as total
+        FROM oportunidades o
+        ${joinFunil}
+        WHERE o.user IN (${placeholders})
+          AND o.status IN ('open', 'aberta', 'active')
+          AND (o.archived IS NULL OR o.archived = 0)
+          ${oportunidadeFiltroSQL}
+        GROUP BY o.user
+      `, [...todosVendedoresIds, ...oportunidadeParams]) as Promise<any[]>,
       
-      // Oportunidades ganhas
+      // Oportunidades ganhas no período especificado
+      // Usar gain_date como critério principal (mais confiável que status)
       executeQuery(`
         SELECT 
-          user,
+          o.user,
           COUNT(*) as total,
-          COALESCE(SUM(value), 0) as valor
-        FROM oportunidades
-        WHERE user IN (${placeholders})
-          AND status = 'gain'
-        GROUP BY user
-      `, todosVendedoresIds) as Promise<any[]>,
+          COALESCE(SUM(o.value), 0) as valor
+        FROM oportunidades o
+        ${joinFunil}
+        WHERE o.user IN (${placeholders})
+          AND o.gain_date IS NOT NULL
+          ${usarDataCustomizada 
+            ? 'AND DATE(o.gain_date) BETWEEN ? AND ?' 
+            : 'AND MONTH(o.gain_date) = ? AND YEAR(o.gain_date) = ?'
+          }
+          ${oportunidadeFiltroSQL}
+        GROUP BY o.user
+      `, [
+        ...todosVendedoresIds, 
+        ...(usarDataCustomizada ? [dataInicio, dataFim] : [mesAtual, anoAtual]),
+        ...oportunidadeParams
+      ]) as Promise<any[]>,
       
-      // Oportunidades perdidas
+      // Oportunidades perdidas no período especificado
+      // Usar lost_date como critério principal (mais confiável que status)
       executeQuery(`
-        SELECT user, COUNT(*) as total
-        FROM oportunidades
-        WHERE user IN (${placeholders})
-          AND status = 'lost'
-        GROUP BY user
-      `, todosVendedoresIds) as Promise<any[]>
+        SELECT o.user, COUNT(*) as total
+        FROM oportunidades o
+        ${joinFunil}
+        WHERE o.user IN (${placeholders})
+          AND o.lost_date IS NOT NULL
+          ${usarDataCustomizada 
+            ? 'AND DATE(o.lost_date) BETWEEN ? AND ?' 
+            : 'AND MONTH(o.lost_date) = ? AND YEAR(o.lost_date) = ?'
+          }
+          ${oportunidadeFiltroSQL}
+        GROUP BY o.user
+      `, [
+        ...todosVendedoresIds,
+        ...(usarDataCustomizada ? [dataInicio, dataFim] : [mesAtual, anoAtual]),
+        ...oportunidadeParams
+      ]) as Promise<any[]>
     ])
 
     // Criar mapas para acesso rápido
-    const abertasMap = new Map(abertas.map(o => [o.user, Number(o.total)]))
-    const ganhasMap = new Map(ganhas.map(o => [o.user, { total: Number(o.total), valor: Number(o.valor) }]))
-    const perdidasMap = new Map(perdidas.map(o => [o.user, Number(o.total)]))
+    // Converter user para número para garantir compatibilidade
+    const abertasMap = new Map<number, number>()
+    abertas.forEach(o => {
+      const userId = typeof o.user === 'string' ? parseInt(o.user) : Number(o.user)
+      if (!isNaN(userId)) {
+        const currentTotal = abertasMap.get(userId) || 0
+        abertasMap.set(userId, currentTotal + Number(o.total || 0))
+      }
+    })
 
+    const ganhasMap = new Map<number, { total: number; valor: number }>()
+    ganhas.forEach(o => {
+      const userId = typeof o.user === 'string' ? parseInt(o.user) : Number(o.user)
+      if (!isNaN(userId)) {
+        const current = ganhasMap.get(userId) || { total: 0, valor: 0 }
+        ganhasMap.set(userId, {
+          total: current.total + Number(o.total || 0),
+          valor: current.valor + Number(o.valor || 0)
+        })
+      }
+    })
+
+    const perdidasMap = new Map<number, number>()
+    perdidas.forEach(o => {
+      const userId = typeof o.user === 'string' ? parseInt(o.user) : Number(o.user)
+      if (!isNaN(userId)) {
+        const currentTotal = perdidasMap.get(userId) || 0
+        perdidasMap.set(userId, currentTotal + Number(o.total || 0))
+      }
+    })
+
+    // Remover duplicatas de unidades antes de processar
+    const unidadesUnicas = Array.from(
+      new Map(unidades.map(u => [u.id, u])).values()
+    )
+    
     // Processar cada unidade
-    const unidadesComOportunidades = unidades.map(unidade => {
+    const unidadesComOportunidades = unidadesUnicas.map(unidade => {
       const vendedoresIds = unidadeVendedoresMap.get(unidade.id) || []
       
       if (vendedoresIds.length === 0) {
@@ -134,15 +237,24 @@ export async function GET() {
       let totalValor = 0
 
       vendedoresIds.forEach(vendedorId => {
-        totalAbertas += abertasMap.get(vendedorId) || 0
+        // Garantir que o vendedorId é um número
+        const userId = typeof vendedorId === 'string' ? parseInt(vendedorId) : Number(vendedorId)
+        if (isNaN(userId)) return
+
+        // Somar oportunidades abertas
+        const abertasCount = abertasMap.get(userId) || 0
+        totalAbertas += abertasCount
         
-        const ganho = ganhasMap.get(vendedorId)
+        // Somar oportunidades ganhas
+        const ganho = ganhasMap.get(userId)
         if (ganho) {
-          totalGanhas += ganho.total
-          totalValor += ganho.valor
+          totalGanhas += Number(ganho.total) || 0
+          totalValor += Number(ganho.valor) || 0
         }
         
-        totalPerdidas += perdidasMap.get(vendedorId) || 0
+        // Somar oportunidades perdidas
+        const perdidasCount = perdidasMap.get(userId) || 0
+        totalPerdidas += perdidasCount
       })
 
       return {
@@ -150,10 +262,10 @@ export async function GET() {
         nome: unidade.nome,
         nome_exibicao: unidade.nome,
         grupo_id: unidade.grupo_id || null,
-        oportunidades_abertas: totalAbertas,
-        oportunidades_ganhas: totalGanhas,
-        oportunidades_perdidas: totalPerdidas,
-        valor_ganho: totalValor
+        oportunidades_abertas: Number(totalAbertas) || 0,
+        oportunidades_ganhas: Number(totalGanhas) || 0,
+        oportunidades_perdidas: Number(totalPerdidas) || 0,
+        valor_ganho: Number(totalValor) || 0
       }
     })
 
