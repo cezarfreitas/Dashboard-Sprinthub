@@ -105,23 +105,9 @@ export const PainelUnidadeDialog = memo(function PainelUnidadeDialog({
   const [searchTerm, setSearchTerm] = useState('')
   const [sortField, setSortField] = useState<SortField>('id')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-  const [crmBaseUrl, setCrmBaseUrl] = useState<string>('https://grupointeli.sprinthub.app')
-
-  // Buscar URL base do CRM via API
-  useEffect(() => {
-    const fetchCrmUrl = async () => {
-      try {
-        const response = await fetch('/api/configuracoes/env')
-        const data = await response.json()
-        if (data.success && data.config?.URLPATCH && data.config.URLPATCH !== 'Não configurado') {
-          setCrmBaseUrl(data.config.URLPATCH)
-        }
-      } catch (err) {
-        // Manter URL padrão em caso de erro
-      }
-    }
-    fetchCrmUrl()
-  }, [])
+  
+  // Usar variável de ambiente pública para URL do CRM
+  const crmBaseUrl = process.env.NEXT_PUBLIC_URL_PUBLIC || 'https://grupointeli.sprinthub.app'
 
   useEffect(() => {
     if (!open || !unidadeId) {
