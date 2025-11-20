@@ -6,8 +6,9 @@ dotenv.config();
 const nextConfig = {
   reactStrictMode: true,
   
-  // Habilitar output standalone para produção (Docker/Easypanel)
-  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
+  // Habilitar output standalone apenas se especificado
+  // Para Docker/Easypanel, podemos usar npm start sem standalone
+  output: process.env.NEXT_STANDALONE === 'true' ? 'standalone' : undefined,
   
   // Otimizações de build
   swcMinify: true, // Usar SWC para minificação (mais rápido que Terser)

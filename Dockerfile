@@ -71,7 +71,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copiar apenas arquivos necessários para build
-COPY package.json next.config.js tsconfig.json ./
+COPY package.json package-lock.json* ./
+COPY next.config.js tsconfig.json ./
 COPY app ./app
 COPY components ./components
 COPY lib ./lib
@@ -81,14 +82,17 @@ COPY types ./types
 COPY config ./config
 COPY public ./public
 COPY middleware.ts ./
+COPY tailwind.config.js postcss.config.js ./
 
-# Build paralelo com cache
+# Build da aplicação para produção
+# O build já está configurado no next.config.js para gerar standalone em produção
 RUN --mount=type=cache,target=/app/.next/cache \
     npm run build
 
-# Limpeza agressiva pós-build
-RUN find . -name "*.test.*" -o -name "*.spec.*" | xargs rm -rf && \
-    rm -rf node_modules/.cache
+# Limpeza pós-build (manter node_modules para npm start)
+RUN find . -name "*.test.*" -o -name "*.spec.*" | xargs rm -rf 2>/dev/null || true && \
+    rm -rf node_modules/.cache && \
+    rm -rf .next/cache
 
 # -----------------------------------------------------------------------------
 # Stage 5: Runner - Imagem final ultra-compacta
@@ -111,11 +115,15 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copiar apenas o essencial (standalone já contém node_modules necessários)
+# Copiar arquivos necessários para produção
+# Se usar standalone, copiar do .next/standalone
+# Se usar npm start, copiar .next e node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./
 
 # Health check otimizado
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=2 \
@@ -126,9 +134,9 @@ USER nextjs
 
 EXPOSE 3000
 
-# Comando otimizado
+# Comando para produção usando npm start
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["node", "server.js"]
+CMD ["npm", "start"]
 
 # -----------------------------------------------------------------------------
 # Stage 5: Development (opcional - para dev com Docker)

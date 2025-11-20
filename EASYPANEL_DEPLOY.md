@@ -80,34 +80,33 @@ NEXT_TELEMETRY_DISABLED=1
 
 ## 📦 Como Funciona
 
-### Build Process
+### Build Process no Dockerfile
 
-1. **Instalação de Dependências**
-   ```bash
-   npm ci --prefer-offline --no-audit
-   ```
+O Dockerfile já está configurado para fazer tudo automaticamente:
 
-2. **Build da Aplicação**
+1. **Stage 1: Base** - Imagem base Node.js 18 Alpine
+2. **Stage 2: Dependencies** - Instala todas as dependências
+3. **Stage 3: Production Dependencies** - Separa dependências de produção
+4. **Stage 4: Builder** - Executa `npm run build`:
    ```bash
    npm run build
    ```
    - Gera arquivos otimizados em `.next/`
-   - Cria versão standalone em `.next/standalone/`
+   - Compila TypeScript
    - Otimiza imagens e assets
+   - Minifica código
 
-3. **Inicialização**
-   ```bash
-   npm start
-   ```
-   - Inicia servidor Next.js na porta 3000
-   - Usa arquivos compilados do build
+5. **Stage 5: Runner** - Imagem final de produção:
+   - Copia apenas arquivos necessários
+   - Usa dependências de produção
+   - Executa `npm start` para rodar a aplicação
 
-### Output Standalone
+### Comando de Inicialização
 
-O `next.config.js` está configurado para gerar output standalone em produção:
-- Reduz tamanho da imagem Docker
-- Inclui apenas dependências necessárias
-- Otimizado para produção
+O Dockerfile usa `npm start` que:
+- Inicia servidor Next.js na porta 3000
+- Usa arquivos compilados do build (`.next/`)
+- Configurado para produção automaticamente
 
 ## 🔧 Troubleshooting
 
