@@ -41,8 +41,13 @@ FROM base AS deps
 COPY package.json package-lock.json* ./
 
 # Usar cache mount do BuildKit para npm
+# Instalar TODAS as dependências (incluindo devDependencies para o build)
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit --loglevel=error
+    if [ -f package-lock.json ]; then \
+      npm ci --prefer-offline --no-audit --loglevel=error; \
+    else \
+      npm install --no-audit --loglevel=error; \
+    fi
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Dependencies (separado para melhor cache)
@@ -52,7 +57,11 @@ FROM base AS prod-deps
 COPY package.json package-lock.json* ./
 
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --only=production --prefer-offline --no-audit --loglevel=error
+    if [ -f package-lock.json ]; then \
+      npm ci --only=production --prefer-offline --no-audit --loglevel=error; \
+    else \
+      npm install --only=production --no-audit --loglevel=error; \
+    fi
 
 # -----------------------------------------------------------------------------
 # Stage 4: Builder - Build da aplicação com máxima otimização
@@ -73,6 +82,10 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copiar apenas arquivos necessários para build
 COPY package.json package-lock.json* ./
 COPY next.config.js tsconfig.json ./
+COPY tailwind.config.js postcss.config.js ./
+COPY middleware.ts ./
+
+# Copiar diretórios do projeto
 COPY app ./app
 COPY components ./components
 COPY lib ./lib
@@ -81,8 +94,9 @@ COPY contexts ./contexts
 COPY types ./types
 COPY config ./config
 COPY public ./public
-COPY middleware.ts ./
-COPY tailwind.config.js postcss.config.js ./
+
+# Garantir que o globals.css está presente
+COPY app/globals.css ./app/globals.css 2>/dev/null || true
 
 # Build da aplicação para produção
 # O build já está configurado no next.config.js para gerar standalone em produção
