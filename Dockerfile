@@ -95,9 +95,6 @@ COPY types ./types
 COPY config ./config
 COPY public ./public
 
-# Garantir que o globals.css está presente
-COPY app/globals.css ./app/globals.css 2>/dev/null || true
-
 # Build da aplicação para produção
 # O build já está configurado no next.config.js para gerar standalone em produção
 RUN --mount=type=cache,target=/app/.next/cache \
