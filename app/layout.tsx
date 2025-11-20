@@ -3,7 +3,6 @@ import { Inter, Poppins, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { AuthLayout } from '@/components/auth-layout'
-import GlobalNotifications from '@/components/global-notifications'
 import { ThemeProvider } from '@/components/theme-provider'
 
 // Fonte principal - Inter (suave e moderna)
@@ -46,7 +45,6 @@ export default function RootLayout({
           <AuthLayout>
             {children}
           </AuthLayout>
-          <GlobalNotifications />
           <Toaster />
         </ThemeProvider>
       </body>

@@ -1,6 +1,11 @@
 // Forçar carregamento de variáveis de ambiente
+// Next.js já carrega .env.local automaticamente, mas vamos garantir
 const dotenv = require("dotenv");
-dotenv.config();
+const path = require("path");
+
+// Carregar .env.local primeiro (tem prioridade), depois .env
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+dotenv.config(); // .env como fallback
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

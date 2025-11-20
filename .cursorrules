@@ -1,3 +1,39 @@
+# REGRA GERAL: SCHEMA DO BANCO DE DADOS
+
+**⚠️ CRÍTICO - SEMPRE CONSULTAR ANTES DE QUALQUER OPERAÇÃO SQL:**
+
+Antes de escrever qualquer query SQL, criar/modificar APIs que interajam com banco de dados, ou fazer referência a tabelas/campos do MySQL, **OBRIGATORIAMENTE** consultar o arquivo `banco.sql` na raiz do projeto.
+
+**Tabelas disponíveis:**
+- `colunas_funil` - Colunas dos funis de vendas
+- `configuracoes` - Configurações gerais do sistema
+- `cron_sync_history` - Histórico de sincronizações agendadas
+- `fila_leads_log` - Log de distribuição de leads na fila rotativa
+- `funis` - Funis de vendas
+- `metas_mensais` - Metas mensais dos vendedores
+- `motivos_de_perda` - Motivos de perda de oportunidades
+- `notificacao_oportunidades` - Notificações de novas oportunidades
+- `oportunidades` - Oportunidades de vendas
+- `unidades` - Unidades/departamentos
+- `unidade_grupos` - Grupos de unidades
+- `usuarios_sistema` - Usuários do sistema administrativo
+- `vendedores` - Vendedores/usuários do CRM
+
+**Sempre verificar:**
+- ✅ Nomes exatos de colunas (case-sensitive)
+- ✅ Tipos de dados corretos (INT, VARCHAR, DECIMAL, JSON, etc.)
+- ✅ Foreign keys e relacionamentos entre tabelas
+- ✅ Índices disponíveis para otimização de queries
+- ✅ Constraints (UNIQUE, NOT NULL, etc.)
+
+**Nunca:**
+- ❌ Assumir nomes de colunas sem verificar
+- ❌ Criar queries com campos inexistentes
+- ❌ Fazer JOIN com tabelas que não existem
+- ❌ Usar tipos de dados incompatíveis
+
+---
+
 # REGRA: OTIMIZAÇÃO COMPLETA DE PÁGINA
 
 Quando solicitado "otimize esta página", "@[caminho]" ou análise de rota específica, execute:

@@ -1,4 +1,5 @@
 import { memo, useMemo, useState } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { PainelUnidadeCard, getCardColor } from './PainelUnidadeCard'
 import { PainelUnidadeDialog } from './PainelUnidadeDialog'
 import { usePainelUnidades } from '@/hooks/painel/usePainelUnidades'
@@ -19,33 +20,19 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
   const [selectedUnidade, setSelectedUnidade] = useState<{ id: number; nome: string; status: 'abertas' | 'ganhas' | 'perdidas' } | null>(null)
 
   const unidadesFiltradas = useMemo(() => {
-    // Remover duplicatas baseado no ID antes de filtrar
     const unidadesUnicas = Array.from(
       new Map(unidades.map(unidade => [unidade.id, unidade])).values()
     )
     
-    return unidadesUnicas
-      .filter(unidade => {
-        if (filtros.unidadeSelecionada !== 'todas' && unidade.id !== parseInt(filtros.unidadeSelecionada)) {
-          return false
-        }
-        
-        if (filtros.grupoSelecionado !== 'todos') {
-          const grupoId = parseInt(filtros.grupoSelecionado)
-          if (!unidade.grupo_id || unidade.grupo_id !== grupoId) {
-            return false
-          }
-        }
-        
-        return true
-      })
-      .sort((a, b) => b.valor_ganho - a.valor_ganho)
-  }, [unidades, filtros])
+    return unidadesUnicas.sort((a, b) => b.valor_ganho - a.valor_ganho)
+  }, [unidades])
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-gray-400">Carregando unidades...</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 4k:grid-cols-8 gap-4">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <Skeleton key={i} className="h-[200px] w-full bg-gray-800 rounded-lg" />
+        ))}
       </div>
     )
   }

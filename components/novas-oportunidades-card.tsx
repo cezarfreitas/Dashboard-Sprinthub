@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { DashboardMetricCard } from '@/components/dashboard-metric-card'
 import { RefreshCw, TrendingUp } from 'lucide-react'
+import { useAuthSistema } from '@/hooks/use-auth-sistema'
 
 interface NovasOportunidadesData {
-  totalOportunidades: number
-  oportunidadesMesAnterior: number
-  diferencaPercentual: number
+  totalOportunidades?: number
+  oportunidadesMesAnterior?: number
+  diferencaPercentual?: number
 }
 
 interface Periodo {
@@ -35,12 +36,17 @@ export default function NovasOportunidadesCard({
   vendedorId,
   unidadeId
 }: NovasOportunidadesCardProps) {
+  const { user, loading: authLoading } = useAuthSistema()
   const [data, setData] = useState<NovasOportunidadesData | null>(null)
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchData = async () => {
+    // Não fazer requisição se não estiver autenticado
+    if (authLoading || !user) {
+      return
+    }
     try {
       setLoading(true)
       setError(null)
@@ -53,10 +59,25 @@ export default function NovasOportunidadesCard({
       
       const url = `/api/oportunidades/novas${params.toString() ? '?' + params.toString() : ''}`
       const response = await fetch(url)
+      
+      // Verificar se a resposta é JSON válida
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('❌ Resposta não é JSON:', text.substring(0, 200))
+        throw new Error(`Resposta inválida da API (status: ${response.status})`)
+      }
+      
       const result = await response.json()
       
       if (result.success) {
-        setData(result.data)
+        // Garantir que os dados tenham valores padrão seguros
+        const safeData: NovasOportunidadesData = {
+          totalOportunidades: result.data?.totalOportunidades ?? 0,
+          oportunidadesMesAnterior: result.data?.oportunidadesMesAnterior ?? 0,
+          diferencaPercentual: result.data?.diferencaPercentual ?? 0
+        }
+        setData(safeData)
         setPeriodo(result.periodo)
       } else {
         setError(result.message || 'Erro ao carregar dados')
@@ -69,13 +90,20 @@ export default function NovasOportunidadesCard({
   }
 
   useEffect(() => {
+    // Só fazer requisição se estiver autenticado
+    if (!authLoading && user) {
     fetchData()
     
     if (refreshInterval > 0) {
       const interval = setInterval(fetchData, refreshInterval)
       return () => clearInterval(interval)
     }
-  }, [refreshInterval, mes, ano, vendedorId, unidadeId])
+    } else if (!authLoading && !user) {
+      // Se não estiver autenticado, limpar dados
+      setData(null)
+      setLoading(false)
+    }
+  }, [authLoading, user, refreshInterval, mes, ano, vendedorId, unidadeId])
 
 
   const LoadingState = () => (
@@ -97,6 +125,11 @@ export default function NovasOportunidadesCard({
           </div>
       </Card>
     )
+
+  // Não renderizar nada se não estiver autenticado
+  if (authLoading || !user) {
+    return null
+  }
 
   if (loading) {
     return <LoadingState />
@@ -120,15 +153,20 @@ export default function NovasOportunidadesCard({
     return null
   }
 
-  const diferencaFormatada = `${data.diferencaPercentual > 0 ? "+" : ""}${data.diferencaPercentual.toFixed(1)}%`
-  const trendDirection = data.diferencaPercentual >= 0 ? "up" : "down"
+  // Garantir valores numéricos válidos (default 0 se undefined/null)
+  const totalOportunidades = Number(data?.totalOportunidades ?? 0)
+  const oportunidadesMesAnterior = Number(data?.oportunidadesMesAnterior ?? 0)
+  const diferencaPercentual = Number(data?.diferencaPercentual ?? 0)
+
+  const diferencaFormatada = `${diferencaPercentual > 0 ? "+" : ""}${diferencaPercentual.toFixed(1)}%`
+  const trendDirection = diferencaPercentual >= 0 ? "up" : "down"
 
   return (
     <DashboardMetricCard
       title="Novas Oportunidades"
       icon={TrendingUp}
       iconColorClass="text-blue-600"
-      value={data.totalOportunidades.toLocaleString("pt-BR")}
+      value={totalOportunidades.toLocaleString("pt-BR")}
       subtitle={
         periodo
           ? `Criadas até hoje (${periodo.diaAtual}/${periodo.mes}/${periodo.ano})`
@@ -137,7 +175,7 @@ export default function NovasOportunidadesCard({
       highlights={[
         {
           label: "Mesmo período mês anterior:",
-          value: data.oportunidadesMesAnterior.toLocaleString("pt-BR"),
+          value: oportunidadesMesAnterior.toLocaleString("pt-BR"),
           emphasize: true
         }
       ]}

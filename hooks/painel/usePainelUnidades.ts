@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import type { PainelUnidade, PainelFiltros } from '@/types/painel.types'
+import { useAuthSistema } from '@/hooks/use-auth-sistema'
 
 interface UsePainelUnidadesReturn {
   unidades: PainelUnidade[]
@@ -8,134 +9,132 @@ interface UsePainelUnidadesReturn {
   refetch: () => Promise<void>
 }
 
-// Função para calcular período baseado no tipo
-function calcularPeriodo(tipo: string): { inicio: string; fim: string } {
-  const hoje = new Date()
-  const inicio = new Date()
-  const fim = new Date()
-
-  switch (tipo) {
-    case 'este-mes':
-      inicio.setDate(1)
-      inicio.setHours(0, 0, 0, 0)
-      fim.setHours(23, 59, 59, 999)
-      break
-    case 'mes-passado':
-      inicio.setMonth(hoje.getMonth() - 1, 1)
-      inicio.setHours(0, 0, 0, 0)
-      fim.setDate(0)
-      fim.setHours(23, 59, 59, 999)
-      break
-    case 'esta-semana':
-      const diaSemana = hoje.getDay()
-      inicio.setDate(hoje.getDate() - diaSemana)
-      inicio.setHours(0, 0, 0, 0)
-      fim.setHours(23, 59, 59, 999)
-      break
-    case 'semana-passada':
-      const diaSemanaAtual = hoje.getDay()
-      inicio.setDate(hoje.getDate() - diaSemanaAtual - 7)
-      inicio.setHours(0, 0, 0, 0)
-      fim.setDate(hoje.getDate() - diaSemanaAtual - 1)
-      fim.setHours(23, 59, 59, 999)
-      break
-    case 'este-ano':
-      inicio.setMonth(0, 1)
-      inicio.setHours(0, 0, 0, 0)
-      fim.setHours(23, 59, 59, 999)
-      break
-    case 'ano-anterior':
-      inicio.setFullYear(hoje.getFullYear() - 1, 0, 1)
-      inicio.setHours(0, 0, 0, 0)
-      fim.setFullYear(hoje.getFullYear() - 1, 11, 31)
-      fim.setHours(23, 59, 59, 999)
-      break
-    default:
-      return { inicio: '', fim: '' }
-  }
-
-  return {
-    inicio: inicio.toISOString().split('T')[0],
-    fim: fim.toISOString().split('T')[0]
-  }
-}
-
 export function usePainelUnidades(
   filtros: PainelFiltros,
   mesAtual: number,
   anoAtual: number
 ): UsePainelUnidadesReturn {
+  const { user, loading: authLoading } = useAuthSistema()
   const [unidades, setUnidades] = useState<PainelUnidade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  // Calcular período baseado no tipo de filtro
-  const periodoCalculado = useMemo(() => {
-    if (filtros.periodoTipo === 'personalizado' && filtros.periodoInicio && filtros.periodoFim) {
-      return {
-        inicio: filtros.periodoInicio,
-        fim: filtros.periodoFim
-      }
-    } else if (filtros.periodoTipo !== 'personalizado') {
-      return calcularPeriodo(filtros.periodoTipo)
+  // Memoizar chave de filtros para evitar recriação desnecessária
+  const filtrosKey = useMemo(() => {
+    return JSON.stringify({
+      periodoInicio: filtros.periodoInicio,
+      periodoFim: filtros.periodoFim,
+      unidades: filtros.unidadesSelecionadas?.sort().join(',') || '',
+      grupo: filtros.grupoSelecionado,
+      funil: filtros.funilSelecionado
+    })
+  }, [
+    filtros.periodoInicio,
+    filtros.periodoFim,
+    filtros.unidadesSelecionadas?.join(','),
+    filtros.grupoSelecionado,
+    filtros.funilSelecionado
+  ])
+
+  const fetchUnidades = useCallback(async (signal: AbortSignal) => {
+    if (authLoading || !user) {
+      setUnidades([])
+      setLoading(false)
+      return
     }
-    return { inicio: '', fim: '' }
-  }, [filtros.periodoTipo, filtros.periodoInicio, filtros.periodoFim])
 
-  const fetchUnidades = useCallback(async () => {
+    if (!filtros.periodoInicio || !filtros.periodoFim) {
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
 
       const params = new URLSearchParams()
+      params.append('date_start', filtros.periodoInicio)
+      params.append('date_end', filtros.periodoFim)
 
-      // Se há período calculado, usar data_inicio/data_fim
-      if (periodoCalculado.inicio && periodoCalculado.fim) {
-        params.append('data_inicio', periodoCalculado.inicio)
-        params.append('data_fim', periodoCalculado.fim)
-      } else {
-        // Senão, usar mês/ano atual
-        params.append('mes', mesAtual.toString())
-        params.append('ano', anoAtual.toString())
+      if (filtros.unidadesSelecionadas && filtros.unidadesSelecionadas.length > 0) {
+        params.append('unidade_id', filtros.unidadesSelecionadas.join(','))
       }
 
-      if (filtros.unidadeSelecionada !== 'todas') {
-        params.append('unidade_id', filtros.unidadeSelecionada)
+      if (filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos' && filtros.grupoSelecionado !== 'undefined') {
+        params.append('grupo_id', String(filtros.grupoSelecionado))
       }
 
-      if (filtros.grupoSelecionado !== 'todos') {
-        params.append('grupo_id', filtros.grupoSelecionado)
+      if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos' && filtros.funilSelecionado !== 'undefined') {
+        params.append('funil_id', String(filtros.funilSelecionado))
       }
 
-      if (filtros.funilSelecionado !== 'todos') {
-        params.append('funil_id', filtros.funilSelecionado)
-      }
-
-      const response = await fetch(`/api/unidades/painel?${params.toString()}`)
+      const response = await fetch(
+        `/api/oportunidades/unidades?${params.toString()}`,
+        { cache: 'no-store', signal }
+      )
+      
+      if (signal.aborted) return
+      
       const data = await response.json()
 
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Erro ao carregar unidades')
       }
 
-      setUnidades(data.unidades || [])
+      if (signal.aborted) return
+
+      const unidadesMapeadas: PainelUnidade[] = (data.unidades || []).map((item: any) => ({
+        id: item.unidade_id,
+        nome: item.unidade_nome,
+        name: item.unidade_nome,
+        nome_exibicao: item.unidade_nome,
+        grupo_id: null,
+        oportunidades_abertas: item.abertas?.quantidade || 0,
+        oportunidades_ganhas: item.ganhas?.quantidade || 0,
+        oportunidades_perdidas: item.perdidas?.quantidade || 0,
+        valor_aberto: item.abertas?.valor || 0,
+        valor_ganho: item.ganhas?.valor || 0,
+        valor_perdido: item.perdidas?.valor || 0,
+        meta_valor: item.meta?.valor || 0
+      }))
+
+      setUnidades(unidadesMapeadas)
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
       setUnidades([])
     } finally {
       setLoading(false)
     }
-  }, [filtros, mesAtual, anoAtual, periodoCalculado])
+  }, [authLoading, user, filtrosKey])
 
   useEffect(() => {
-    fetchUnidades()
-  }, [fetchUnidades])
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    
+    if (!authLoading) {
+      fetchUnidades(controller.signal)
+    }
+    
+    return () => {
+      controller.abort()
+      abortControllerRef.current = null
+    }
+  }, [authLoading, fetchUnidades])
 
   return {
     unidades,
     loading,
     error,
-    refetch: fetchUnidades,
+    refetch: async () => {
+      const controller = new AbortController()
+      await fetchUnidades(controller.signal)
+    },
   }
 }
 

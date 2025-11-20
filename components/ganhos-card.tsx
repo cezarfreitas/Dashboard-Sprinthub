@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { DashboardMetricCard } from '@/components/dashboard-metric-card'
 import { RefreshCw, DollarSign } from 'lucide-react'
+import { useAuthSistema } from '@/hooks/use-auth-sistema'
 
 interface GanhosData {
-  totalOportunidades: number
-  totalValor: number
-  ganhasCriadasMes: number
-  ganhasCriadasAnterior: number
+  totalOportunidades?: number
+  totalValor?: number
+  ganhasCriadasMes?: number
+  ganhasCriadasAnterior?: number
 }
 
 interface Periodo {
@@ -32,12 +33,17 @@ export default function GanhosCard({
   vendedorId,
   unidadeId
 }: GanhosCardProps) {
+  const { user, loading: authLoading } = useAuthSistema()
   const [data, setData] = useState<GanhosData | null>(null)
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchData = async () => {
+    // Não fazer requisição se não estiver autenticado
+    if (authLoading || !user) {
+      return
+    }
     try {
       setLoading(true)
       setError(null)
@@ -50,10 +56,26 @@ export default function GanhosCard({
       
       const url = `/api/oportunidades/ganhos${params.toString() ? '?' + params.toString() : ''}`
       const response = await fetch(url)
+      
+      // Verificar se a resposta é JSON válida
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('❌ Resposta não é JSON:', text.substring(0, 200))
+        throw new Error(`Resposta inválida da API (status: ${response.status})`)
+      }
+      
       const result = await response.json()
       
       if (result.success) {
-        setData(result.data)
+        // Garantir que os dados tenham valores padrão seguros
+        const safeData: GanhosData = {
+          totalOportunidades: result.data?.totalOportunidades ?? 0,
+          totalValor: result.data?.totalValor ?? 0,
+          ganhasCriadasMes: result.data?.ganhasCriadasMes ?? 0,
+          ganhasCriadasAnterior: result.data?.ganhasCriadasAnterior ?? 0
+        }
+        setData(safeData)
         setPeriodo(result.periodo)
       } else {
         setError(result.message || 'Erro ao carregar dados')
@@ -67,13 +89,20 @@ export default function GanhosCard({
   }
 
   useEffect(() => {
+    // Só fazer requisição se estiver autenticado
+    if (!authLoading && user) {
     fetchData()
     
     if (refreshInterval > 0) {
       const interval = setInterval(fetchData, refreshInterval)
       return () => clearInterval(interval)
     }
-  }, [refreshInterval, mes, ano, vendedorId, unidadeId])
+    } else if (!authLoading && !user) {
+      // Se não estiver autenticado, limpar dados
+      setData(null)
+      setLoading(false)
+    }
+  }, [authLoading, user, refreshInterval, mes, ano, vendedorId, unidadeId])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -104,6 +133,11 @@ export default function GanhosCard({
       </Card>
     )
 
+  // Não renderizar nada se não estiver autenticado
+  if (authLoading || !user) {
+    return null
+  }
+
   if (loading) {
     return <LoadingState />
   }
@@ -126,26 +160,41 @@ export default function GanhosCard({
     return null
   }
 
+  // Garantir valores numéricos válidos (default 0 se undefined/null)
+  const totalOportunidades = Number(data?.totalOportunidades ?? 0)
+  const totalValor = Number(data?.totalValor ?? 0)
+  const ganhasCriadasMes = Number(data?.ganhasCriadasMes ?? 0)
+  const ganhasCriadasAnterior = Number(data?.ganhasCriadasAnterior ?? 0)
+
   return (
     <DashboardMetricCard
       title="Ganhos"
       icon={DollarSign}
       iconColorClass="text-emerald-600"
-      value={formatCurrency(data.totalValor)}
+      value={formatCurrency(totalValor)}
       subtitle={
         periodo ? `Ganhas em ${periodo.mes}/${periodo.ano}` : "Ganhos recentes"
       }
       highlights={[
+        ...(totalOportunidades > 0 ? [
+          {
+            label: "Total de oportunidades:",
+            value: totalOportunidades.toLocaleString("pt-BR"),
+            emphasize: false
+          }
+        ] : []),
+        ...(ganhasCriadasMes > 0 || ganhasCriadasAnterior > 0 ? [
         {
           label: "Ganhas e criadas no mês:",
-          value: data.ganhasCriadasMes.toLocaleString("pt-BR"),
+            value: ganhasCriadasMes.toLocaleString("pt-BR"),
           emphasize: true
         },
         {
           label: "Ganhas no mês, criadas antes:",
-          value: data.ganhasCriadasAnterior.toLocaleString("pt-BR"),
+            value: ganhasCriadasAnterior.toLocaleString("pt-BR"),
           emphasize: true
         }
+        ] : [])
       ]}
       variant="colored"
     />

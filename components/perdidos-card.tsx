@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { DashboardMetricCard } from '@/components/dashboard-metric-card'
 import { RefreshCw, TrendingDown } from 'lucide-react'
+import { useAuthSistema } from '@/hooks/use-auth-sistema'
 
 interface PerdidosData {
-  totalOportunidades: number
-  perdidasCriadasMes: number
-  perdidasCriadasAnterior: number
+  totalOportunidades?: number
+  valorTotalPerdido?: number
+  perdidasCriadasMes?: number
+  perdidasCriadasAnterior?: number
 }
 
 interface Periodo {
@@ -31,12 +33,17 @@ export default function PerdidosCard({
   vendedorId,
   unidadeId
 }: PerdidosCardProps) {
+  const { user, loading: authLoading } = useAuthSistema()
   const [data, setData] = useState<PerdidosData | null>(null)
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchData = async () => {
+    // Não fazer requisição se não estiver autenticado
+    if (authLoading || !user) {
+      return
+    }
     try {
       setLoading(true)
       setError(null)
@@ -49,10 +56,26 @@ export default function PerdidosCard({
       
       const url = `/api/oportunidades/perdidos${params.toString() ? '?' + params.toString() : ''}`
       const response = await fetch(url)
+      
+      // Verificar se a resposta é JSON válida
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('❌ Resposta não é JSON:', text.substring(0, 200))
+        throw new Error(`Resposta inválida da API (status: ${response.status})`)
+      }
+      
       const result = await response.json()
       
       if (result.success) {
-        setData(result.data)
+        // Garantir que os dados tenham valores padrão seguros
+        const safeData: PerdidosData = {
+          totalOportunidades: result.data?.totalOportunidades ?? 0,
+          valorTotalPerdido: result.data?.valorTotalPerdido ?? 0,
+          perdidasCriadasMes: result.data?.perdidasCriadasMes ?? 0,
+          perdidasCriadasAnterior: result.data?.perdidasCriadasAnterior ?? 0
+        }
+        setData(safeData)
         setPeriodo(result.periodo)
       } else {
         setError(result.message || 'Erro ao carregar dados')
@@ -66,13 +89,20 @@ export default function PerdidosCard({
   }
 
   useEffect(() => {
-    fetchData()
-    
-    if (refreshInterval > 0) {
-      const interval = setInterval(fetchData, refreshInterval)
-      return () => clearInterval(interval)
+    // Só fazer requisição se estiver autenticado
+    if (!authLoading && user) {
+      fetchData()
+      
+      if (refreshInterval > 0) {
+        const interval = setInterval(fetchData, refreshInterval)
+        return () => clearInterval(interval)
+      }
+    } else if (!authLoading && !user) {
+      // Se não estiver autenticado, limpar dados
+      setData(null)
+      setLoading(false)
     }
-  }, [refreshInterval, mes, ano, vendedorId, unidadeId])
+  }, [authLoading, user, refreshInterval, mes, ano, vendedorId, unidadeId])
 
 
   const LoadingState = () => (
@@ -98,6 +128,11 @@ export default function PerdidosCard({
       </Card>
     )
 
+  // Não renderizar nada se não estiver autenticado
+  if (authLoading || !user) {
+    return null
+  }
+
   if (loading) {
     return <LoadingState />
   }
@@ -120,26 +155,51 @@ export default function PerdidosCard({
     return null
   }
 
+  // Garantir valores numéricos válidos (default 0 se undefined/null)
+  const totalOportunidades = Number(data?.totalOportunidades ?? 0)
+  const valorTotalPerdido = Number(data?.valorTotalPerdido ?? 0)
+  const perdidasCriadasMes = Number(data?.perdidasCriadasMes ?? 0)
+  const perdidasCriadasAnterior = Number(data?.perdidasCriadasAnterior ?? 0)
+
+  // Formatar valor monetário
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value)
+  }
+
   return (
     <DashboardMetricCard
       title="Perdidos"
       icon={TrendingDown}
       iconColorClass="text-red-600"
-      value={data.totalOportunidades.toLocaleString("pt-BR")}
+      value={totalOportunidades.toLocaleString("pt-BR")}
       subtitle={
         periodo ? `Perdidas em ${periodo.mes}/${periodo.ano}` : "Perdidos recentes"
       }
       highlights={[
-        {
-          label: "Perdidos ou criados no mês:",
-          value: data.perdidasCriadasMes.toLocaleString("pt-BR"),
-          emphasize: true
-        },
-        {
-          label: "Perdidos no mês, criados antes:",
-          value: data.perdidasCriadasAnterior.toLocaleString("pt-BR"),
-          emphasize: true
-        }
+        ...(perdidasCriadasMes > 0 || perdidasCriadasAnterior > 0 ? [
+          {
+            label: "Perdidos ou criados no mês:",
+            value: perdidasCriadasMes.toLocaleString("pt-BR"),
+            emphasize: true
+          },
+          {
+            label: "Perdidos no mês, criados antes:",
+            value: perdidasCriadasAnterior.toLocaleString("pt-BR"),
+            emphasize: true
+          }
+        ] : []),
+        ...(valorTotalPerdido > 0 ? [
+          {
+            label: "Valor total perdido:",
+            value: formatCurrency(valorTotalPerdido),
+            emphasize: false
+          }
+        ] : [])
       ]}
       variant="colored"
     />

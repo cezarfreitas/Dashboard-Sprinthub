@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useAuthSistema } from '@/hooks/use-auth-sistema'
 
 type Theme = 'light' | 'dark'
 
@@ -12,23 +13,43 @@ interface UseThemeReturn {
 }
 
 export function useTheme(): UseThemeReturn {
+  const { user, loading: authLoading } = useAuthSistema()
   const [theme, setThemeState] = useState<Theme>('light')
   const [isLoading, setIsLoading] = useState(true)
 
   // Carregar tema do banco de dados
   const loadTheme = async () => {
+    // Não carregar tema se não estiver autenticado
+    if (authLoading || !user) {
+      setIsLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/configuracoes?chave=theme')
+      
+      // Verificar se a resposta é válida
+      if (!response.ok) {
+        // Se não for 200, usar tema padrão
+        setThemeState('light')
+        applyTheme('light')
+        setIsLoading(false)
+        return
+      }
+
       const data = await response.json()
       
-      if (data.success && data.configuracao) {
+      if (data.success && data.configuracao && data.configuracao.valor) {
         const savedTheme = data.configuracao.valor as Theme
         setThemeState(savedTheme)
         applyTheme(savedTheme)
+      } else {
+        // Configuração não existe ainda, usar tema padrão
+        setThemeState('light')
+        applyTheme('light')
       }
     } catch (error) {
-      console.error('Erro ao carregar tema:', error)
-      // Usar tema padrão em caso de erro
+      // Silenciosamente usar tema padrão em caso de erro
       setThemeState('light')
       applyTheme('light')
     } finally {
@@ -82,10 +103,16 @@ export function useTheme(): UseThemeReturn {
     saveTheme(newTheme)
   }
 
-  // Carregar tema na inicialização
+  // Carregar tema na inicialização (apenas se autenticado)
   useEffect(() => {
-    loadTheme()
-  }, [])
+    if (!authLoading && user) {
+      loadTheme()
+    } else if (!authLoading && !user) {
+      // Se não estiver autenticado, apenas aplicar tema padrão
+      applyTheme('light')
+      setIsLoading(false)
+    }
+  }, [authLoading, user])
 
   return {
     theme,

@@ -3,75 +3,90 @@ import { executeQuery } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
-// GET - Buscar oportunidades perdidas do mês atual
+// Helper para parse JSON
+function parseJSON(value: any): any[] {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch (e) {
+      return []
+    }
+  }
+  return []
+}
+
+// GET - Buscar oportunidades perdidas
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const mes = searchParams.get('mes')
     const ano = searchParams.get('ano')
+    const unidadesParam = searchParams.get('unidades')
 
-    // Usar mês e ano atual se não fornecidos
-    const dataAtual = new Date()
-    const mesAtual = mes ? parseInt(mes) : dataAtual.getMonth() + 1
-    const anoAtual = ano ? parseInt(ano) : dataAtual.getFullYear()
+    if (!mes || !ano) {
+      return NextResponse.json(
+        { success: false, message: 'Parâmetros mes e ano são obrigatórios' },
+        { status: 400 }
+      )
+    }
 
-    // Buscar oportunidades perdidas no mês atual
-    const queryPerdidas = `
+    const mesNum = parseInt(mes)
+    const anoNum = parseInt(ano)
+
+    // Construir filtro de unidade
+    let filtroUnidade = ''
+    const params: any[] = [mesNum, anoNum]
+
+    if (unidadesParam) {
+      const unidadesIds = unidadesParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+      
+      if (unidadesIds.length > 0) {
+        // Buscar vendedores de todas as unidades selecionadas
+        const placeholders = unidadesIds.map(() => '?').join(',')
+        const unidades = await executeQuery(`
+          SELECT users FROM unidades WHERE id IN (${placeholders}) AND ativo = 1
+        `, unidadesIds) as any[]
+
+        if (unidades && unidades.length > 0) {
+          const todosVendedoresIds = new Set<number>()
+          unidades.forEach(unidade => {
+            const parsedUsers = parseJSON(unidade.users)
+            parsedUsers.forEach((u: any) => {
+              const id = typeof u === 'object' ? u.id : u
+              if (id != null) todosVendedoresIds.add(Number(id))
+            })
+          })
+
+          if (todosVendedoresIds.size > 0) {
+            const vendedoresArray = Array.from(todosVendedoresIds)
+            const placeholdersVendedores = vendedoresArray.map(() => '?').join(',')
+            filtroUnidade = `AND o.user IN (${placeholdersVendedores})`
+            params.push(...vendedoresArray)
+          }
+        }
+      }
+    }
+
+    // Buscar oportunidades perdidas no mês
+    const query = `
       SELECT 
         COUNT(*) as total,
         COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
-      WHERE MONTH(o.lost_date) = ? 
+      WHERE o.lost_date IS NOT NULL
+        AND MONTH(o.lost_date) = ? 
         AND YEAR(o.lost_date) = ?
-        AND o.status IN ('lost', 'perdida', 'closed')
+        ${filtroUnidade}
     `
 
-    // Buscar oportunidades perdidas no mês atual E criadas no mês atual
-    const queryPerdidasCriadasMes = `
-      SELECT COUNT(*) as total
-      FROM oportunidades o
-      WHERE MONTH(o.lost_date) = ? 
-        AND YEAR(o.lost_date) = ?
-        AND MONTH(o.createDate) = ? 
-        AND YEAR(o.createDate) = ?
-        AND o.status IN ('lost', 'perdida', 'closed')
-    `
-
-    // Buscar oportunidades perdidas no mês atual mas criadas em meses anteriores
-    const queryPerdidasCriadasAnterior = `
-      SELECT COUNT(*) as total
-      FROM oportunidades o
-      WHERE MONTH(o.lost_date) = ? 
-        AND YEAR(o.lost_date) = ?
-        AND (
-          YEAR(o.createDate) < ? OR 
-          (YEAR(o.createDate) = ? AND MONTH(o.createDate) < ?)
-        )
-        AND o.status IN ('lost', 'perdida', 'closed')
-    `
-
-    const [resultPerdidas, resultPerdidasCriadasMes, resultPerdidasCriadasAnterior] = await Promise.all([
-      executeQuery(queryPerdidas, [mesAtual, anoAtual]),
-      executeQuery(queryPerdidasCriadasMes, [mesAtual, anoAtual, mesAtual, anoAtual]),
-      executeQuery(queryPerdidasCriadasAnterior, [mesAtual, anoAtual, anoAtual, anoAtual, mesAtual])
-    ]) as [any[], any[], any[]]
-
-    const totalOportunidades = resultPerdidas[0]?.total || 0
-    const valorTotalPerdido = parseFloat(resultPerdidas[0]?.valor_total || 0)
-    const perdidasCriadasMes = resultPerdidasCriadasMes[0]?.total || 0
-    const perdidasCriadasAnterior = resultPerdidasCriadasAnterior[0]?.total || 0
+    const result = await executeQuery(query, params) as any[]
 
     return NextResponse.json({
       success: true,
       data: {
-        totalOportunidades,
-        valorTotalPerdido,
-        perdidasCriadasMes,
-        perdidasCriadasAnterior
-      },
-      periodo: {
-        mes: mesAtual,
-        ano: anoAtual
+        totalOportunidades: Number(result[0]?.total || 0),
+        valorTotalPerdido: Number(result[0]?.valor_total || 0)
       }
     })
 

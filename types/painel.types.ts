@@ -14,7 +14,7 @@ export interface PainelUnidade {
 }
 
 export interface PainelFiltros {
-  unidadeSelecionada: string
+  unidadesSelecionadas: number[]
   periodoTipo: string
   periodoInicio: string
   periodoFim: string

@@ -2,7 +2,9 @@ import { executeQuery } from './database'
 
 interface SprintHubFunil {
   id: number
-  funil_nome: string
+  name?: string        // Campo retornado pela API SprintHub
+  funil_nome?: string  // Formato alternativo
+  nome?: string        // Formato alternativo
 }
 
 export async function syncFunis(): Promise<{
@@ -25,31 +27,79 @@ export async function syncFunis(): Promise<{
     const groupId = process.env.I
     const urlPatch = process.env.URLPATCH
 
-    if (!apiToken || !groupId || !urlPatch) {
-      throw new Error('Variáveis de ambiente APITOKEN, I ou URLPATCH não configuradas')
+    // Verificar quais variáveis estão faltando
+    const missingVars = []
+    if (!apiToken) missingVars.push('APITOKEN')
+    if (!groupId) missingVars.push('I')
+    if (!urlPatch) missingVars.push('URLPATCH')
+
+    if (missingVars.length > 0) {
+      const errorMsg = `❌ Variáveis de ambiente faltando no .env: ${missingVars.join(', ')}`
+      console.error(errorMsg)
+      console.error('💡 Configure estas variáveis no arquivo .env para habilitar a sincronização com SprintHub')
+      throw new Error(errorMsg)
     }
 
     // Buscar funis da API SprintHub
     const sprintHubUrl = `${urlPatch}/crm?apitoken=${apiToken}&i=${groupId}`
     
     console.log('📡 Buscando funis do SprintHub...')
+    console.log('🔗 URL:', apiToken ? sprintHubUrl.replace(apiToken, '***TOKEN***') : sprintHubUrl)
+    console.log('🔑 Token configurado:', apiToken ? 'SIM' : 'NÃO')
+    console.log('🔑 Group ID configurado:', groupId ? 'SIM' : 'NÃO')
+    console.log('🔑 URL Patch configurado:', urlPatch ? 'SIM' : 'NÃO')
+    
     const response = await fetch(sprintHubUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'CRM-by-INTELI/1.0'
-      }
+      },
+      cache: 'no-store' // Evitar cache
     })
 
+    console.log('📊 Status da resposta:', response.status, response.statusText)
+
     if (!response.ok) {
-      throw new Error(`Erro na API SprintHub: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('❌ Erro na resposta da API:', errorText)
+      throw new Error(`Erro na API SprintHub: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    const data = await response.json()
-    const funis: SprintHubFunil[] = Array.isArray(data) ? data : []
+    const rawData = await response.json()
+    
+    // Tentar diferentes formatos de resposta
+    let funis: SprintHubFunil[] = []
+    
+    // Formato 1: Array direto
+    if (Array.isArray(rawData)) {
+      funis = rawData
+    }
+    // Formato 2: { data: [...] }
+    else if (rawData && Array.isArray(rawData.data)) {
+      funis = rawData.data
+    }
+    // Formato 3: { funis: [...] }
+    else if (rawData && Array.isArray(rawData.funis)) {
+      funis = rawData.funis
+    }
+    // Formato 4: { results: [...] }
+    else if (rawData && Array.isArray(rawData.results)) {
+      funis = rawData.results
+    }
+    // Formato 5: Objeto com múltiplas propriedades que podem ser arrays
+    else if (rawData && typeof rawData === 'object') {
+      // Procurar por qualquer propriedade que seja array
+      for (const key in rawData) {
+        if (Array.isArray(rawData[key])) {
+          funis = rawData[key]
+          console.log(`📌 Array encontrado na propriedade '${key}'`)
+          break
+        }
+      }
+    }
 
     console.log(`✅ ${funis.length} funis recebidos da API`)
-    console.log('📦 Dados recebidos:', JSON.stringify(funis, null, 2))
 
     if (funis.length === 0) {
       return {
@@ -80,52 +130,97 @@ export async function syncFunis(): Promise<{
     let novos = 0
     let atualizados = 0
     let erros = 0
+    const registrosInseridos: Array<{ id: number; nome: string }> = []
+    const registrosAtualizados: Array<{ id: number; nome: string; nomeAnterior?: string }> = []
+
+    console.log('')
+    console.log('📋 Iniciando sincronização dos funis...')
+    console.log('')
 
     // Sincronizar cada funil
     for (const funil of funis) {
       try {
         // Validar dados do funil
-        if (!funil.id) {
-          console.error('❌ Funil sem ID, pulando:', funil)
+        if (!funil || typeof funil !== 'object') {
+          console.error('❌ Funil inválido (não é objeto), pulando:', funil)
           erros++
           continue
         }
 
-        // Garantir que funil_nome não seja undefined
-        // Se não tiver nome, usar o ID como fallback
-        const funilNome = funil.funil_nome || `Funil ${funil.id}`
+        // Extrair ID (pode estar em diferentes propriedades)
+        const funilId = funil.id || (funil as any).funil_id || (funil as any).ID || (funil as any).FunilId
+        if (!funilId) {
+          console.error('❌ Funil sem ID, pulando:', JSON.stringify(funil))
+          erros++
+          continue
+        }
 
-        // Verificar se o funil já existe
+        // Extrair nome (pode estar em diferentes propriedades)
+        // Prioridade: name (formato da API SprintHub), depois outros formatos
+        const funilNome = funil.name || funil.funil_nome || funil.nome || (funil as any).Nome || (funil as any).funilNome || `Funil ${funilId}`
+
+        // Verificar se o funil já existe e buscar o nome atual
         const existing = await executeQuery(
-          'SELECT id FROM funis WHERE id = ?',
-          [funil.id]
+          'SELECT id, funil_nome FROM funis WHERE id = ?',
+          [funilId]
         ) as any[]
 
         if (existing.length > 0) {
-          // Atualizar funil existente
-          await executeQuery(
-            `UPDATE funis 
-             SET funil_nome = ?,
-                 updated_at = NOW()
-             WHERE id = ?`,
-            [funilNome, funil.id]
-          )
-          atualizados++
-          console.log(`✓ Funil ${funil.id} atualizado`)
+          // Atualizar funil existente apenas se o nome mudou
+          const existingFunil = existing[0]
+          const nomeAtual = existingFunil.funil_nome || ''
+          
+          if (nomeAtual !== funilNome) {
+            await executeQuery(
+              `UPDATE funis 
+               SET funil_nome = ?,
+                   updated_at = NOW()
+               WHERE id = ?`,
+              [funilNome, funilId]
+            )
+            atualizados++
+            registrosAtualizados.push({
+              id: funilId,
+              nome: funilNome,
+              nomeAnterior: nomeAtual
+            })
+          }
         } else {
           // Inserir novo funil
           await executeQuery(
             `INSERT INTO funis (id, funil_nome, created_at, updated_at)
              VALUES (?, ?, NOW(), NOW())`,
-            [funil.id, funilNome]
+            [funilId, funilNome]
           )
           novos++
-          console.log(`✓ Funil ${funil.id} inserido`)
+          registrosInseridos.push({
+            id: funilId,
+            nome: funilNome
+          })
         }
       } catch (error) {
-        console.error(`❌ Erro ao sincronizar funil ${funil.id}:`, error)
+        const funilId = funil?.id || (funil as any)?.funil_id || (funil as any)?.ID || 'DESCONHECIDO'
+        console.error(`❌ Erro ao sincronizar funil ${funilId}:`, error instanceof Error ? error.message : 'Erro desconhecido')
         erros++
       }
+    }
+
+    // Mostrar registros inseridos
+    if (registrosInseridos.length > 0) {
+      console.log('')
+      console.log('📝 REGISTROS INSERIDOS:')
+      registrosInseridos.forEach((registro, index) => {
+        console.log(`  ${index + 1}. ID: ${registro.id} | Nome: "${registro.nome}"`)
+      })
+    }
+
+    // Mostrar registros atualizados
+    if (registrosAtualizados.length > 0) {
+      console.log('')
+      console.log('🔄 REGISTROS ATUALIZADOS:')
+      registrosAtualizados.forEach((registro, index) => {
+        console.log(`  ${index + 1}. ID: ${registro.id} | "${registro.nomeAnterior}" -> "${registro.nome}"`)
+      })
     }
 
     const stats = {
@@ -157,7 +252,12 @@ export async function syncFunis(): Promise<{
       console.error('⚠️ Erro ao registrar histórico (tabela pode não existir):', error)
     }
 
-    console.log('✅ Sincronização de funis concluída:', stats)
+    console.log('')
+    console.log('✅ Sincronização concluída!')
+    console.log(`   • Novos: ${novos}`)
+    console.log(`   • Atualizados: ${atualizados}`)
+    console.log(`   • Erros: ${erros}`)
+    console.log(`   • Total processado: ${funis.length}`)
 
     return {
       success: true,

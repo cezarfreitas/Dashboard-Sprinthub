@@ -17,10 +17,13 @@ export async function GET(request: NextRequest) {
       ) as any[]
 
       if (config.length === 0) {
-        return NextResponse.json(
-          { success: false, message: 'Configuração não encontrada' },
-          { status: 404 }
-        )
+        // Retornar success: false mas com status 200 (não 404)
+        // Isso evita erros no console quando a configuração não existe ainda
+        return NextResponse.json({
+          success: false,
+          message: 'Configuração não encontrada',
+          configuracao: null
+        })
       }
 
       return NextResponse.json({

@@ -1,0 +1,1361 @@
+"use client"
+
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { Card, CardContent } from "@/components/ui/card"
+import { TrendingUp, CheckCircle, XCircle, Target, DollarSign, Filter, X, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { useAudioPlayer } from "@/hooks/use-audio-player"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { PainelUnidadesGrid } from "@/components/painel/PainelUnidadesGrid"
+import PainelFiltersInline from "@/components/painel/PainelFiltersInline"
+import PainelStatsCards from "@/components/painel/PainelStatsCards"
+
+export default function PainelPage() {
+  const [oportunidadesCriadas, setOportunidadesCriadas] = useState<any[]>([])
+  const [receitaDiaria, setReceitaDiaria] = useState<any[]>([])
+  const [loadingGraficos, setLoadingGraficos] = useState(true)
+  const [stats, setStats] = useState({
+    abertasTotal: 0,
+    abertasValorTotal: 0
+  })
+  const [loadingStats, setLoadingStats] = useState(true)
+  const [oportunidadesRecentes, setOportunidadesRecentes] = useState<any[]>([])
+  const [loadingRecentes, setLoadingRecentes] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMoreNotificacoes, setHasMoreNotificacoes] = useState(true)
+  const [offsetNotificacoes, setOffsetNotificacoes] = useState(0)
+  const [novasNotificacoes, setNovasNotificacoes] = useState<Set<number>>(new Set())
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const observerTarget = useRef<HTMLDivElement>(null)
+  const { playAudio, playBellSound, isReady: audioReady } = useAudioPlayer()
+  
+  // Calcular datas iniciais para "Este Mês"
+  const periodoInicial = useMemo(() => {
+    const hoje = new Date()
+    const inicio = new Date()
+    const fim = new Date()
+    inicio.setDate(1)
+    inicio.setHours(0, 0, 0, 0)
+    fim.setHours(23, 59, 59, 999)
+    return {
+      inicio: inicio.toISOString().split('T')[0],
+      fim: fim.toISOString().split('T')[0]
+    }
+  }, [])
+  
+  const [filtros, setFiltros] = useState({
+    unidadeSelecionada: 'todas',
+    periodoTipo: 'este-mes',
+    periodoInicio: periodoInicial.inicio,
+    periodoFim: periodoInicial.fim,
+    funilSelecionado: 'todos',
+    grupoSelecionado: 'todos'
+  })
+  const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
+  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string }>>([])
+  const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
+  
+  // Memoizar datas para evitar re-renders constantes
+  const { mesAtual, anoAtual, diaAtual } = useMemo(() => {
+    const dataAtual = new Date()
+    return {
+      mesAtual: dataAtual.getMonth() + 1,
+      anoAtual: dataAtual.getFullYear(),
+      diaAtual: dataAtual.getDate()
+    }
+  }, [])
+
+  // Memoizar funções para evitar re-renders - ANTES de qualquer return condicional
+  const formatCurrency = useCallback((value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value)
+  }, [])
+
+  const getMesNome = useCallback((mes: number): string => {
+    const meses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    return meses[mes - 1] || ''
+  }, [])
+
+  const formatTimeAgo = useCallback((dateString: string | null | undefined) => {
+    if (!dateString) return 'Agora'
+    
+    let date: Date
+    
+    // Se for formato MySQL (YYYY-MM-DD HH:MM:SS), converter para Date (local time)
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateString)) {
+      // Formato MySQL: YYYY-MM-DD HH:MM:SS
+      // Parsear manualmente para garantir que é tratado como local time
+      const [datePart, timePart] = dateString.split(' ')
+      const [year, month, day] = datePart.split('-').map(Number)
+      const [hours, minutes, seconds] = timePart.split(':').map(Number)
+      // Criar Date usando valores locais (month é 0-indexed)
+      date = new Date(year, month - 1, day, hours, minutes, seconds)
+    } else if (typeof dateString === 'string' && dateString.includes('T')) {
+      // Já está em formato ISO
+      date = new Date(dateString)
+    } else {
+      // Tentar parsear normalmente
+      date = new Date(dateString)
+    }
+    
+    const now = new Date()
+    
+    // Verificar se a data é válida
+    if (isNaN(date.getTime())) {
+      return 'Agora'
+    }
+    
+    // Calcular diferença em milissegundos
+    const diffMs = now.getTime() - date.getTime()
+    
+    // Se a diferença for negativa (data no futuro) ou muito pequena, retornar "Agora"
+    if (diffMs < 0 || diffMs < 1000) return 'Agora'
+    
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Agora'
+    if (diffMins < 60) return `há ${diffMins}min`
+    if (diffHours < 24) return `há ${diffHours}h`
+    if (diffDays < 7) return `há ${diffDays}d`
+    
+    // Para mais de 7 dias, mostrar data formatada
+    const diffWeeks = Math.floor(diffDays / 7)
+    if (diffWeeks < 4) return `há ${diffWeeks}sem`
+    
+    const diffMonths = Math.floor(diffDays / 30)
+    if (diffMonths < 12) return `há ${diffMonths}mes`
+    
+    const diffYears = Math.floor(diffDays / 365)
+    return `há ${diffYears}ano${diffYears > 1 ? 's' : ''}`
+  }, [])
+
+  // Função para calcular datas baseado no tipo de período
+  const calcularPeriodo = useCallback((tipo: string) => {
+    const hoje = new Date()
+    const inicio = new Date()
+    const fim = new Date()
+
+    switch (tipo) {
+      case 'este-mes':
+        inicio.setDate(1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'mes-passado':
+        inicio.setMonth(hoje.getMonth() - 1, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setDate(0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'esta-semana':
+        const diaSemana = hoje.getDay()
+        inicio.setDate(hoje.getDate() - diaSemana)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'semana-passada':
+        const diaSemanaAtual = hoje.getDay()
+        inicio.setDate(hoje.getDate() - diaSemanaAtual - 7)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setDate(hoje.getDate() - diaSemanaAtual - 1)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'este-ano':
+        inicio.setMonth(0, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'ano-anterior':
+        inicio.setFullYear(hoje.getFullYear() - 1, 0, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setFullYear(hoje.getFullYear() - 1, 11, 31)
+        fim.setHours(23, 59, 59, 999)
+        break
+      default:
+        return { inicio: '', fim: '' }
+    }
+
+    return {
+      inicio: inicio.toISOString().split('T')[0],
+      fim: fim.toISOString().split('T')[0]
+    }
+  }, [])
+
+  // Atualizar datas quando o tipo de período mudar
+  useEffect(() => {
+    if (filtros.periodoTipo !== 'personalizado') {
+      const { inicio, fim } = calcularPeriodo(filtros.periodoTipo)
+      setFiltros(prev => {
+        // Só atualiza se as datas forem diferentes para evitar loops
+        if (prev.periodoInicio !== inicio || prev.periodoFim !== fim) {
+          return {
+            ...prev,
+            periodoInicio: inicio,
+            periodoFim: fim
+          }
+        }
+        return prev
+      })
+    }
+  }, [filtros.periodoTipo, calcularPeriodo])
+
+  // Verificar se há filtros ativos
+  const filtrosAtivos = useMemo(() => {
+    return filtros.unidadeSelecionada !== 'todas' ||
+           filtros.periodoTipo !== 'este-mes' ||
+           filtros.periodoInicio !== '' ||
+           filtros.periodoFim !== '' ||
+           filtros.funilSelecionado !== 'todos' ||
+           filtros.grupoSelecionado !== 'todos'
+  }, [filtros])
+
+  // Memoizar fetch functions para evitar re-renders
+  const fetchGraficos = useCallback(async () => {
+    try {
+      setLoadingGraficos(true)
+      
+      // Buscar oportunidades criadas
+      const responseCriadas = await fetch(`/api/oportunidades/daily-created?mes=${mesAtual}&ano=${anoAtual}`)
+      const dataCriadas = await responseCriadas.json()
+      if (dataCriadas.success) {
+        setOportunidadesCriadas(dataCriadas.dados || [])
+      }
+      
+      // Buscar receita diária
+      const responseReceita = await fetch(`/api/oportunidades/daily-gain?mes=${mesAtual}&ano=${anoAtual}`)
+      const dataReceita = await responseReceita.json()
+      if (dataReceita.success) {
+        setReceitaDiaria(dataReceita.dados || [])
+      }
+    } catch (err) {
+      // Error handling silencioso
+    } finally {
+      setLoadingGraficos(false)
+    }
+  }, [mesAtual, anoAtual])
+
+  const fetchStats = useCallback(async () => {
+      try {
+        setLoadingStats(true)
+        
+        // Buscar oportunidades abertas
+        const paramsAbertas = new URLSearchParams()
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsAbertas.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        
+        const abertasResponse = await fetch(`/api/oportunidades/stats-abertas?${paramsAbertas.toString()}`)
+        const abertasData = await abertasResponse.json()
+        
+        setStats({
+          abertasTotal: abertasData.success ? abertasData.data.total : 0,
+          abertasValorTotal: abertasData.success ? abertasData.data.valorTotal : 0
+        })
+        
+      } catch (err) {
+        console.error('Erro ao buscar stats:', err)
+      } finally {
+        setLoadingStats(false)
+      }
+  }, [filtros.unidadeSelecionada])
+
+  // Função para buscar notificações de oportunidades (inicial)
+  const fetchNotificacoes = useCallback(async (isNewNotification = false) => {
+    try {
+      if (!isNewNotification) {
+        setLoadingRecentes(true)
+      }
+      const response = await fetch('/api/oportunidades/notificacoes?limit=20&offset=0')
+      const data = await response.json()
+      
+      if (data.success && data.historico && data.historico.length > 0) {
+        // Garantir que não há duplicatas usando ID único
+        const uniqueHistorico = Array.from(
+          new Map(data.historico.map((item: any) => [item.id, item])).values()
+        )
+        
+        // Se for uma nova notificação, marcar como nova para animar
+        if (isNewNotification && uniqueHistorico.length > 0) {
+          const primeiraNotificacao = uniqueHistorico[0] as any
+          if (primeiraNotificacao?.id) {
+            // Verificar se é uma notificação de ganho para tocar som
+            const statusLower = String(primeiraNotificacao.status || '').toLowerCase()
+            const isGanho = statusLower === 'gain' || 
+                           statusLower === 'ganha' || 
+                           statusLower === 'ganho' ||
+                           statusLower === 'won' ||
+                           String(primeiraNotificacao.status || '').toUpperCase().includes('GANH')
+            
+            if (isGanho) {
+              // Tocar som bell.wav
+              playAudio('/audio/bell.wav', 0.7)
+            }
+            
+            setNovasNotificacoes(prev => {
+              const novo = new Set(prev)
+              novo.add(primeiraNotificacao.id)
+              return novo
+            })
+            
+            // Remover a flag após a animação (500ms)
+            setTimeout(() => {
+              setNovasNotificacoes(prev => {
+                const novo = new Set(prev)
+                novo.delete(primeiraNotificacao.id)
+                return novo
+              })
+            }, 500)
+          }
+        }
+        
+        setOportunidadesRecentes(uniqueHistorico)
+        setHasMoreNotificacoes(data.hasMore)
+        setOffsetNotificacoes(15)
+      } else {
+        setOportunidadesRecentes([])
+        setHasMoreNotificacoes(false)
+      }
+    } catch (err) {
+      setOportunidadesRecentes([])
+      setHasMoreNotificacoes(false)
+    } finally {
+      if (!isNewNotification) {
+        setLoadingRecentes(false)
+      }
+    }
+  }, [playAudio])
+
+  // Função para carregar mais notificações
+  const loadMoreNotificacoes = useCallback(async () => {
+    if (loadingMore || !hasMoreNotificacoes) return
+
+    try {
+      setLoadingMore(true)
+      const response = await fetch(`/api/oportunidades/notificacoes?limit=15&offset=${offsetNotificacoes}`)
+      const data = await response.json()
+      
+      if (data.success && data.historico && data.historico.length > 0) {
+        setOportunidadesRecentes(prev => {
+          // Combinar e remover duplicatas
+          const combined = [...prev, ...data.historico]
+          const uniqueHistorico = Array.from(
+            new Map(combined.map((item: any) => [item.id, item])).values()
+          )
+          return uniqueHistorico
+        })
+        setHasMoreNotificacoes(data.hasMore)
+        setOffsetNotificacoes(prev => prev + 15)
+      } else {
+        setHasMoreNotificacoes(false)
+      }
+    } catch (err) {
+      setHasMoreNotificacoes(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasMoreNotificacoes, offsetNotificacoes])
+
+  const fetchFunis = useCallback(async () => {
+    try {
+      const response = await fetch('/api/funis')
+      const data = await response.json()
+      if (data.success && data.funis) {
+        setFunis(data.funis)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setFunis([])
+    }
+  }, [])
+
+  const fetchGrupos = useCallback(async () => {
+    try {
+      const response = await fetch('/api/grupos')
+      const data = await response.json()
+      if (data.success && data.grupos) {
+        setGrupos(data.grupos)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setGrupos([])
+    }
+  }, [])
+
+  const fetchUnidades = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades')
+      const data = await response.json()
+      if (data.success && data.data) {
+        setUnidadesList(data.data)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setUnidadesList([])
+    }
+  }, [])
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    fetchGraficos()
+    fetchStats()
+    fetchNotificacoes()
+    fetchFunis()
+    fetchGrupos()
+    fetchUnidades()
+  }, [fetchGraficos, fetchStats, fetchNotificacoes, fetchFunis, fetchGrupos, fetchUnidades])
+
+  // Recarregar ao mudar filtros
+  useEffect(() => {
+    fetchGraficos()
+    fetchStats()
+  }, [fetchGraficos, fetchStats])
+
+  // Polling para buscar novas notificações a cada 30s
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchNotificacoes(true) // true = isNewNotification
+    }, 30000)
+
+    return () => clearInterval(intervalId)
+  }, [fetchNotificacoes])
+
+  // Intersection Observer para carregar mais notificações
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMoreNotificacoes && !loadingMore && !loadingRecentes) {
+          loadMoreNotificacoes()
+        }
+      },
+      { threshold: 1.0 }
+    )
+
+    const currentTarget = observerTarget.current
+    if (currentTarget) {
+      observer.observe(currentTarget)
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget)
+      }
+    }
+  }, [hasMoreNotificacoes, loadingMore, loadingRecentes, loadMoreNotificacoes])
+
+  return (
+    <div className="min-h-screen bg-black flex relative">
+      {/* Indicadores de Status */}
+      {!audioReady && (
+        <div className="fixed top-4 right-4 z-50">
+        
+        // Buscar estatísticas do dia atual (sempre do mês atual para "hoje" e "ontem")
+        const hoje = new Date()
+        const diaHoje = hoje.getDate()
+        const mesHoje = hoje.getMonth() + 1
+        const anoHoje = hoje.getFullYear()
+        
+        // Construir parâmetros de filtro para o período selecionado
+        const paramsCriadas = new URLSearchParams({
+          mes: mesPeriodo.toString(),
+          ano: anoPeriodo.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsCriadas.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        
+        const paramsCriadasAnterior = new URLSearchParams({
+          mes: mesAnterior.toString(),
+          ano: anoAnterior.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsCriadasAnterior.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        
+        const paramsGanhas = new URLSearchParams({
+          mes: mesPeriodo.toString(),
+          ano: anoPeriodo.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsGanhas.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        
+        const paramsGanhasAnterior = new URLSearchParams({
+          mes: mesAnterior.toString(),
+          ano: anoAnterior.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsGanhasAnterior.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        
+        // Para "hoje" e "ontem", sempre usar mês atual
+        const paramsCriadasHoje = new URLSearchParams({
+          mes: mesHoje.toString(),
+          ano: anoHoje.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsCriadasHoje.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        
+        const paramsGanhasHoje = new URLSearchParams({
+          mes: mesHoje.toString(),
+          ano: anoHoje.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsGanhasHoje.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        
+        // Criadas Hoje e Ontem (sempre do mês atual)
+        const criadasHojeResponse = await fetch(`/api/oportunidades/daily-created?${paramsCriadasHoje.toString()}`)
+        const criadasHojeData = await criadasHojeResponse.json()
+        const criadasHoje = criadasHojeData.success 
+          ? (criadasHojeData.dados.find((d: any) => d.dia === diaHoje)?.total_criadas || 0)
+          : 0
+        const criadasOntem = criadasHojeData.success 
+          ? (criadasHojeData.dados.find((d: any) => d.dia === diaHoje - 1)?.total_criadas || 0)
+          : 0
+        
+        // Total criadas no período selecionado
+        const criadasPeriodoResponse = await fetch(`/api/oportunidades/daily-created?${paramsCriadas.toString()}`)
+        const criadasPeriodoData = await criadasPeriodoResponse.json()
+        const totalCriadasMes = criadasPeriodoData.success 
+          ? (criadasPeriodoData.dados.reduce((acc: number, d: any) => {
+              const dataDiaStr = d.data // Já vem como string YYYY-MM-DD da API
+              if (dataDiaStr && dataDiaStr >= dataInicioStr && dataDiaStr <= dataFimStr) {
+                return acc + (Number(d.total_criadas) || 0)
+              }
+              return acc
+            }, 0))
+          : 0
+        
+        // Total criadas no período anterior equivalente
+        const criadasMesAnteriorResponse = await fetch(`/api/oportunidades/daily-created?${paramsCriadasAnterior.toString()}`)
+        const criadasMesAnteriorData = await criadasMesAnteriorResponse.json()
+        const totalCriadasMesAnterior = criadasMesAnteriorData.success 
+          ? (criadasMesAnteriorData.dados.reduce((acc: number, d: any) => {
+              const dataDiaStr = d.data // Já vem como string YYYY-MM-DD da API
+              if (dataDiaStr && dataDiaStr >= dataInicioAnteriorStr && dataDiaStr <= dataFimAnteriorStr) {
+                return acc + (Number(d.total_criadas) || 0)
+              }
+              return acc
+            }, 0))
+          : 0
+        
+        // Calcular percentual de crescimento
+        const crescimentoPercentual = totalCriadasMesAnterior > 0
+          ? ((totalCriadasMes - totalCriadasMesAnterior) / totalCriadasMesAnterior) * 100
+          : 0
+        
+        // Ganhas Hoje e Ontem (sempre do mês atual)
+        const ganhasHojeResponse = await fetch(`/api/oportunidades/daily-gain?${paramsGanhasHoje.toString()}`)
+        const ganhasHojeData = await ganhasHojeResponse.json()
+        const ganhasHojeDia = ganhasHojeData.success 
+          ? (ganhasHojeData.dados.find((d: any) => d.dia === diaHoje) || null)
+          : null
+        const ganhasHoje = ganhasHojeDia?.valor_total || 0
+        const ganhasHojeQtd = ganhasHojeDia?.total_oportunidades || 0
+        
+        const ganhasOntemDia = ganhasHojeData.success 
+          ? (ganhasHojeData.dados.find((d: any) => d.dia === diaHoje - 1) || null)
+          : null
+        const ganhasOntem = ganhasOntemDia?.valor_total || 0
+        const ganhasOntemQtd = ganhasOntemDia?.total_oportunidades || 0
+        
+        // Acumulado do período selecionado
+        const ganhasResponse = await fetch(`/api/oportunidades/daily-gain?${paramsGanhas.toString()}`)
+        const ganhasData = await ganhasResponse.json()
+        
+        // Converter datas para strings YYYY-MM-DD para comparação
+        const dataInicioStr = dataInicio.toISOString().split('T')[0]
+        const dataFimStr = dataFim.toISOString().split('T')[0]
+        
+        // Calcular acumulado do período sempre somando os valores dos dias no intervalo
+        let acumuladoMes = 0
+        if (ganhasData.success && ganhasData.dados && Array.isArray(ganhasData.dados)) {
+          acumuladoMes = ganhasData.dados.reduce((acc: number, d: any) => {
+            const dataDiaStr = d.data // String no formato YYYY-MM-DD
+            if (dataDiaStr && dataDiaStr >= dataInicioStr && dataDiaStr <= dataFimStr) {
+              return acc + (Number(d.valor_total) || 0)
+            }
+            return acc
+          }, 0)
+        }
+        
+        // Meta sempre do mês do período selecionado (vem da API)
+        const metaMes = ganhasData.success ? (ganhasData.meta_total || 0) : 0
+        
+        // Acumulado do período anterior equivalente
+        const acumuladoMesAnteriorResponse = await fetch(`/api/oportunidades/daily-gain?${paramsGanhasAnterior.toString()}`)
+        const acumuladoMesAnteriorData = await acumuladoMesAnteriorResponse.json()
+        
+        const dataInicioAnteriorStr = dataInicioAnterior.toISOString().split('T')[0]
+        const dataFimAnteriorStr = dataFimAnterior.toISOString().split('T')[0]
+        
+        let acumuladoMesAnterior = 0
+        if (acumuladoMesAnteriorData.success && acumuladoMesAnteriorData.dados && Array.isArray(acumuladoMesAnteriorData.dados)) {
+          acumuladoMesAnterior = acumuladoMesAnteriorData.dados.reduce((acc: number, d: any) => {
+            const dataDiaStr = d.data // String no formato YYYY-MM-DD
+            if (dataDiaStr && dataDiaStr >= dataInicioAnteriorStr && dataDiaStr <= dataFimAnteriorStr) {
+              return acc + (Number(d.valor_total) || 0)
+            }
+            return acc
+          }, 0)
+        }
+        
+        // Calcular relação da meta com o mês anterior
+        const metaVsMesAnterior = acumuladoMesAnterior > 0
+          ? ((metaMes - acumuladoMesAnterior) / acumuladoMesAnterior) * 100
+          : 0
+        
+        // Abertas - TODAS as oportunidades com status='open'
+        const paramsAbertas = new URLSearchParams()
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsAbertas.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        const abertasResponse = await fetch(`/api/oportunidades/abertos-total?${paramsAbertas.toString()}`)
+        const abertasData = await abertasResponse.json()
+        const abertasTotal = abertasData.success 
+          ? (abertasData.data?.totalOportunidades || 0)
+          : 0
+        const valorTotalAbertas = abertasData.success 
+          ? (abertasData.data?.valorTotalAbertas || 0)
+          : 0
+        
+        // Valores zerados para manter compatibilidade (não usados no card)
+        const abertasCriadasNoMes = 0
+        const abertasCriadasAntes = 0
+        
+        // Perdidas (usar período selecionado)
+        const paramsPerdidas = new URLSearchParams({
+          mes: mesPeriodo.toString(),
+          ano: anoPeriodo.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsPerdidas.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        const perdidasResponse = await fetch(`/api/oportunidades/perdidos?${paramsPerdidas.toString()}`)
+        const perdidasData = await perdidasResponse.json()
+        const perdidasMes = perdidasData.success 
+          ? (perdidasData.data?.totalOportunidades || 0)
+          : 0
+        const perdidasCriadasNoMes = perdidasData.success 
+          ? (perdidasData.data?.perdidasCriadasMes || 0)
+          : 0
+        const perdidasCriadasAntes = perdidasData.success 
+          ? (perdidasData.data?.perdidasCriadasAnterior || 0)
+          : 0
+        const valorTotalPerdido = perdidasData.success 
+          ? (perdidasData.data?.valorTotalPerdido || 0)
+          : 0
+        
+        // Oportunidades Ganhas (usar período selecionado)
+        const paramsGanhasMes = new URLSearchParams({
+          mes: mesPeriodo.toString(),
+          ano: anoPeriodo.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsGanhasMes.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        const ganhasMesResponse = await fetch(`/api/oportunidades/ganhos?${paramsGanhasMes.toString()}`)
+        const ganhasMesData = await ganhasMesResponse.json()
+        const totalGanhasMes = ganhasMesData.success 
+          ? (ganhasMesData.data?.totalOportunidades || 0)
+          : 0
+        const valorTotalGanhasMes = ganhasMesData.success 
+          ? (ganhasMesData.data?.totalValor || 0)
+          : 0
+        
+        // Total ganhas no período anterior (para crescimento)
+        const paramsGanhasMesAnterior = new URLSearchParams({
+          mes: mesAnterior.toString(),
+          ano: anoAnterior.toString()
+        })
+        if (filtros.unidadeSelecionada !== 'todas') {
+          paramsGanhasMesAnterior.append('unidade_id', filtros.unidadeSelecionada)
+        }
+        const ganhasMesAnteriorResponse = await fetch(`/api/oportunidades/ganhos?${paramsGanhasMesAnterior.toString()}`)
+        const ganhasMesAnteriorData = await ganhasMesAnteriorResponse.json()
+        const totalGanhasMesAnterior = ganhasMesAnteriorData.success 
+          ? (ganhasMesAnteriorData.data?.totalOportunidades || 0)
+          : 0
+        const valorTotalGanhasMesAnterior = ganhasMesAnteriorData.success 
+          ? (ganhasMesAnteriorData.data?.totalValor || 0)
+          : 0
+        
+        // Calcular percentual de crescimento de ganhas (por valor)
+        const crescimentoGanhasPercentual = valorTotalGanhasMesAnterior > 0
+          ? ((valorTotalGanhasMes - valorTotalGanhasMesAnterior) / valorTotalGanhasMesAnterior) * 100
+          : 0
+        
+        // Calcular Taxa de Conversão
+        const taxaConversao = totalCriadasMes > 0
+          ? (totalGanhasMes / totalCriadasMes) * 100
+          : 0
+        
+        // Calcular Taxa de Conversão do Mês Anterior
+        const taxaConversaoAnterior = totalCriadasMesAnterior > 0
+          ? (totalGanhasMesAnterior / totalCriadasMesAnterior) * 100
+          : 0
+        
+        // Calcular Diferença da Taxa de Conversão
+        const diferencaTaxaConversao = taxaConversaoAnterior > 0
+          ? taxaConversao - taxaConversaoAnterior
+          : 0
+        
+        // Calcular Ticket Médio
+        const ticketMedio = totalGanhasMes > 0
+          ? valorTotalGanhasMes / totalGanhasMes
+          : 0
+        
+        // Calcular Ticket Médio do Mês Anterior
+        const ticketMedioAnterior = totalGanhasMesAnterior > 0
+          ? valorTotalGanhasMesAnterior / totalGanhasMesAnterior
+          : 0
+        
+        // Calcular Diferença do Ticket Médio
+        const diferencaTicketMedio = ticketMedioAnterior > 0
+          ? ((ticketMedio - ticketMedioAnterior) / ticketMedioAnterior) * 100
+          : 0
+        
+        // Buscar Menor e Maior Ticket do Mês Atual
+        const ticketRangeResponse = await fetch(`/api/oportunidades/ganhos?${paramsGanhasMes.toString()}`)
+        const ticketRangeData = await ticketRangeResponse.json()
+        const menorTicket = ticketRangeData.success 
+          ? (ticketRangeData.data?.menorValor || 0)
+          : 0
+        const maiorTicket = ticketRangeData.success 
+          ? (ticketRangeData.data?.maiorValor || 0)
+          : 0
+        
+        setStats({
+          criadasHoje,
+          criadasOntem,
+          totalCriadasMes,
+          crescimentoPercentual,
+          ganhasHoje,
+          ganhasHojeQtd,
+          ganhasOntem,
+          ganhasOntemQtd,
+          totalGanhasMes,
+          valorTotalGanhasMes,
+          valorTotalGanhasMesAnterior,
+          crescimentoGanhasPercentual,
+          acumuladoMes,
+          acumuladoMesAnterior,
+          metaMes,
+          metaVsMesAnterior,
+          abertasTotal,
+          abertasCriadasNoMes,
+          abertasCriadasAntes,
+          valorTotalAbertas,
+          perdidasMes,
+          perdidasCriadasNoMes,
+          perdidasCriadasAntes,
+          valorTotalPerdido,
+          taxaConversao,
+          taxaConversaoAnterior,
+          diferencaTaxaConversao,
+          ticketMedio,
+          ticketMedioAnterior,
+          diferencaTicketMedio,
+          menorTicket,
+          maiorTicket
+        })
+        // Garantir que não há duplicatas usando ID único
+        const uniqueHistorico = Array.from(
+          new Map(data.historico.map((item: any) => [item.id, item])).values()
+        )
+        
+        // Se for uma nova notificação, marcar como nova para animar
+        if (isNewNotification && uniqueHistorico.length > 0) {
+          const primeiraNotificacao = uniqueHistorico[0] as any
+          if (primeiraNotificacao?.id) {
+            // Verificar se é uma notificação de ganho para tocar som
+            const statusLower = String(primeiraNotificacao.status || '').toLowerCase()
+            const isGanho = statusLower === 'gain' || 
+                           statusLower === 'ganha' || 
+                           statusLower === 'ganho' ||
+                           statusLower === 'won' ||
+                           String(primeiraNotificacao.status || '').toUpperCase().includes('GANH')
+            
+            if (isGanho) {
+              // Tocar som bell.wav
+              playAudio('/audio/bell.wav', 0.7)
+            }
+            
+            setNovasNotificacoes(prev => {
+              const novo = new Set(prev)
+              novo.add(primeiraNotificacao.id)
+              return novo
+            })
+            
+            // Remover a flag após a animação (500ms)
+            setTimeout(() => {
+              setNovasNotificacoes(prev => {
+                const novo = new Set(prev)
+                novo.delete(primeiraNotificacao.id)
+                return novo
+              })
+            }, 500)
+          }
+        }
+        
+        setOportunidadesRecentes(uniqueHistorico)
+        setHasMoreNotificacoes(data.hasMore)
+        setOffsetNotificacoes(15)
+      } else {
+        setOportunidadesRecentes([])
+        setHasMoreNotificacoes(false)
+      }
+    } catch (err) {
+      setOportunidadesRecentes([])
+      setHasMoreNotificacoes(false)
+    } finally {
+      if (!isNewNotification) {
+        setLoadingRecentes(false)
+      }
+    }
+  }, [playAudio])
+
+  // Função para carregar mais notificações
+  const loadMoreNotificacoes = useCallback(async () => {
+    if (loadingMore || !hasMoreNotificacoes) return
+
+    try {
+      setLoadingMore(true)
+      const response = await fetch(`/api/oportunidades/notificacoes?limit=15&offset=${offsetNotificacoes}`)
+      const data = await response.json()
+      
+      if (data.success && data.historico && data.historico.length > 0) {
+        setOportunidadesRecentes(prev => {
+          // Combinar e remover duplicatas
+          const combined = [...prev, ...data.historico]
+          const uniqueHistorico = Array.from(
+            new Map(combined.map((item: any) => [item.id, item])).values()
+          )
+          return uniqueHistorico
+        })
+        setHasMoreNotificacoes(data.hasMore)
+        setOffsetNotificacoes(prev => prev + 15)
+      } else {
+        setHasMoreNotificacoes(false)
+      }
+    } catch (err) {
+      setHasMoreNotificacoes(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasMoreNotificacoes, offsetNotificacoes])
+
+  const fetchFunis = useCallback(async () => {
+    try {
+      const response = await fetch('/api/funis')
+      const data = await response.json()
+      if (data.success && data.funis) {
+        setFunis(data.funis)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setFunis([])
+    }
+  }, [])
+
+  const fetchGrupos = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades/grupos')
+      const data = await response.json()
+      if (data.success && data.grupos) {
+        setGrupos(data.grupos)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setGrupos([])
+    }
+  }, [])
+
+  const fetchUnidadesList = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades/list')
+      const data = await response.json()
+      if (data.success && data.unidades) {
+        setUnidadesList(data.unidades)
+      }
+    } catch (err) {
+      // Error handling silencioso
+      setUnidadesList([])
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchGraficos()
+    fetchStats()
+    fetchNotificacoes()
+    fetchFunis()
+    fetchGrupos()
+    fetchUnidadesList()
+  }, [fetchGraficos, fetchStats, fetchNotificacoes, fetchFunis, fetchGrupos, fetchUnidadesList])
+
+  // Atualizar notificações periodicamente
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchNotificacoes()
+    }, 30000) // 30 segundos
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [fetchNotificacoes])
+
+  // IntersectionObserver para infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMoreNotificacoes && !loadingMore && !loadingRecentes) {
+          loadMoreNotificacoes()
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    )
+
+    const currentTarget = observerTarget.current
+    if (currentTarget) {
+      observer.observe(currentTarget)
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget)
+      }
+    }
+  }, [hasMoreNotificacoes, loadingMore, loadingRecentes, loadMoreNotificacoes])
+
+  return (
+    <div className="min-h-screen bg-black flex relative">
+      {/* Indicadores de Status */}
+      {!audioReady && (
+        <div className="fixed top-4 right-4 z-50">
+          <div 
+            className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 cursor-pointer hover:bg-blue-500/30 transition-all"
+            onClick={() => playBellSound()}
+            title="Clique para ativar sons"
+          >
+            <span className="w-2 h-2 rounded-full bg-blue-400" />
+            Clique para ativar sons
+          </div>
+        </div>
+      )}
+
+      {/* Botão de Colapsar - FORA da sidebar para sempre ficar visível */}
+      <button
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        className={cn(
+          "fixed bottom-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-r-full p-1.5 shadow-lg transition-all duration-300 border border-blue-500",
+          sidebarCollapsed ? "left-0" : "left-64"
+        )}
+        title={sidebarCollapsed ? "Mostrar notificações" : "Esconder notificações"}
+      >
+        {sidebarCollapsed ? (
+          <ChevronRight className="h-4 w-4" />
+        ) : (
+          <ChevronLeft className="h-4 w-4" />
+        )}
+      </button>
+
+      {/* Sidebar de Oportunidades Recentes */}
+      <div 
+        className={cn(
+          "bg-gray-900 border-r border-gray-800 overflow-y-auto max-h-screen sticky top-0 scrollbar-hide transition-all duration-300",
+          sidebarCollapsed ? "w-0 border-r-0" : "w-64"
+        )}
+      >
+        <div className={cn("p-3 notifications-container", sidebarCollapsed && "hidden")}>
+          {loadingRecentes ? (
+            <div className="text-center py-8">
+              <span className="text-gray-400 text-sm">Carregando...</span>
+            </div>
+          ) : oportunidadesRecentes.length === 0 ? (
+            <div className="text-center py-8">
+              <span className="text-gray-400 text-sm">Nenhuma oportunidade recente</span>
+            </div>
+          ) : (
+            // Limitar a 20 notificações visíveis para performance
+            oportunidadesRecentes.slice(0, 20).map((op, index) => {
+              const isNova = novasNotificacoes.has(op.id)
+              const animationClass = isNova ? 'animate-notification-pop' : 'notification-card'
+              
+              // Função para converter hex para rgba com opacidade
+              const hexToRgba = (hex: string, alpha: number) => {
+                const r = parseInt(hex.slice(1, 3), 16)
+                const g = parseInt(hex.slice(3, 5), 16)
+                const b = parseInt(hex.slice(5, 7), 16)
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`
+              }
+
+              // Verificar se há cor customizada (aceita com ou sem #)
+              let corHex = op.cor
+              if (corHex) {
+                // Remover espaços e garantir formato correto
+                corHex = String(corHex).trim()
+                if (!corHex.startsWith('#')) {
+                  corHex = `#${corHex}`
+                }
+                // Validar formato hex (3 ou 6 dígitos após #)
+                // Expandir formato curto (#fff -> #ffffff)
+                if (/^#[0-9A-F]{3}$/i.test(corHex)) {
+                  corHex = `#${corHex[1]}${corHex[1]}${corHex[2]}${corHex[2]}${corHex[3]}${corHex[3]}`
+                } else if (!/^#[0-9A-F]{6}$/i.test(corHex)) {
+                  // Se não for válido, descartar
+                  corHex = null
+                } else {
+                  // Garantir maiúsculas para consistência
+                  corHex = corHex.toUpperCase()
+                }
+              }
+              const temCorCustomizada = !!corHex
+              
+              const statusConfig = {
+                gain: { 
+                  bg: 'bg-green-900/30', 
+                  border: 'border-green-700', 
+                  badge: 'bg-green-600', 
+                  text: 'GANHA',
+                  valorColor: 'text-green-400'
+                },
+                lost: { 
+                  bg: 'bg-red-900/30', 
+                  border: 'border-red-700', 
+                  badge: 'bg-red-600', 
+                  text: 'PERDIDA',
+                  valorColor: 'text-red-400'
+                },
+                open: { 
+                  bg: 'bg-blue-900/30', 
+                  border: 'border-blue-700', 
+                  badge: 'bg-blue-600', 
+                  text: 'ABERTA',
+                  valorColor: 'text-blue-400'
+                }
+              }
+              
+              // Determinar texto do badge
+              let badgeText = 'ABERTA'
+              if (op.status) {
+                const statusLower = String(op.status).toLowerCase()
+                if (statusConfig[op.status as keyof typeof statusConfig]) {
+                  badgeText = statusConfig[op.status as keyof typeof statusConfig].text
+                } else {
+                  badgeText = String(op.status).toUpperCase()
+                }
+              }
+              
+              // Aplicar cor customizada se disponível (sempre tem prioridade)
+              // Sempre usar opacidade de 0.2 para todas as cores
+              const cardStyle: React.CSSProperties = temCorCustomizada ? {
+                backgroundColor: hexToRgba(corHex!, 0.2),
+                borderColor: corHex!,
+                borderWidth: '1px',
+                borderStyle: 'solid'
+              } : {}
+              
+              // Badge sempre com cor sólida e texto preto
+              const badgeStyle: React.CSSProperties = temCorCustomizada ? {
+                backgroundColor: corHex!,
+                color: '#000000'
+              } : {}
+              
+              // Todos os textos sempre brancos
+              const valorStyle: React.CSSProperties = temCorCustomizada ? {
+                color: '#FFFFFF',
+                fontWeight: 'bold'
+              } : {}
+              
+              const textColorStyle = temCorCustomizada ? {
+                color: '#FFFFFF'
+              } : {}
+              
+              const textSecondaryStyle = temCorCustomizada ? {
+                color: 'rgba(255, 255, 255, 0.9)'
+              } : {}
+                
+              const textTertiaryStyle = temCorCustomizada ? {
+                color: 'rgba(255, 255, 255, 0.7)'
+              } : {}
+                
+              const borderStyle = temCorCustomizada ? {
+                borderColor: 'rgba(255, 255, 255, 0.2)'
+              } : {}
+              
+              // Classes CSS (só aplicar se não houver cor customizada)
+              const cardClasses = temCorCustomizada 
+                ? "rounded-lg border shadow-sm transition-colors bg-transparent" 
+                : cn("rounded-lg border shadow-sm transition-colors", statusConfig[op.status as keyof typeof statusConfig]?.bg || 'bg-blue-900/30', statusConfig[op.status as keyof typeof statusConfig]?.border || 'border-blue-700')
+              
+              const badgeClasses = cn("px-1.5 py-0.5 rounded text-[10px] font-bold text-white", statusConfig[op.status as keyof typeof statusConfig]?.badge || 'bg-blue-600')
+              
+              const valorClasses = cn("font-bold text-xs", statusConfig[op.status as keyof typeof statusConfig]?.valorColor || 'text-blue-400')
+              
+              // Usar div quando há cor customizada para evitar conflitos com classes do Card
+              if (temCorCustomizada) {
+                return (
+                  <div
+                    key={op.id}
+                    className={cn(cardClasses, animationClass)}
+                    style={cardStyle}
+                  >
+                    <div className="p-3">
+                    <div className="flex items-start justify-between mb-1.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span 
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold !text-black"
+                            style={badgeStyle}
+                          >
+                            {badgeText}
+                          </span>
+                        </div>
+                        <p className="font-semibold text-xs truncate" style={textColorStyle}>{op.nome}</p>
+                        <p className="text-[10px] mt-0.5 truncate" style={textSecondaryStyle} title={op.unidade}>
+                          {op.unidade}
+                        </p>
+                      </div>
+                      <span className="text-[10px] flex-shrink-0 ml-1.5" style={textTertiaryStyle}>
+                        {formatTimeAgo(op.consultadoEm || op.dataCriacao)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t" style={borderStyle}>
+                      <span className="text-[10px] truncate" style={textSecondaryStyle} title={op.vendedor}>
+                        {op.vendedor}
+                      </span>
+                      <span 
+                        className="font-bold text-xs"
+                        style={valorStyle}
+                      >
+                        {formatCurrency(op.valor)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                )
+              }
+              
+              // Usar Card quando não há cor customizada
+              return (
+                <Card
+                  key={op.id}
+                  className={cn(cardClasses, animationClass)}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between mb-1.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={badgeClasses}>
+                            {badgeText}
+                          </span>
+                        </div>
+                        <p className="text-white font-semibold text-xs truncate">{op.nome}</p>
+                        <p className="text-gray-400 text-[10px] mt-0.5 truncate" title={op.unidade}>
+                          {op.unidade}
+                        </p>
+                      </div>
+                      <span className="text-gray-500 text-[10px] flex-shrink-0 ml-1.5">
+                        {formatTimeAgo(op.consultadoEm || op.dataCriacao)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-700">
+                      <span className="text-gray-400 text-[10px] truncate" title={op.vendedor}>
+                        {op.vendedor}
+                      </span>
+                      <span className={valorClasses}>
+                        {formatCurrency(op.valor)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })
+          )}
+          
+          {/* Indicador de carregamento progressivo */}
+          {loadingMore && (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+              <span className="ml-2 text-gray-400 text-xs">Carregando mais...</span>
+            </div>
+          )}
+          
+          {/* Elemento observador para infinite scroll */}
+          {hasMoreNotificacoes && !loadingRecentes && (
+            <div ref={observerTarget} className="h-4" />
+          )}
+          
+          {/* Indicador de fim da lista */}
+          {!hasMoreNotificacoes && oportunidadesRecentes.length > 0 && !loadingRecentes && (
+            <div className="text-center py-4">
+              <span className="text-gray-500 text-xs">Fim das notificações</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Conteúdo Principal */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <div className="p-6">
+      {/* Barra de Filtros Inline */}
+      <PainelFiltersInline
+        filtros={filtros}
+        setFiltros={setFiltros}
+        unidadesList={unidadesList}
+        funis={funis}
+        grupos={grupos}
+        periodoInicial={periodoInicial}
+        filtrosAtivos={filtrosAtivos}
+      />
+      
+      {/* Cards de Estatísticas */}
+      <PainelStatsCards
+        stats={stats}
+        loading={loadingStats}
+        formatCurrency={formatCurrency}
+      />
+
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        {/* Gráfico de Oportunidades Criadas */}
+        <Card className="bg-gray-900 border-gray-800">
+          <CardContent className="p-3">
+            <h3 className="text-white font-bold text-sm uppercase mb-2">Oportunidades Criadas Dia a Dia</h3>
+            {loadingGraficos ? (
+              <div className="flex items-center justify-center h-[150px]">
+                <span className="text-gray-400 text-sm">Carregando...</span>
+              </div>
+            ) : (
+              <div className="h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={oportunidadesCriadas} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="dia" 
+                      tick={{ fill: '#9ca3af', fontSize: 10 }}
+                      stroke="#4b5563"
+                    />
+                    <YAxis 
+                      tick={{ fill: '#9ca3af', fontSize: 10 }}
+                      stroke="#4b5563"
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: '#1f2937',
+                        border: '1px solid #374151',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '12px'
+                      }}
+                      formatter={(value: number) => [value, 'Oportunidades']}
+                      labelFormatter={(label) => `Dia ${label}`}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="total_criadas" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={{ fill: '#3b82f6', r: 3 }}
+                      activeDot={{ r: 5 }}
+                      name={`${getMesNome(mesAtual)} ${anoAtual}`}
+                      isAnimationActive={false}
+                    >
+                      <LabelList 
+                        dataKey="total_criadas" 
+                        position="top" 
+                        style={{ fill: '#9ca3af', fontSize: '10px' }}
+                        formatter={(value: any) => value === 0 ? '' : String(value)}
+                      />
+                    </Line>
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Gráfico de Receita */}
+        <Card className="bg-gray-900 border-gray-800">
+          <CardContent className="p-3">
+            <h3 className="text-white font-bold text-sm uppercase mb-2">Receita Dia a Dia</h3>
+            {loadingGraficos ? (
+              <div className="flex items-center justify-center h-[150px]">
+                <span className="text-gray-400 text-sm">Carregando...</span>
+              </div>
+            ) : (
+              <div className="h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={receitaDiaria} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="dia" 
+                      tick={{ fill: '#9ca3af', fontSize: 10 }}
+                      stroke="#4b5563"
+                    />
+                    <YAxis 
+                      tick={{ fill: '#9ca3af', fontSize: 10 }}
+                      stroke="#4b5563"
+                      tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: '#1f2937',
+                        border: '1px solid #374151',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '12px'
+                      }}
+                      formatter={(value: number) => [formatCurrency(value), 'Receita']}
+                      labelFormatter={(label) => `Dia ${label}`}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="valor_total" 
+                      stroke="#22c55e" 
+                      strokeWidth={2}
+                      dot={{ fill: '#22c55e', r: 3 }}
+                      activeDot={{ r: 5 }}
+                      name="Receita"
+                      isAnimationActive={false}
+                    >
+                      <LabelList 
+                        dataKey="valor_total" 
+                        position="top" 
+                        style={{ fill: '#9ca3af', fontSize: '10px' }}
+                        formatter={(value: any) => value === 0 ? '' : `R$ ${(Number(value) / 1000).toFixed(0)}k`}
+                      />
+                    </Line>
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Cards de Unidades */}
+      <PainelUnidadesGrid 
+        filtros={filtros}
+        mesAtual={mesAtual}
+        anoAtual={anoAtual}
+      />
+        </div>
+      </div>
+
+    </div>
+  )
+}
+

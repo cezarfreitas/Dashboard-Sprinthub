@@ -1,13 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { useAuth } from "@/hooks/use-auth"
+import { ProtectedRoute } from "@/components/protected-route"
 import FunilDashboard from "@/components/funil-dashboard"
 import MonthFilter from "@/components/month-filter"
-import NovasOportunidadesCard from "@/components/novas-oportunidades-card"
-import GanhosCard from "@/components/ganhos-card"
-import PerdidosCard from "@/components/perdidos-card"
-import AbertosCard from "@/components/abertos-card"
+import NovasOportunidadesCard from "@/components/estatisticas/cards/NovasOportunidadesCard"
+import OportunidadesGanhasCard from "@/components/estatisticas/cards/OportunidadesGanhasCard"
+import OportunidadesPerdidasCard from "@/components/estatisticas/cards/OportunidadesPerdidasCard"
+import OportunidadesAbertasCard from "@/components/estatisticas/cards/OportunidadesAbertasCard"
+import TaxaConversaoCard from "@/components/estatisticas/cards/TaxaConversaoCard"
+import TicketMedioCard from "@/components/estatisticas/cards/TicketMedioCard"
 import CriacaoOportunidadesChart from "@/components/criacao-oportunidades-chart"
 import OportunidadesChart from "@/components/oportunidades-chart"
 import ResumoUnidades from "@/components/resumo-unidades"
@@ -16,8 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart3, TrendingUp } from "lucide-react"
 
 export default function Home() {
-  const { user, loading: authLoading } = useAuth()
-  
   // Estado para os filtros
   const dataAtual = new Date()
   const [mesSelecionado, setMesSelecionado] = useState(dataAtual.getMonth() + 1)
@@ -25,15 +25,9 @@ export default function Home() {
   const [vendedorSelecionado, setVendedorSelecionado] = useState<number | null>(null)
   const [unidadeSelecionada, setUnidadeSelecionada] = useState<number | null>(null)
 
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Carregando...</div>
-      </div>
-    )
-  }
-
   return (
+    <ProtectedRoute>
+
     <div className="space-y-6">
       {/* Filtros */}
       <MonthFilter 
@@ -48,26 +42,38 @@ export default function Home() {
       />
 
       {/* Cards Principais */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <NovasOportunidadesCard 
           mes={mesSelecionado}
           ano={anoSelecionado}
           vendedorId={vendedorSelecionado}
           unidadeId={unidadeSelecionada}
         />
-        <GanhosCard 
+        <OportunidadesAbertasCard 
           mes={mesSelecionado}
           ano={anoSelecionado}
           vendedorId={vendedorSelecionado}
           unidadeId={unidadeSelecionada}
         />
-        <PerdidosCard 
+        <OportunidadesGanhasCard 
           mes={mesSelecionado}
           ano={anoSelecionado}
           vendedorId={vendedorSelecionado}
           unidadeId={unidadeSelecionada}
         />
-        <AbertosCard 
+        <OportunidadesPerdidasCard 
+          mes={mesSelecionado}
+          ano={anoSelecionado}
+          vendedorId={vendedorSelecionado}
+          unidadeId={unidadeSelecionada}
+        />
+        <TaxaConversaoCard 
+          mes={mesSelecionado}
+          ano={anoSelecionado}
+          vendedorId={vendedorSelecionado}
+          unidadeId={unidadeSelecionada}
+        />
+        <TicketMedioCard 
           mes={mesSelecionado}
           ano={anoSelecionado}
           vendedorId={vendedorSelecionado}
@@ -129,5 +135,6 @@ export default function Home() {
         unidadeId={unidadeSelecionada}
       />
     </div>
+    </ProtectedRoute>
   )
 }

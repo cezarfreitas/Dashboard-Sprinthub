@@ -3,93 +3,131 @@ import { executeQuery } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
-// GET - Buscar ganhos do mês atual
+// Helper para parse JSON
+function parseJSON(value: any): any[] {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch (e) {
+      return []
+    }
+  }
+  return []
+}
+
+// GET - Buscar oportunidades ganhas (totais e por dia)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const mes = searchParams.get('mes')
     const ano = searchParams.get('ano')
+    const unidadesParam = searchParams.get('unidades')
 
-    // Usar mês e ano atual se não fornecidos
-    const dataAtual = new Date()
-    const mesAtual = mes ? parseInt(mes) : dataAtual.getMonth() + 1
-    const anoAtual = ano ? parseInt(ano) : dataAtual.getFullYear()
+    if (!mes || !ano) {
+      return NextResponse.json(
+        { success: false, message: 'Parâmetros mes e ano são obrigatórios' },
+        { status: 400 }
+      )
+    }
 
-    // Buscar oportunidades com status='gain' E gain_date no mês atual
-    const queryGanhas = `
+    const mesNum = parseInt(mes)
+    const anoNum = parseInt(ano)
+
+    // Construir filtro de unidade
+    let filtroUnidade = ''
+    const params: any[] = [mesNum, anoNum]
+
+    if (unidadesParam) {
+      const unidadesIds = unidadesParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+      
+      if (unidadesIds.length > 0) {
+        // Buscar vendedores de todas as unidades selecionadas
+        const placeholders = unidadesIds.map(() => '?').join(',')
+        const unidades = await executeQuery(`
+          SELECT users FROM unidades WHERE id IN (${placeholders}) AND ativo = 1
+        `, unidadesIds) as any[]
+
+        if (unidades && unidades.length > 0) {
+          const todosVendedoresIds = new Set<number>()
+          unidades.forEach(unidade => {
+            const parsedUsers = parseJSON(unidade.users)
+            parsedUsers.forEach((u: any) => {
+              const id = typeof u === 'object' ? u.id : u
+              if (id != null) todosVendedoresIds.add(Number(id))
+            })
+          })
+
+          if (todosVendedoresIds.size > 0) {
+            const vendedoresArray = Array.from(todosVendedoresIds)
+            const placeholdersVendedores = vendedoresArray.map(() => '?').join(',')
+            filtroUnidade = `AND o.user IN (${placeholdersVendedores})`
+            params.push(...vendedoresArray)
+          }
+        }
+      }
+    }
+
+    // Buscar total de oportunidades ganhas no mês
+    const queryTotal = `
       SELECT 
-        COUNT(*) as total_oportunidades,
-        COALESCE(SUM(value), 0) as total_valor,
-        COALESCE(MIN(value), 0) as menor_valor,
-        COALESCE(MAX(value), 0) as maior_valor
+        COUNT(*) as total,
+        COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
-      WHERE o.status = 'gain'
-        AND o.gain_date IS NOT NULL
+      WHERE o.gain_date IS NOT NULL
         AND MONTH(o.gain_date) = ? 
         AND YEAR(o.gain_date) = ?
+        ${filtroUnidade}
     `
 
-    // Buscar oportunidades com status='gain', gain_date no mês atual E criadas no mês atual
-    const queryGanhasCriadasMes = `
+    const resultTotal = await executeQuery(queryTotal, params) as any[]
+
+    // Buscar por dia (para o gráfico)
+    const queryDiario = `
       SELECT 
+        DAY(o.gain_date) as dia,
+        DATE(o.gain_date) as data,
         COUNT(*) as total_oportunidades,
-        COALESCE(SUM(value), 0) as total_valor
+        COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
-      WHERE o.status = 'gain'
-        AND o.gain_date IS NOT NULL
+      WHERE o.gain_date IS NOT NULL
         AND MONTH(o.gain_date) = ? 
         AND YEAR(o.gain_date) = ?
-        AND MONTH(o.createDate) = ? 
-        AND YEAR(o.createDate) = ?
+        ${filtroUnidade}
+      GROUP BY dia, data
+      ORDER BY dia
     `
 
-    // Buscar oportunidades com status='gain', gain_date no mês atual mas criadas em meses anteriores
-    const queryGanhasCriadasAnterior = `
-      SELECT 
-        COUNT(*) as total_oportunidades,
-        COALESCE(SUM(value), 0) as total_valor
-      FROM oportunidades o
-      WHERE o.status = 'gain'
-        AND o.gain_date IS NOT NULL
-        AND MONTH(o.gain_date) = ? 
-        AND YEAR(o.gain_date) = ?
-        AND (
-          YEAR(o.createDate) < ? OR 
-          (YEAR(o.createDate) = ? AND MONTH(o.createDate) < ?)
-        )
+    const resultDiario = await executeQuery(queryDiario, params) as any[]
+
+    // Buscar meta do mês (se houver)
+    const queryMeta = `
+      SELECT COALESCE(SUM(meta_valor), 0) as meta_total
+      FROM metas_mensais
+      WHERE mes = ? AND ano = ?
     `
-
-    const [resultGanhas, resultGanhasCriadasMes, resultGanhasCriadasAnterior] = await Promise.all([
-      executeQuery(queryGanhas, [mesAtual, anoAtual]),
-      executeQuery(queryGanhasCriadasMes, [mesAtual, anoAtual, mesAtual, anoAtual]),
-      executeQuery(queryGanhasCriadasAnterior, [mesAtual, anoAtual, anoAtual, anoAtual, mesAtual])
-    ]) as [any[], any[], any[]]
-
-    const dataGanhas = resultGanhas[0] || { total_oportunidades: 0, total_valor: 0, menor_valor: 0, maior_valor: 0 }
-    const dataGanhasCriadasMes = resultGanhasCriadasMes[0] || { total_oportunidades: 0, total_valor: 0 }
-    const dataGanhasCriadasAnterior = resultGanhasCriadasAnterior[0] || { total_oportunidades: 0, total_valor: 0 }
+    const resultMeta = await executeQuery(queryMeta, [mesNum, anoNum]) as any[]
 
     return NextResponse.json({
       success: true,
       data: {
-        totalOportunidades: dataGanhas.total_oportunidades,
-        totalValor: dataGanhas.total_valor,
-        menorValor: dataGanhas.menor_valor,
-        maiorValor: dataGanhas.maior_valor,
-        ganhasCriadasMes: dataGanhasCriadasMes.total_oportunidades,
-        ganhasCriadasAnterior: dataGanhasCriadasAnterior.total_oportunidades
+        totalOportunidades: Number(resultTotal[0]?.total || 0),
+        totalValor: Number(resultTotal[0]?.valor_total || 0)
       },
-      periodo: {
-        mes: mesAtual,
-        ano: anoAtual
-      }
+      dados: resultDiario.map(r => ({
+        dia: r.dia,
+        data: r.data,
+        total_oportunidades: Number(r.total_oportunidades || 0),
+        valor_total: Number(r.valor_total || 0)
+      })),
+      meta_total: Number(resultMeta[0]?.meta_total || 0)
     })
 
   } catch (error) {
     return NextResponse.json(
       { 
         success: false, 
-        message: 'Erro ao buscar ganhos',
+        message: 'Erro ao buscar oportunidades ganhas',
         error: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }

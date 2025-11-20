@@ -41,34 +41,61 @@ export async function syncMotivosPerda(): Promise<{
     const sprintHubUrl = `${urlPatch}/crmlossreason?apitoken=${apiToken}&i=${groupId}`
     
     console.log('📡 Buscando motivos de perda do SprintHub...')
+    console.log('🔗 URL:', sprintHubUrl.replace(apiToken, '***TOKEN***'))
+    console.log('🔑 Token configurado:', apiToken ? 'SIM' : 'NÃO')
+    console.log('🔑 Group ID configurado:', groupId ? 'SIM' : 'NÃO')
+    console.log('🔑 URL Patch configurado:', urlPatch ? 'SIM' : 'NÃO')
+    
     const response = await fetch(sprintHubUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'CRM-by-INTELI/1.0'
-      }
+      },
+      cache: 'no-store' // Evitar cache
     })
 
+    console.log('📊 Status da resposta:', response.status, response.statusText)
+
     if (!response.ok) {
-      throw new Error(`Erro na API SprintHub: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('❌ Erro na resposta da API:', errorText)
+      throw new Error(`Erro na API SprintHub: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    const data = await response.json()
+    const rawData = await response.json()
     let motivos: SprintHubMotivoPerda[] = []
     
     // Normalizar dados da API (pode vir como array direto ou dentro de um objeto)
-    if (Array.isArray(data)) {
-      motivos = data
-    } else if (data.data && Array.isArray(data.data)) {
-      motivos = data.data
-    } else if (data.motivos && Array.isArray(data.motivos)) {
-      motivos = data.motivos
-    } else if (data.results && Array.isArray(data.results)) {
-      motivos = data.results
+    // Formato 1: Array direto
+    if (Array.isArray(rawData)) {
+      motivos = rawData
+    }
+    // Formato 2: { data: [...] }
+    else if (rawData && Array.isArray(rawData.data)) {
+      motivos = rawData.data
+    }
+    // Formato 3: { motivos: [...] }
+    else if (rawData && Array.isArray(rawData.motivos)) {
+      motivos = rawData.motivos
+    }
+    // Formato 4: { results: [...] }
+    else if (rawData && Array.isArray(rawData.results)) {
+      motivos = rawData.results
+    }
+    // Formato 5: Objeto com múltiplas propriedades que podem ser arrays
+    else if (rawData && typeof rawData === 'object') {
+      // Procurar por qualquer propriedade que seja array
+      for (const key in rawData) {
+        if (Array.isArray(rawData[key])) {
+          motivos = rawData[key]
+          console.log(`📌 Array encontrado na propriedade '${key}'`)
+          break
+        }
+      }
     }
 
     console.log(`✅ ${motivos.length} motivos de perda recebidos da API`)
-    console.log('📦 Dados recebidos (primeiros 3):', JSON.stringify(motivos.slice(0, 3), null, 2))
 
     if (motivos.length === 0) {
       return {
@@ -99,19 +126,34 @@ export async function syncMotivosPerda(): Promise<{
     let novos = 0
     let atualizados = 0
     let erros = 0
+    const registrosInseridos: Array<{ id: number; motivo: string }> = []
+    const registrosAtualizados: Array<{ id: number; motivo: string; motivoAnterior?: string }> = []
+
+    console.log('')
+    console.log('📋 Iniciando sincronização dos motivos de perda...')
+    console.log('')
 
     // Sincronizar cada motivo de perda
     for (const motivo of motivos) {
       try {
         // Validar dados do motivo
-        if (!motivo.id) {
-          console.error('❌ Motivo sem ID, pulando:', motivo)
+        if (!motivo || typeof motivo !== 'object') {
+          console.error('❌ Motivo inválido (não é objeto), pulando:', motivo)
+          erros++
+          continue
+        }
+
+        // Extrair ID (pode estar em diferentes propriedades)
+        const motivoId = motivo.id || motivo.motivo_id || motivo.ID || motivo.MotivoId
+        if (!motivoId) {
+          console.error('❌ Motivo sem ID, pulando:', JSON.stringify(motivo))
           erros++
           continue
         }
 
         // Buscar o texto do motivo em diferentes campos possíveis
         // A API pode retornar: motivo, name, title, description, text, label, etc.
+        // Prioridade: motivo, name (formato da API SprintHub), depois outros
         const motivoTexto = 
           motivo.motivo || 
           motivo.name || 
@@ -124,44 +166,70 @@ export async function syncMotivosPerda(): Promise<{
           null
 
         // Se não encontrou o texto, usar o ID como fallback
-        const motivoFinal = motivoTexto || `Motivo ${motivo.id}`
-        
-        // Log para debug se não encontrou o campo motivo
-        if (!motivoTexto) {
-          console.warn(`⚠️ Motivo ${motivo.id} sem texto, usando fallback. Dados:`, JSON.stringify(motivo))
-        }
+        const motivoFinal = motivoTexto || `Motivo ${motivoId}`
 
-        // Verificar se o motivo já existe
+        // Verificar se o motivo já existe e buscar o texto atual
         const existing = await executeQuery(
-          'SELECT id FROM motivos_de_perda WHERE id = ?',
-          [motivo.id]
+          'SELECT id, motivo FROM motivos_de_perda WHERE id = ?',
+          [motivoId]
         ) as any[]
 
         if (existing.length > 0) {
-          // Atualizar motivo existente
-          await executeQuery(
-            `UPDATE motivos_de_perda 
-             SET motivo = ?,
-                 updated_at = NOW()
-             WHERE id = ?`,
-            [motivoFinal, motivo.id]
-          )
-          atualizados++
-          console.log(`✓ Motivo ${motivo.id} atualizado: "${motivoFinal}"`)
+          // Atualizar motivo existente apenas se o texto mudou
+          const existingMotivo = existing[0]
+          const motivoAtual = existingMotivo.motivo || ''
+          
+          if (motivoAtual !== motivoFinal) {
+            await executeQuery(
+              `UPDATE motivos_de_perda 
+               SET motivo = ?,
+                   updated_at = NOW()
+               WHERE id = ?`,
+              [motivoFinal, motivoId]
+            )
+            atualizados++
+            registrosAtualizados.push({
+              id: motivoId,
+              motivo: motivoFinal,
+              motivoAnterior: motivoAtual
+            })
+          }
         } else {
           // Inserir novo motivo
           await executeQuery(
             `INSERT INTO motivos_de_perda (id, motivo, created_at, updated_at)
              VALUES (?, ?, NOW(), NOW())`,
-            [motivo.id, motivoFinal]
+            [motivoId, motivoFinal]
           )
           novos++
-          console.log(`✓ Motivo ${motivo.id} inserido: "${motivoFinal}"`)
+          registrosInseridos.push({
+            id: motivoId,
+            motivo: motivoFinal
+          })
         }
       } catch (error) {
-        console.error(`❌ Erro ao sincronizar motivo ${motivo.id}:`, error)
+        const motivoId = motivo?.id || motivo?.motivo_id || motivo?.ID || 'DESCONHECIDO'
+        console.error(`❌ Erro ao sincronizar motivo ${motivoId}:`, error instanceof Error ? error.message : 'Erro desconhecido')
         erros++
       }
+    }
+
+    // Mostrar registros inseridos
+    if (registrosInseridos.length > 0) {
+      console.log('')
+      console.log('📝 REGISTROS INSERIDOS:')
+      registrosInseridos.forEach((registro, index) => {
+        console.log(`  ${index + 1}. ID: ${registro.id} | Motivo: "${registro.motivo}"`)
+      })
+    }
+
+    // Mostrar registros atualizados
+    if (registrosAtualizados.length > 0) {
+      console.log('')
+      console.log('🔄 REGISTROS ATUALIZADOS:')
+      registrosAtualizados.forEach((registro, index) => {
+        console.log(`  ${index + 1}. ID: ${registro.id} | "${registro.motivoAnterior}" -> "${registro.motivo}"`)
+      })
     }
 
     const stats = {
@@ -193,7 +261,12 @@ export async function syncMotivosPerda(): Promise<{
       console.error('⚠️ Erro ao registrar histórico (tabela pode não existir):', error)
     }
 
-    console.log('✅ Sincronização de motivos de perda concluída:', stats)
+    console.log('')
+    console.log('✅ Sincronização concluída!')
+    console.log(`   • Novos: ${novos}`)
+    console.log(`   • Atualizados: ${atualizados}`)
+    console.log(`   • Erros: ${erros}`)
+    console.log(`   • Total processado: ${motivos.length}`)
 
     return {
       success: true,
