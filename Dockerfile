@@ -109,7 +109,7 @@ RUN find . -name "*.test.*" -o -name "*.spec.*" | xargs rm -rf 2>/dev/null || tr
     rm -rf .next/cache
 
 # -----------------------------------------------------------------------------
-# Stage 5: Runner - Imagem final ultra-compacta
+# Stage 5: Runner - Imagem final para produção (DEFAULT)
 # -----------------------------------------------------------------------------
 FROM base AS runner
 
@@ -151,21 +151,3 @@ EXPOSE 3000
 # Comando para produção usando npm start
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["npm", "start"]
-
-# -----------------------------------------------------------------------------
-# Stage 5: Development (opcional - para dev com Docker)
-# -----------------------------------------------------------------------------
-FROM base AS development
-
-ENV NODE_ENV=development
-
-WORKDIR /app
-
-COPY package.json package-lock.json* ./
-RUN npm install
-
-COPY . .
-
-EXPOSE 3000
-
-CMD ["npm", "run", "dev"]
