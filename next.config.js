@@ -6,8 +6,8 @@ dotenv.config();
 const nextConfig = {
   reactStrictMode: true,
   
-  // Habilitar output standalone para Docker (reduz tamanho)
-  output: 'standalone',
+  // Habilitar output standalone para produção (Docker/Easypanel)
+  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
   
   // Otimizações de build
   swcMinify: true, // Usar SWC para minificação (mais rápido que Terser)
@@ -53,9 +53,12 @@ const nextConfig = {
     pagesBufferLength: 5,
   },
   
-  // Evitar geração estática de rotas API específicas
-  async generateBuildId() {
-    return 'build-' + Date.now()
+  // Gerar BUILD_ID estável
+  generateBuildId() {
+    if (process.env.NODE_ENV !== 'production') {
+      return String('dev-' + Date.now())
+    }
+    return String('prod-' + Date.now())
   },
   
   // Otimizar webpack

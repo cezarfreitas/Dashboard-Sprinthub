@@ -3,15 +3,25 @@
   "description": "Dashboard Inteligente - Sistema de Gestão de Vendas",
   "version": "1.0.0",
   "type": "application",
-  "dockerfile": "Dockerfile",
+  "build": {
+    "type": "dockerfile",
+    "dockerfile": "Dockerfile"
+  },
+  "deploy": {
+    "type": "dockerfile",
+    "dockerfile": "Dockerfile"
+  },
   "port": 3000,
+  "buildCommand": "npm run build",
+  "startCommand": "npm start",
   "environment": {
     "NODE_ENV": "production",
     "PORT": "3000",
-    "HOSTNAME": "0.0.0.0"
+    "HOSTNAME": "0.0.0.0",
+    "NEXT_TELEMETRY_DISABLED": "1"
   },
   "healthCheck": {
-    "path": "/",
+    "path": "/api/health",
     "port": 3000,
     "interval": 30,
     "timeout": 10,
