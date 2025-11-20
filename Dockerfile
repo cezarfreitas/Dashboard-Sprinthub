@@ -37,6 +37,9 @@ WORKDIR /app
 # -----------------------------------------------------------------------------
 FROM base AS deps
 
+# Forçar instalação de todas as dependências (incluindo dev)
+ENV NODE_ENV=development
+
 # Copiar apenas arquivos de dependências (cache layer)
 COPY package.json package-lock.json* ./
 
@@ -44,9 +47,9 @@ COPY package.json package-lock.json* ./
 # Instalar TODAS as dependências (incluindo devDependencies para o build)
 RUN --mount=type=cache,target=/root/.npm \
     if [ -f package-lock.json ]; then \
-      npm ci --prefer-offline --no-audit --loglevel=error; \
+      npm ci --include=dev --prefer-offline --no-audit --loglevel=error; \
     else \
-      npm install --no-audit --loglevel=error; \
+      npm install --include=dev --no-audit --loglevel=error; \
     fi
 
 # -----------------------------------------------------------------------------
