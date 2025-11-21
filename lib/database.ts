@@ -22,10 +22,14 @@ const dbConfig = {
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 20, // Aumentado para suportar mais requisições simultâneas
+  maxIdle: 10, // Máximo de conexões ociosas no pool
+  idleTimeout: 60000, // 60 segundos - tempo máximo que uma conexão pode ficar ociosa
   queueLimit: 0,
-  // Removidas configurações inválidas para MySQL2
-  // acquireTimeout, timeout, reconnect não são suportadas
+  enableKeepAlive: true, // Mantém conexões ativas
+  keepAliveInitialDelay: 0,
+  connectTimeout: 10000, // 10 segundos para estabelecer conexão
+  timezone: '+00:00' // UTC para evitar problemas de timezone
 }
 
 // Pool de conexões
@@ -51,7 +55,6 @@ export async function executeQuery<T = any>(
     const [rows] = await connection.query(query, params)
     return rows as T[]
   } catch (error) {
-    console.error('Erro ao executar query:', error)
     throw error
   }
 }
@@ -77,11 +80,22 @@ export async function closeConnectionPool(): Promise<void> {
 export async function testConnection(): Promise<boolean> {
   try {
     const connection = getConnectionPool()
-    await connection.execute('SELECT 1')
-    console.log('✅ Conexão com o banco de dados estabelecida!')
+    await connection.query('SELECT 1')
     return true
   } catch (error) {
-    console.error('❌ Erro ao conectar com o banco de dados:', error)
     return false
+  }
+}
+
+// Função para obter estatísticas do pool
+export function getPoolStats() {
+  const poolInstance = getConnectionPool()
+  return {
+    // @ts-ignore - propriedades internas do pool
+    totalConnections: poolInstance.pool?._allConnections?.length || 0,
+    // @ts-ignore
+    freeConnections: poolInstance.pool?._freeConnections?.length || 0,
+    // @ts-ignore
+    queuedRequests: poolInstance.pool?._connectionQueue?.length || 0
   }
 }
