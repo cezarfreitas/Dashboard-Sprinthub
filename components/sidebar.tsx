@@ -20,13 +20,10 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Sun,
-  Moon,
   CircleDot,
   LayoutDashboard
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
-import { useTheme } from "@/hooks/use-theme"
 import {
   Tooltip,
   TooltipContent,
@@ -128,7 +125,6 @@ const menuItems = [
 
 export function Sidebar({ className }: SidebarProps) {
   const { user, logout, loading } = useAuth()
-  const { theme, toggleTheme, isLoading: themeLoading } = useTheme()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [openSubmenus, setOpenSubmenus] = useState<string[]>([])
   const pathname = usePathname()
@@ -326,49 +322,6 @@ export function Sidebar({ className }: SidebarProps) {
               )}
             </div>
           ))}
-        </div>
-
-        {/* Theme Toggle */}
-        <div className="border-t p-4">
-          {!isCollapsed ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              disabled={themeLoading}
-              className="w-full justify-start text-sidebar-foreground hover:text-primary hover:bg-primary/10"
-            >
-              {theme === 'light' ? (
-                <Moon className="mr-2 h-4 w-4" />
-              ) : (
-                <Sun className="mr-2 h-4 w-4" />
-              )}
-              {theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}
-            </Button>
-          ) : (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleTheme}
-                    disabled={themeLoading}
-                    className="w-8 h-8 p-0 text-sidebar-foreground hover:text-primary hover:bg-primary/10"
-                  >
-                    {theme === 'light' ? (
-                      <Moon className="h-4 w-4" />
-                    ) : (
-                      <Sun className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="ml-2">
-                  <p>{theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
         </div>
 
         {/* User Section */}

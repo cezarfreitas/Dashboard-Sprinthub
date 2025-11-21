@@ -9,13 +9,10 @@ import {
   LogOut, 
   User, 
   Building2,
-  Sun,
-  Moon,
   Menu,
   X,
   Users,
 } from "lucide-react"
-import { useTheme } from "@/hooks/use-theme"
 import {
   Popover,
   PopoverContent,
@@ -60,7 +57,6 @@ export function HeaderGestor({
   unidadeSelecionada,
   setUnidadeSelecionada
 }: HeaderGestorProps) {
-  const { theme, toggleTheme, isLoading: themeLoading } = useTheme()
   const [gestor, setGestor] = useState<GestorData | null>(null)
   const [loading, setLoading] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -209,24 +205,8 @@ export function HeaderGestor({
           </div>
         )}
 
-        {/* Right Side - User Menu & Theme Toggle */}
+        {/* Right Side - User Menu */}
         <div className="flex items-center space-x-2 ml-auto">
-          {/* Theme Toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleTheme}
-            disabled={themeLoading}
-            className="h-8 w-8 p-0 text-white hover:bg-white/10 hover:text-white"
-          >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4" />
-            ) : (
-              <Sun className="h-4 w-4" />
-            )}
-            <span className="sr-only">Toggle theme</span>
-          </Button>
-
           {/* User Menu */}
           {gestor && (
             <Popover>

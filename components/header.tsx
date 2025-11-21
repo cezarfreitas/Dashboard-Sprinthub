@@ -17,15 +17,12 @@ import {
   Trophy,
   ChevronDown,
   ChevronUp,
-  Sun,
-  Moon,
   CircleDot,
   Menu,
   X,
   LayoutDashboard
 } from "lucide-react"
 import { useAuthSistema } from "@/hooks/use-auth-sistema"
-import { useTheme } from "@/hooks/use-theme"
 import {
   Popover,
   PopoverContent,
@@ -139,7 +136,6 @@ const menuItems = [
 
 export function Header({ className, hideOnScroll = false }: HeaderProps) {
   const { user, loading, hasPermission } = useAuthSistema()
-  const { theme, toggleTheme, isLoading: themeLoading } = useTheme()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [lastScrollY, setLastScrollY] = useState(0)
@@ -321,24 +317,8 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
           </nav>
         )}
 
-        {/* Right Side - User Menu & Theme Toggle */}
+        {/* Right Side - User Menu */}
         <div className="flex items-center space-x-2 ml-auto">
-          {/* Theme Toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleTheme}
-            disabled={themeLoading}
-            className="h-8 w-8 p-0 text-white hover:bg-white/10 hover:text-white"
-          >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4" />
-            ) : (
-              <Sun className="h-4 w-4" />
-            )}
-            <span className="sr-only">Toggle theme</span>
-          </Button>
-
           {/* User Menu */}
           {user && (
             <Popover>
