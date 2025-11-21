@@ -158,8 +158,8 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // Query para oportunidades ABERTAS (status='open' e filtradas por createDate no período, se fornecido)
-      let queryAbertas = `
+      // Query para oportunidades ABERTAS (status='open' - SEM filtro de createDate, mostra TODAS as abertas)
+      const queryAbertas = `
         SELECT 
           COUNT(*) as quantidade,
           COALESCE(SUM(o.value), 0) as valor
@@ -170,12 +170,7 @@ export async function GET(request: NextRequest) {
           AND o.lost_date IS NULL
           ${funilFilter}
       `
-      let paramsAbertas: (string | number)[] = [...vendedoresAtivosIds, ...funilIds]
-      if (dateStart && dateEnd) {
-        // Filtrar por createDate (quando foi criada) no período
-        queryAbertas += ` AND o.createDate >= ? AND o.createDate <= ?`
-        paramsAbertas.push(dateStart + ' 00:00:00', dateEnd + ' 23:59:59')
-      }
+      const paramsAbertas: (string | number)[] = [...vendedoresAtivosIds, ...funilIds]
       
       // Query para oportunidades GANHAS (filtradas por gain_date no período, se fornecido)
       let queryGanhas = `
