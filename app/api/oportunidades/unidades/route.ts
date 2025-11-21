@@ -158,13 +158,14 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // Query para oportunidades ABERTAS (filtradas por createDate no período, se fornecido)
+      // Query para oportunidades ABERTAS (status='open' e filtradas por createDate no período, se fornecido)
       let queryAbertas = `
         SELECT 
           COUNT(*) as quantidade,
           COALESCE(SUM(o.value), 0) as valor
         FROM oportunidades o
         WHERE ${baseWhere}
+          AND o.status = 'open'
           AND o.gain_date IS NULL 
           AND o.lost_date IS NULL
           ${funilFilter}

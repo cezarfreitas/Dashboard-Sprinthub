@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
         
         statuses.forEach(status => {
           if (status === 'open' || status === 'aberta') {
-            statusConditions.push('(o.gain_date IS NULL AND o.lost_date IS NULL)')
+            statusConditions.push("(o.status = 'open' AND o.gain_date IS NULL AND o.lost_date IS NULL)")
           } else if (status === 'won' || status === 'ganha' || status === 'gain') {
             statusConditions.push('(o.gain_date IS NOT NULL OR o.status = ?)')
             queryParams.push('gain')
