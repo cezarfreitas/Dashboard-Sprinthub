@@ -2,6 +2,17 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import PainelUnidadeMultiSelect from '../painel/PainelUnidadeMultiSelect'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { X } from 'lucide-react'
 
 interface AnalyticsFiltersProps {
   onFiltersChange: (filtros: {
@@ -14,73 +25,65 @@ interface AnalyticsFiltersProps {
 }
 
 export default function AnalyticsFilters({ onFiltersChange }: AnalyticsFiltersProps) {
-  // Período inicial
-  const periodoInicial = useMemo(() => {
-    const inicio = new Date()
-    const fim = new Date()
-    inicio.setDate(1)
-    inicio.setHours(0, 0, 0, 0)
-    fim.setHours(23, 59, 59, 999)
-    return {
-      inicio: inicio.toISOString().split('T')[0],
-      fim: fim.toISOString().split('T')[0]
-    }
-  }, [])
-
-  const [filtros, setFiltros] = useState(() => ({
-    unidadesSelecionadas: [] as number[],
-    periodoTipo: 'este-mes' as string,
-    periodoInicio: periodoInicial.inicio,
-    periodoFim: periodoInicial.fim,
-    funilSelecionado: 'todos',
-    grupoSelecionado: 'todos'
-  }))
-
-  const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
-  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string }>>([])
-  const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
-
   // Função para calcular datas baseado no tipo de período
   const calcularPeriodo = useMemo(() => {
     return (tipo: string) => {
       const hoje = new Date()
-      const inicio = new Date()
-      const fim = new Date()
+      let inicio: Date
+      let fim: Date
+
+      // Função helper para formatar data no formato YYYY-MM-DD (timezone local)
+      const formatDate = (date: Date): string => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
 
       switch (tipo) {
         case 'este-mes':
-          inicio.setDate(1)
+          inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
           inicio.setHours(0, 0, 0, 0)
+          // Último dia do mês atual
+          fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
           fim.setHours(23, 59, 59, 999)
           break
         case 'mes-passado':
-          inicio.setMonth(hoje.getMonth() - 1, 1)
+          inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
           inicio.setHours(0, 0, 0, 0)
-          fim.setDate(0)
+          // Último dia do mês passado
+          fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0)
           fim.setHours(23, 59, 59, 999)
           break
         case 'esta-semana':
           const diaSemana = hoje.getDay()
-          inicio.setDate(hoje.getDate() - diaSemana)
+          const diff = hoje.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1) // Segunda-feira
+          inicio = new Date(hoje.getFullYear(), hoje.getMonth(), diff)
           inicio.setHours(0, 0, 0, 0)
+          fim = new Date(hoje)
           fim.setHours(23, 59, 59, 999)
           break
         case 'semana-passada':
           const diaSemanaAtual = hoje.getDay()
-          inicio.setDate(hoje.getDate() - diaSemanaAtual - 7)
+          const diffSemana = hoje.getDate() - diaSemanaAtual + (diaSemanaAtual === 0 ? -6 : 1)
+          // Segunda-feira da semana passada
+          inicio = new Date(hoje.getFullYear(), hoje.getMonth(), diffSemana - 7)
           inicio.setHours(0, 0, 0, 0)
-          fim.setDate(hoje.getDate() - diaSemanaAtual - 1)
+          // Domingo da semana passada
+          fim = new Date(inicio)
+          fim.setDate(fim.getDate() + 6)
           fim.setHours(23, 59, 59, 999)
           break
         case 'este-ano':
-          inicio.setMonth(0, 1)
+          inicio = new Date(hoje.getFullYear(), 0, 1)
           inicio.setHours(0, 0, 0, 0)
+          fim = new Date(hoje.getFullYear(), 11, 31)
           fim.setHours(23, 59, 59, 999)
           break
         case 'ano-anterior':
-          inicio.setFullYear(hoje.getFullYear() - 1, 0, 1)
+          inicio = new Date(hoje.getFullYear() - 1, 0, 1)
           inicio.setHours(0, 0, 0, 0)
-          fim.setFullYear(hoje.getFullYear() - 1, 11, 31)
+          fim = new Date(hoje.getFullYear() - 1, 11, 31)
           fim.setHours(23, 59, 59, 999)
           break
         default:
@@ -88,18 +91,42 @@ export default function AnalyticsFilters({ onFiltersChange }: AnalyticsFiltersPr
       }
 
       return {
-        inicio: inicio.toISOString().split('T')[0],
-        fim: fim.toISOString().split('T')[0]
+        inicio: formatDate(inicio),
+        fim: formatDate(fim)
       }
     }
   }, [])
 
+  // Período inicial (este mês)
+  const periodoInicial = useMemo(() => {
+    return calcularPeriodo('este-mes')
+  }, [calcularPeriodo])
+
+  const [filtros, setFiltros] = useState(() => {
+    const periodo = calcularPeriodo('este-mes')
+    return {
+      unidadesSelecionadas: [] as number[],
+      periodoTipo: 'este-mes' as string,
+      periodoInicio: periodo.inicio,
+      periodoFim: periodo.fim,
+      funilSelecionado: 'todos',
+      grupoSelecionado: 'todos'
+    }
+  })
+
+  const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
+  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string }>>([])
+  const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
+
   const filtrosAtivos = useMemo(() => {
-    return filtros.unidadesSelecionadas.length > 0 ||
+    // Considerar filtros ativos apenas se houver menos unidades selecionadas que o total disponível
+    const todasSelecionadas = unidadesList.length > 0 && 
+      filtros.unidadesSelecionadas.length === unidadesList.length
+    return !todasSelecionadas ||
            filtros.periodoTipo !== 'este-mes' ||
            filtros.funilSelecionado !== 'todos' ||
            filtros.grupoSelecionado !== 'todos'
-  }, [filtros])
+  }, [filtros, unidadesList.length])
 
   const fetchFunis = useCallback(async () => {
     try {
@@ -144,6 +171,17 @@ export default function AnalyticsFilters({ onFiltersChange }: AnalyticsFiltersPr
     fetchUnidadesList()
   }, [fetchFunis, fetchGrupos, fetchUnidadesList])
 
+  // Selecionar todas as unidades por padrão quando forem carregadas
+  useEffect(() => {
+    if (unidadesList.length > 0 && filtros.unidadesSelecionadas.length === 0) {
+      const todosIds = unidadesList.map(u => u.id)
+      setFiltros(prev => ({
+        ...prev,
+        unidadesSelecionadas: todosIds
+      }))
+    }
+  }, [unidadesList, filtros.unidadesSelecionadas.length])
+
   // Atualizar período quando o tipo mudar
   useEffect(() => {
     if (filtros.periodoTipo !== 'personalizado') {
@@ -158,120 +196,159 @@ export default function AnalyticsFilters({ onFiltersChange }: AnalyticsFiltersPr
     }
   }, [filtros.periodoTipo, calcularPeriodo])
 
-  // Notificar mudanças nos filtros
+  // Notificar mudanças nos filtros (sempre que filtros mudarem)
   useEffect(() => {
-    onFiltersChange({
-      unidadesSelecionadas: filtros.unidadesSelecionadas,
-      periodoInicio: filtros.periodoInicio,
-      periodoFim: filtros.periodoFim,
-      funilSelecionado: filtros.funilSelecionado,
-      grupoSelecionado: filtros.grupoSelecionado
-    })
-  }, [filtros, onFiltersChange])
+    // Só notificar se houver datas válidas
+    if (filtros.periodoInicio && filtros.periodoFim) {
+      onFiltersChange({
+        unidadesSelecionadas: filtros.unidadesSelecionadas,
+        periodoInicio: filtros.periodoInicio,
+        periodoFim: filtros.periodoFim,
+        funilSelecionado: filtros.funilSelecionado,
+        grupoSelecionado: filtros.grupoSelecionado
+      })
+    }
+  }, [filtros.unidadesSelecionadas, filtros.periodoInicio, filtros.periodoFim, filtros.funilSelecionado, filtros.grupoSelecionado, onFiltersChange])
 
   return (
-    <div className="flex items-center gap-3 mb-4 bg-gray-900/50 border border-gray-800 rounded-lg p-3">
+    <div className="flex items-center gap-3 flex-wrap bg-gray-50 border border-gray-200 rounded-lg p-3">
       {/* Filtro de Unidade (Multi-select) */}
-      <div className="flex items-center gap-2 flex-1">
-        <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Unidades:</label>
-        <PainelUnidadeMultiSelect
-          unidadesList={unidadesList}
-          selectedIds={filtros.unidadesSelecionadas}
-          onChange={(ids) => setFiltros({ ...filtros, unidadesSelecionadas: ids })}
-        />
+      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+        <Label htmlFor="unidades-filter" className="text-xs font-semibold whitespace-nowrap">
+          Unidades:
+        </Label>
+        <div className="flex-1 min-w-[150px]">
+          <PainelUnidadeMultiSelect
+            unidadesList={unidadesList}
+            selectedIds={filtros.unidadesSelecionadas}
+            onChange={(ids) => setFiltros({ ...filtros, unidadesSelecionadas: ids })}
+          />
+        </div>
       </div>
 
       {/* Filtro de Período */}
-      <div className="flex items-center gap-2 flex-1">
-        <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Período:</label>
-        <select
+      <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+        <Label htmlFor="periodo-filter" className="text-xs font-semibold whitespace-nowrap">
+          Período:
+        </Label>
+        <Select
           value={filtros.periodoTipo}
-          onChange={(e) => setFiltros({ ...filtros, periodoTipo: e.target.value })}
-          className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+          onValueChange={(value) => setFiltros({ ...filtros, periodoTipo: value })}
         >
-          <option value="este-mes">Este Mês</option>
-          <option value="mes-passado">Mês Passado</option>
-          <option value="esta-semana">Esta Semana</option>
-          <option value="semana-passada">Semana Passada</option>
-          <option value="este-ano">Este Ano</option>
-          <option value="ano-anterior">Ano Anterior</option>
-          <option value="personalizado">Personalizado</option>
-        </select>
+          <SelectTrigger id="periodo-filter" className="h-9 text-xs flex-1">
+            <SelectValue placeholder="Selecione o período" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="este-mes">Este Mês</SelectItem>
+            <SelectItem value="mes-passado">Mês Passado</SelectItem>
+            <SelectItem value="esta-semana">Esta Semana</SelectItem>
+            <SelectItem value="semana-passada">Semana Passada</SelectItem>
+            <SelectItem value="este-ano">Este Ano</SelectItem>
+            <SelectItem value="ano-anterior">Ano Anterior</SelectItem>
+            <SelectItem value="personalizado">Personalizado</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Datas Personalizadas (condicional) */}
       {filtros.periodoTipo === 'personalizado' && (
         <>
           <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">De:</label>
-            <input
+            <Label htmlFor="data-inicio" className="text-xs font-semibold whitespace-nowrap">
+              De:
+            </Label>
+            <Input
+              id="data-inicio"
               type="date"
               value={filtros.periodoInicio}
               onChange={(e) => setFiltros({ ...filtros, periodoInicio: e.target.value })}
-              className="px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="h-9 text-xs w-[140px]"
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Até:</label>
-            <input
+            <Label htmlFor="data-fim" className="text-xs font-semibold whitespace-nowrap">
+              Até:
+            </Label>
+            <Input
+              id="data-fim"
               type="date"
               value={filtros.periodoFim}
               onChange={(e) => setFiltros({ ...filtros, periodoFim: e.target.value })}
-              className="px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="h-9 text-xs w-[140px]"
             />
           </div>
         </>
       )}
 
       {/* Filtro de Funil */}
-      <div className="flex items-center gap-2 flex-1">
-        <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Funil:</label>
-        <select
+      <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+        <Label htmlFor="funil-filter" className="text-xs font-semibold whitespace-nowrap">
+          Funil:
+        </Label>
+        <Select
           value={filtros.funilSelecionado}
-          onChange={(e) => setFiltros({ ...filtros, funilSelecionado: e.target.value })}
-          className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+          onValueChange={(value) => setFiltros({ ...filtros, funilSelecionado: value })}
         >
-          <option value="todos">Todos</option>
-          {funis.map(funil => (
-            <option key={funil.id} value={funil.id}>
-              {funil.funil_nome}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="funil-filter" className="h-9 text-xs flex-1">
+            <SelectValue placeholder="Selecione o funil" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            {funis.map(funil => (
+              <SelectItem key={funil.id} value={String(funil.id)}>
+                {funil.funil_nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Filtro de Grupo */}
-      <div className="flex items-center gap-2 flex-1">
-        <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Grupo:</label>
-        <select
+      <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+        <Label htmlFor="grupo-filter" className="text-xs font-semibold whitespace-nowrap">
+          Grupo:
+        </Label>
+        <Select
           value={filtros.grupoSelecionado}
-          onChange={(e) => setFiltros({ ...filtros, grupoSelecionado: e.target.value })}
-          className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+          onValueChange={(value) => setFiltros({ ...filtros, grupoSelecionado: value })}
         >
-          <option value="todos">Todos</option>
-          {grupos.map(grupo => (
-            <option key={grupo.id} value={grupo.id}>
-              {grupo.nome}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="grupo-filter" className="h-9 text-xs flex-1">
+            <SelectValue placeholder="Selecione o grupo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            {grupos.map(grupo => (
+              <SelectItem key={grupo.id} value={String(grupo.id)}>
+                {grupo.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Botão Limpar Filtros */}
       {filtrosAtivos && (
-        <button
-          onClick={() => setFiltros({
-            unidadesSelecionadas: [],
-            periodoTipo: 'este-mes',
-            periodoInicio: periodoInicial.inicio,
-            periodoFim: periodoInicial.fim,
-            funilSelecionado: 'todos',
-            grupoSelecionado: 'todos'
-          })}
-          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap"
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          onClick={() => {
+            const periodo = calcularPeriodo('este-mes')
+            const todosIdsUnidades = unidadesList.map(u => u.id)
+            setFiltros({
+              unidadesSelecionadas: todosIdsUnidades,
+              periodoTipo: 'este-mes',
+              periodoInicio: periodo.inicio,
+              periodoFim: periodo.fim,
+              funilSelecionado: 'todos',
+              grupoSelecionado: 'todos'
+            })
+          }}
+          className="h-9 text-xs whitespace-nowrap"
         >
+          <X className="h-3 w-3 mr-1" />
           Limpar
-        </button>
+        </Button>
       )}
     </div>
   )

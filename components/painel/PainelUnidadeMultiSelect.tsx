@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface PainelUnidadeMultiSelectProps {
   unidadesList: Array<{ id: number; nome: string }>
@@ -15,24 +19,6 @@ export default function PainelUnidadeMultiSelect({
   onChange
 }: PainelUnidadeMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Fechar dropdown ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen])
 
   const toggleUnidade = (id: number) => {
     if (selectedIds.includes(id)) {
@@ -65,57 +51,69 @@ export default function PainelUnidadeMultiSelect({
   }
 
   return (
-    <div className="relative flex-1" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-      >
-        <span className="truncate">{getDisplayText()}</span>
-        <ChevronDown className={`w-3 h-3 ml-1 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg max-h-64 overflow-y-auto">
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={isOpen}
+          className="w-full h-9 text-xs justify-between font-normal"
+        >
+          <span className="truncate">{getDisplayText()}</span>
+          <ChevronDown className={`ml-2 h-3 w-3 shrink-0 opacity-50 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0" align="start">
+        <div className="flex flex-col">
           {/* Opção "Todas" */}
-          <label className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700">
-            <input
-              type="checkbox"
-              checked={selectedIds.length === unidadesList.length}
-              onChange={toggleAll}
-              className="w-3 h-3 rounded border-gray-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+          <div className="flex items-center px-3 py-2 border-b hover:bg-gray-50 cursor-pointer">
+            <Checkbox
+              id="select-all"
+              checked={selectedIds.length === unidadesList.length && unidadesList.length > 0}
+              onCheckedChange={toggleAll}
+              className="mr-2"
             />
-            <span className="ml-2 text-xs text-white font-semibold">
-              Todas as unidades
-            </span>
-            {selectedIds.length === unidadesList.length && (
-              <Check className="w-3 h-3 ml-auto text-blue-400" />
-            )}
-          </label>
-
-          {/* Lista de unidades */}
-          {unidadesList.map(unidade => (
             <label
-              key={unidade.id}
-              className="flex items-center px-3 py-2 hover:bg-gray-700 cursor-pointer"
+              htmlFor="select-all"
+              className="flex-1 text-xs font-semibold text-gray-900 cursor-pointer py-1"
             >
-              <input
-                type="checkbox"
-                checked={selectedIds.includes(unidade.id)}
-                onChange={() => toggleUnidade(unidade.id)}
-                className="w-3 h-3 rounded border-gray-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
-              />
-              <span className="ml-2 text-xs text-white">
-                {unidade.nome}
-              </span>
-              {selectedIds.includes(unidade.id) && (
-                <Check className="w-3 h-3 ml-auto text-blue-400" />
-              )}
+              Todas as unidades
             </label>
-          ))}
+          </div>
+
+          {/* Lista de unidades com scroll */}
+          <ScrollArea className="h-[300px]">
+            <div className="p-1">
+              {unidadesList.map(unidade => {
+                const isChecked = selectedIds.includes(unidade.id)
+                return (
+                  <div
+                    key={unidade.id}
+                    className="flex items-center px-3 py-2 rounded-sm hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleUnidade(unidade.id)}
+                  >
+                    <Checkbox
+                      id={`unidade-${unidade.id}`}
+                      checked={isChecked}
+                      onCheckedChange={() => toggleUnidade(unidade.id)}
+                      className="mr-2"
+                    />
+                    <label
+                      htmlFor={`unidade-${unidade.id}`}
+                      className="flex-1 text-xs text-gray-900 cursor-pointer py-1 truncate"
+                      title={unidade.nome}
+                    >
+                      {unidade.nome}
+                    </label>
+                  </div>
+                )
+              })}
+            </div>
+          </ScrollArea>
         </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 

@@ -14,16 +14,19 @@ function parseJSON(value: any): any[] {
   }
 }
 
-// Função para construir filtro de unidade
-async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<number[]> {
-  if (!unidadeIdsParam) return []
+// Função para construir filtro de unidade e retornar mapeamento de vendedores -> unidades
+async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<{
+  vendedoresIds: number[]
+  vendedorUnidadeMap: Map<number, { unidade_id: number; unidade_nome: string }>
+}> {
+  if (!unidadeIdsParam) return { vendedoresIds: [], vendedorUnidadeMap: new Map() }
 
   const unidadeIds = unidadeIdsParam
     .split(',')
     .map(id => parseInt(id.trim()))
     .filter(id => !isNaN(id) && id > 0)
 
-  if (unidadeIds.length === 0) return []
+  if (unidadeIds.length === 0) return { vendedoresIds: [], vendedorUnidadeMap: new Map() }
 
   const placeholders = unidadeIds.map(() => '?').join(',')
   const unidades = await executeQuery(
@@ -32,7 +35,7 @@ async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<numbe
   ) as any[]
 
   if (!unidades || unidades.length === 0) {
-    return []
+    return { vendedoresIds: [], vendedorUnidadeMap: new Map() }
   }
 
   // Buscar todos os vendedores ativos
@@ -41,8 +44,10 @@ async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<numbe
   ) as any[]
   const vendedoresAtivosSet = new Set(todosVendedoresAtivos.map(v => v.id))
 
-  // Extrair IDs de vendedores das unidades e filtrar apenas os ativos
+  // Extrair IDs de vendedores das unidades e mapear para suas unidades
   const todosVendedoresIds = new Set<number>()
+  const vendedorUnidadeMap = new Map<number, { unidade_id: number; unidade_nome: string }>()
+  
   unidades.forEach(unidade => {
     if (!unidade.users) {
       return
@@ -70,12 +75,20 @@ async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<numbe
         const userId = Number(id)
         if (vendedoresAtivosSet.has(userId)) {
           todosVendedoresIds.add(userId)
+          // Mapear vendedor para sua unidade (do filtro)
+          vendedorUnidadeMap.set(userId, {
+            unidade_id: unidade.id,
+            unidade_nome: unidade.nome
+          })
         }
       }
     })
   })
 
-  return Array.from(todosVendedoresIds)
+  return { 
+    vendedoresIds: Array.from(todosVendedoresIds),
+    vendedorUnidadeMap
+  }
 }
 
 // GET - Buscar resumo de oportunidades perdidas agrupadas por motivo de perda
@@ -181,6 +194,7 @@ export async function GET(request: NextRequest) {
 
     // Filtro de vendedor/unidade
     let userIds: number[] = []
+    let vendedorUnidadeMap = new Map<number, { unidade_id: number; unidade_nome: string }>()
     
     if (userIdParam) {
       const userIdsFromParam = userIdParam
@@ -191,8 +205,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (unidadeIdParam) {
-      const unidadeUserIds = await buildUnidadeFilter(unidadeIdParam)
-      userIds.push(...unidadeUserIds)
+      const { vendedoresIds, vendedorUnidadeMap: map } = await buildUnidadeFilter(unidadeIdParam)
+      userIds.push(...vendedoresIds)
+      vendedorUnidadeMap = map
     }
 
     // Remover duplicatas
@@ -253,8 +268,6 @@ export async function GET(request: NextRequest) {
           CAST(o.user AS UNSIGNED) as vendedor_id,
           v.name as vendedor_nome,
           v.lastName as vendedor_sobrenome,
-          u.id as unidade_id,
-          COALESCE(u.nome, u.name) as unidade_nome,
           COALESCE(mp.motivo, o.loss_reason, 'Sem motivo informado') as motivo_perda,
           COALESCE(mp.id, NULL) as motivo_id,
           COUNT(*) as total_oportunidades,
@@ -268,7 +281,6 @@ export async function GET(request: NextRequest) {
           ), 0) as lost_time_medio
         FROM oportunidades o
         LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
-        LEFT JOIN unidades u ON v.unidade_id = u.id
         LEFT JOIN motivos_de_perda mp ON CAST(
           CASE 
             WHEN o.loss_reason LIKE 'Motivo %' THEN TRIM(REPLACE(o.loss_reason, 'Motivo ', ''))
@@ -277,16 +289,14 @@ export async function GET(request: NextRequest) {
           END AS UNSIGNED
         ) = mp.id
         WHERE ${whereClauses.join(' AND ')}
-        GROUP BY vendedor_id, vendedor_nome, vendedor_sobrenome, unidade_id, unidade_nome, mp.id, mp.motivo, o.loss_reason
-        ORDER BY unidade_nome, vendedor_nome, vendedor_sobrenome, total_oportunidades DESC
+        GROUP BY vendedor_id, vendedor_nome, vendedor_sobrenome, mp.id, mp.motivo, o.loss_reason
+        ORDER BY vendedor_nome, vendedor_sobrenome, total_oportunidades DESC
       `
 
       const resultadosVendedores = await executeQuery(queryVendedores, queryParams) as Array<{
         vendedor_id: number
         vendedor_nome: string
         vendedor_sobrenome: string
-        unidade_id: number
-        unidade_nome: string
         motivo_perda: string
         motivo_id: number | null
         total_oportunidades: number
@@ -294,7 +304,7 @@ export async function GET(request: NextRequest) {
         lost_time_medio: number
       }>
 
-      // Agrupar por unidade e vendedor
+      // Agrupar por unidade e vendedor usando o mapeamento do filtro
       const resumoPorUnidade: Record<number, {
         unidade_id: number
         unidade_nome: string
@@ -315,13 +325,17 @@ export async function GET(request: NextRequest) {
       }> = {}
 
       resultadosVendedores.forEach(item => {
-        const unidadeId = item.unidade_id || 0
         const vendedorId = item.vendedor_id
+        
+        // Usar o mapeamento do filtro para determinar a unidade
+        const unidadeInfo = vendedorUnidadeMap.get(vendedorId)
+        const unidadeId = unidadeInfo?.unidade_id || 0
+        const unidadeNome = unidadeInfo?.unidade_nome || 'Sem unidade'
 
         if (!resumoPorUnidade[unidadeId]) {
           resumoPorUnidade[unidadeId] = {
             unidade_id: unidadeId,
-            unidade_nome: item.unidade_nome || 'Sem unidade',
+            unidade_nome: unidadeNome,
             vendedores: {}
           }
         }
@@ -350,18 +364,20 @@ export async function GET(request: NextRequest) {
         })
       })
 
-      // Converter para array
-      resumoPorVendedor = Object.values(resumoPorUnidade).map(unidade => ({
-        unidade_id: unidade.unidade_id,
-        unidade_nome: unidade.unidade_nome,
-        vendedores: Object.values(unidade.vendedores).map(vendedor => ({
-          vendedor_id: vendedor.vendedor_id,
-          vendedor_nome: `${vendedor.vendedor_nome} ${vendedor.vendedor_sobrenome}`.trim(),
-          total_oportunidades: vendedor.total_oportunidades,
-          valor_total: vendedor.valor_total,
-          motivos: vendedor.motivos
+      // Converter para array e ordenar
+      resumoPorVendedor = Object.values(resumoPorUnidade)
+        .sort((a, b) => a.unidade_nome.localeCompare(b.unidade_nome))
+        .map(unidade => ({
+          unidade_id: unidade.unidade_id,
+          unidade_nome: unidade.unidade_nome,
+          vendedores: Object.values(unidade.vendedores).map(vendedor => ({
+            vendedor_id: vendedor.vendedor_id,
+            vendedor_nome: `${vendedor.vendedor_nome} ${vendedor.vendedor_sobrenome}`.trim(),
+            total_oportunidades: vendedor.total_oportunidades,
+            valor_total: vendedor.valor_total,
+            motivos: vendedor.motivos
+          }))
         }))
-      }))
     }
 
     // Buscar informações das unidades (se filtrado por unidade)
@@ -438,8 +454,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao buscar oportunidades perdidas:', error)
-    
     return NextResponse.json(
       { 
         success: false, 

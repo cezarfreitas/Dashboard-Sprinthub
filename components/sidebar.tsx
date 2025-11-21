@@ -54,10 +54,6 @@ const menuItems = [
     hasSubmenu: true,
     submenu: [
       {
-        title: "Análise Unidade",
-        href: "/analytics/unidade"
-      },
-      {
         title: "Motivos de Perda",
         href: "/analytics/motivos-perda"
       }

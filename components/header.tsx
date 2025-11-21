@@ -47,14 +47,6 @@ const menuItems = [
     hasSubmenu: true,
     submenu: [
       {
-        title: "Análise Unidade",
-        href: "/analytics/unidade"
-      },
-      {
-        title: "Análise Diária",
-        href: "/analytics/diaria"
-      },
-      {
         title: "Motivos de Perda",
         href: "/analytics/motivos-perda"
       }
@@ -295,7 +287,7 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                     </PopoverContent>
                   </Popover>
                 ) : (
-                  <Link href={item.href} target={item.openInNewWindow ? "_blank" : undefined} rel={item.openInNewWindow ? "noopener noreferrer" : undefined}>
+                  <Link href={item.href} target={(item as any).openInNewWindow ? "_blank" : undefined} rel={(item as any).openInNewWindow ? "noopener noreferrer" : undefined}>
                     <Button
                       variant="ghost"
                       className={cn(
@@ -415,8 +407,8 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                   ) : (
                     <Link
                       href={item.href}
-                      target={item.openInNewWindow ? "_blank" : undefined}
-                      rel={item.openInNewWindow ? "noopener noreferrer" : undefined}
+                      target={(item as any).openInNewWindow ? "_blank" : undefined}
+                      rel={(item as any).openInNewWindow ? "noopener noreferrer" : undefined}
                       className={cn(
                         "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white",
                         isActiveRoute(item.href) && "bg-white/10 text-white"
