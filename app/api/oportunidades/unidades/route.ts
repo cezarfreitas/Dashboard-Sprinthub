@@ -158,8 +158,8 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // Query para oportunidades ABERTAS (todas as abertas, independente de quando foram criadas)
-      const queryAbertas = `
+      // Query para oportunidades ABERTAS (filtradas por createDate no período, se fornecido)
+      let queryAbertas = `
         SELECT 
           COUNT(*) as quantidade,
           COALESCE(SUM(o.value), 0) as valor
@@ -169,6 +169,12 @@ export async function GET(request: NextRequest) {
           AND o.lost_date IS NULL
           ${funilFilter}
       `
+      let paramsAbertas: (string | number)[] = [...vendedoresAtivosIds, ...funilIds]
+      if (dateStart && dateEnd) {
+        // Filtrar por createDate (quando foi criada) no período
+        queryAbertas += ` AND o.createDate >= ? AND o.createDate <= ?`
+        paramsAbertas.push(dateStart + ' 00:00:00', dateEnd + ' 23:59:59')
+      }
       
       // Query para oportunidades GANHAS (filtradas por gain_date no período, se fornecido)
       let queryGanhas = `
@@ -203,9 +209,6 @@ export async function GET(request: NextRequest) {
         queryPerdidas += ` AND o.lost_date >= ? AND o.lost_date <= ?`
         paramsPerdidas.push(dateStart + ' 00:00:00', dateEnd + ' 23:59:59')
       }
-      
-      // Preparar parâmetros para query de abertas
-      const paramsAbertas = [...vendedoresAtivosIds, ...funilIds]
       
       // Executar queries em paralelo
       const [resultAbertas, resultGanhas, resultPerdidas] = await Promise.all([
