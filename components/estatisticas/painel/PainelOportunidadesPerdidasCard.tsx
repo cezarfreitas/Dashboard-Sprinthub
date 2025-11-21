@@ -11,12 +11,14 @@ interface PainelOportunidadesPerdidasCardProps {
   unidadesIds?: number[]
   periodoInicio?: string
   periodoFim?: string
+  funilId?: string
 }
 
 function PainelOportunidadesPerdidasCard({ 
   unidadesIds = [],
   periodoInicio,
-  periodoFim
+  periodoFim,
+  funilId
 }: PainelOportunidadesPerdidasCardProps) {
   const { user, loading: authLoading } = useAuthSistema()
   const [loading, setLoading] = useState(true)
@@ -42,6 +44,10 @@ function PainelOportunidadesPerdidasCard({
     return `${periodoInicio || ''}-${periodoFim || ''}`
   }, [periodoInicio, periodoFim])
 
+  const funilKey = useMemo(() => {
+    return funilId || ''
+  }, [funilId])
+
   const fetchPerdidasData = useCallback(async () => {
     if (authLoading || !user) {
       setPerdidasTotal(0)
@@ -60,6 +66,10 @@ function PainelOportunidadesPerdidasCard({
       
       if (unidadesIds.length > 0) {
         params.append('unidade_id', unidadesIds.join(','))
+      }
+      
+      if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+        params.append('funil_id', funilId)
       }
       
       if (periodoInicio && periodoFim) {
@@ -144,7 +154,7 @@ function PainelOportunidadesPerdidasCard({
     } finally {
       setLoading(false)
     }
-  }, [authLoading, user, unidadesIdsKey, periodoKey, periodoInicio, periodoFim])
+  }, [authLoading, user, unidadesIdsKey, periodoKey, funilKey, periodoInicio, periodoFim])
 
   useEffect(() => {
     fetchPerdidasData()

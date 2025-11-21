@@ -332,21 +332,25 @@ export default function PainelPage() {
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
+              funilId={filtros.funilSelecionado}
             />
             <PainelOportunidadesGanhasCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
+              funilId={filtros.funilSelecionado}
             />
             <PainelTaxaConversaoCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
+              funilId={filtros.funilSelecionado}
             />
             <PainelTicketMedioCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
+              funilId={filtros.funilSelecionado}
             />
           </div>
 

@@ -11,12 +11,14 @@ interface PainelTaxaConversaoCardProps {
   unidadesIds?: number[]
   periodoInicio?: string
   periodoFim?: string
+  funilId?: string
 }
 
 function PainelTaxaConversaoCard({ 
   unidadesIds = [],
   periodoInicio,
-  periodoFim
+  periodoFim,
+  funilId
 }: PainelTaxaConversaoCardProps) {
   const { user, loading: authLoading } = useAuthSistema()
   const [loading, setLoading] = useState(true)
@@ -31,6 +33,10 @@ function PainelTaxaConversaoCard({
   const periodoKey = useMemo(() => {
     return `${periodoInicio || ''}-${periodoFim || ''}`
   }, [periodoInicio, periodoFim])
+
+  const funilKey = useMemo(() => {
+    return funilId || ''
+  }, [funilId])
 
   const fetchTaxaConversaoData = useCallback(async () => {
     if (authLoading || !user) {
@@ -49,6 +55,10 @@ function PainelTaxaConversaoCard({
       
       if (unidadesIds.length > 0) {
         params.append('unidade_id', unidadesIds.join(','))
+      }
+      
+      if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+        params.append('funil_id', funilId)
       }
       
       // Se houver período, usar all=1 para obter taxa de conversão baseada no createDate
@@ -87,6 +97,10 @@ function PainelTaxaConversaoCard({
           const paramsCriadas = new URLSearchParams()
           if (unidadesIds.length > 0) {
             paramsCriadas.append('unidade_id', unidadesIds.join(','))
+          }
+          
+          if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+            paramsCriadas.append('funil_id', funilId)
           }
           
           const [criadasRes, ganhasData] = await Promise.all([
@@ -133,7 +147,7 @@ function PainelTaxaConversaoCard({
     } finally {
       setLoading(false)
     }
-  }, [authLoading, user, unidadesIdsKey, periodoKey, periodoInicio, periodoFim])
+  }, [authLoading, user, unidadesIdsKey, periodoKey, funilKey, periodoInicio, periodoFim])
 
   useEffect(() => {
     fetchTaxaConversaoData()

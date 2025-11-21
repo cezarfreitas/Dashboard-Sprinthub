@@ -11,12 +11,14 @@ interface PainelOportunidadesGanhasCardProps {
   unidadesIds?: number[]
   periodoInicio?: string
   periodoFim?: string
+  funilId?: string
 }
 
 function PainelOportunidadesGanhasCard({ 
   unidadesIds = [],
   periodoInicio,
-  periodoFim
+  periodoFim,
+  funilId
 }: PainelOportunidadesGanhasCardProps) {
   const { user, loading: authLoading } = useAuthSistema()
   const [loading, setLoading] = useState(true)
@@ -42,6 +44,10 @@ function PainelOportunidadesGanhasCard({
     return `${periodoInicio || ''}-${periodoFim || ''}`
   }, [periodoInicio, periodoFim])
 
+  const funilKey = useMemo(() => {
+    return funilId || ''
+  }, [funilId])
+
   const fetchGanhasData = useCallback(async () => {
     if (authLoading || !user) {
       setGanhasTotal(0)
@@ -58,6 +64,10 @@ function PainelOportunidadesGanhasCard({
       
       if (unidadesIds.length > 0) {
         params.append('unidade_id', unidadesIds.join(','))
+      }
+      
+      if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+        params.append('funil_id', funilId)
       }
       
       if (periodoInicio && periodoFim) {
@@ -142,7 +152,7 @@ function PainelOportunidadesGanhasCard({
     } finally {
       setLoading(false)
     }
-  }, [authLoading, user, unidadesIdsKey, periodoKey, periodoInicio, periodoFim])
+  }, [authLoading, user, unidadesIdsKey, periodoKey, funilKey, periodoInicio, periodoFim])
 
   useEffect(() => {
     fetchGanhasData()

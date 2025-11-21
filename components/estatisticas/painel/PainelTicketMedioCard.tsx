@@ -11,12 +11,14 @@ interface PainelTicketMedioCardProps {
   unidadesIds?: number[]
   periodoInicio?: string
   periodoFim?: string
+  funilId?: string
 }
 
 function PainelTicketMedioCard({ 
   unidadesIds = [],
   periodoInicio,
-  periodoFim
+  periodoFim,
+  funilId
 }: PainelTicketMedioCardProps) {
   const { user, loading: authLoading } = useAuthSistema()
   const [loading, setLoading] = useState(true)
@@ -41,6 +43,10 @@ function PainelTicketMedioCard({
     return `${periodoInicio || ''}-${periodoFim || ''}`
   }, [periodoInicio, periodoFim])
 
+  const funilKey = useMemo(() => {
+    return funilId || ''
+  }, [funilId])
+
   const fetchTicketMedioData = useCallback(async () => {
     if (authLoading || !user) {
       setTicketMedio(0)
@@ -58,6 +64,10 @@ function PainelTicketMedioCard({
       
       if (unidadesIds.length > 0) {
         params.append('unidade_id', unidadesIds.join(','))
+      }
+      
+      if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+        params.append('funil_id', funilId)
       }
       
       if (periodoInicio && periodoFim) {
@@ -119,7 +129,7 @@ function PainelTicketMedioCard({
     } finally {
       setLoading(false)
     }
-  }, [authLoading, user, unidadesIdsKey, periodoKey, periodoInicio, periodoFim])
+  }, [authLoading, user, unidadesIdsKey, periodoKey, funilKey, periodoInicio, periodoFim])
 
   useEffect(() => {
     fetchTicketMedioData()
