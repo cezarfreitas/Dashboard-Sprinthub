@@ -19,8 +19,7 @@ import {
   ChevronUp,
   CircleDot,
   Menu,
-  X,
-  LayoutDashboard
+  X
 } from "lucide-react"
 import { useAuthSistema } from "@/hooks/use-auth-sistema"
 import {
@@ -40,12 +39,6 @@ const menuItems = [
     title: "Dashboard",
     icon: Activity,
     href: "/"
-  },
-  {
-    title: "Painel",
-    icon: LayoutDashboard,
-    href: "/painel",
-    openInNewWindow: true
   },
   {
     title: "Analytics",
