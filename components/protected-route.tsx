@@ -58,7 +58,7 @@ export function ProtectedRoute({ children, requiredPermission }: ProtectedRouteP
             Você não tem permissão para acessar esta página.
           </p>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/painel')}
             className="text-primary hover:underline"
           >
             Voltar para o Dashboard

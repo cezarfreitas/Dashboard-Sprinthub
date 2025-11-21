@@ -257,7 +257,7 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
       <div className="container flex h-14 items-center">
         {/* Logo */}
         <div className="mr-4 flex">
-          <Link href="/" className="flex items-center space-x-2 text-white hover:text-gray-300">
+          <Link href="/painel" className="flex items-center space-x-2 text-white hover:text-gray-300">
             <Building2 className="h-6 w-6" />
             <span className="font-bold">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
           </Link>
