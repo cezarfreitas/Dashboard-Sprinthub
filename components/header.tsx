@@ -51,6 +51,10 @@ const menuItems = [
         href: "/analytics/unidade"
       },
       {
+        title: "Análise Diária",
+        href: "/analytics/diaria"
+      },
+      {
         title: "Motivos de Perda",
         href: "/analytics/motivos-perda"
       }
