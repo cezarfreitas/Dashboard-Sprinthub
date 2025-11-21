@@ -13,6 +13,7 @@ import PainelOportunidadesPerdidasCard from "@/components/estatisticas/painel/Pa
 import PainelOportunidadesGanhasCard from "@/components/estatisticas/painel/PainelOportunidadesGanhasCard"
 import PainelTaxaConversaoCard from "@/components/estatisticas/painel/PainelTaxaConversaoCard"
 import PainelTicketMedioCard from "@/components/estatisticas/painel/PainelTicketMedioCard"
+import PainelBarraProgressoMeta from "@/components/painel/PainelBarraProgressoMeta"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Header } from "@/components/header"
 
@@ -307,6 +308,12 @@ export default function PainelPage() {
             grupos={grupos}
             periodoInicial={periodoInicial}
             filtrosAtivos={filtrosAtivos}
+          />
+          
+          <PainelBarraProgressoMeta
+            unidadesIds={filtros.unidadesSelecionadas}
+            periodoInicio={filtros.periodoInicio}
+            periodoFim={filtros.periodoFim}
           />
           
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
