@@ -7,12 +7,14 @@ import { useAudioPlayer } from "@/hooks/use-audio-player"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
 import { PainelUnidadesGrid } from "@/components/painel/PainelUnidadesGrid"
 import PainelFiltersInline from "@/components/painel/PainelFiltersInline"
+import PainelHojeCard from "@/components/estatisticas/painel/PainelHojeCard"
 import PainelOportunidadesAbertasCard from "@/components/estatisticas/painel/PainelOportunidadesAbertasCard"
 import PainelOportunidadesPerdidasCard from "@/components/estatisticas/painel/PainelOportunidadesPerdidasCard"
 import PainelOportunidadesGanhasCard from "@/components/estatisticas/painel/PainelOportunidadesGanhasCard"
 import PainelTaxaConversaoCard from "@/components/estatisticas/painel/PainelTaxaConversaoCard"
 import PainelTicketMedioCard from "@/components/estatisticas/painel/PainelTicketMedioCard"
 import { ProtectedRoute } from "@/components/protected-route"
+import { Header } from "@/components/header"
 
 export default function PainelPage() {
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -280,20 +282,22 @@ export default function PainelPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-black">
-      {!audioReady && (
-        <div className="fixed top-4 right-4 z-50">
-          <div 
-            className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 cursor-pointer hover:bg-blue-500/30 transition-all"
-            onClick={() => playBellSound()}
-            title="Clique para ativar sons"
-          >
-            <span className="w-2 h-2 rounded-full bg-blue-400" />
-            Clique para ativar sons
+        <Header />
+        
+        {!audioReady && (
+          <div className="fixed top-20 right-4 z-50">
+            <div 
+              className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 cursor-pointer hover:bg-blue-500/30 transition-all"
+              onClick={() => playBellSound()}
+              title="Clique para ativar sons"
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              Clique para ativar sons
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="w-full overflow-y-auto scrollbar-hide">
+        <div className="w-full overflow-y-auto scrollbar-hide">
         <div className="p-6">
           <PainelFiltersInline
             filtros={filtros}
@@ -305,7 +309,12 @@ export default function PainelPage() {
             filtrosAtivos={filtrosAtivos}
           />
           
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+            <PainelHojeCard 
+              unidadesIds={filtros.unidadesSelecionadas}
+              funilId={filtros.funilSelecionado}
+              grupoId={filtros.grupoSelecionado}
+            />
             <PainelOportunidadesAbertasCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}

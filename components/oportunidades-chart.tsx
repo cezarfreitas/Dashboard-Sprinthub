@@ -35,7 +35,10 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const formatCurrency = (value: number): string => {
+  const formatCurrency = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return 'R$ 0'
+    }
     return `R$ ${value.toLocaleString('pt-BR')}`
   }
 
@@ -88,14 +91,14 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
 
   // Calcular valores acumulados e meta acumulada diária
   const getDadosAcumulados = () => {
-    if (!data) return []
+    if (!data || !data.dados || data.dados.length === 0) return []
     
     const diasNoMes = data.dados.length
-    const metaDiaria = data.meta_total > 0 ? data.meta_total / diasNoMes : 0
+    const metaDiaria = (data.meta_total || 0) > 0 ? (data.meta_total || 0) / diasNoMes : 0
     
     let acumulado = 0
     return data.dados.map((item, index) => {
-      acumulado += item.valor_total
+      acumulado += item.valor_total || 0
       const metaAcumulada = metaDiaria * (index + 1) // Meta acumulada até este dia
       
       return {
@@ -115,24 +118,24 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
           <p className="text-sm font-semibold mb-2">Dia {dadoItem.dia}</p>
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">
-              Valor do dia: <span className="font-bold">{formatCurrency(dadoItem.valor_total)}</span>
+              Valor do dia: <span className="font-bold">{formatCurrency(dadoItem?.valor_total)}</span>
             </p>
             <p className="text-xs text-green-600 font-semibold">
-              Receita Acumulada: <span className="font-bold">{formatCurrency(dadoItem.valor_acumulado)}</span>
+              Receita Acumulada: <span className="font-bold">{formatCurrency(dadoItem?.valor_acumulado)}</span>
             </p>
             {data && data.meta_total > 0 && (
               <>
                 <p className="text-xs text-blue-600">
-                  Meta até o dia: <span className="font-bold">{formatCurrency(dadoItem.meta_acumulada)}</span>
+                  Meta até o dia: <span className="font-bold">{formatCurrency(dadoItem?.meta_acumulada)}</span>
                 </p>
                 <p className={`text-xs font-semibold ${
-                  dadoItem.valor_acumulado >= dadoItem.meta_acumulada 
+                  (dadoItem?.valor_acumulado || 0) >= (dadoItem?.meta_acumulada || 0)
                     ? 'text-green-600' 
                     : 'text-orange-600'
                 }`}>
-                  {dadoItem.valor_acumulado >= dadoItem.meta_acumulada 
-                    ? `✓ Acima da meta em ${formatCurrency(dadoItem.valor_acumulado - dadoItem.meta_acumulada)}`
-                    : `Faltam ${formatCurrency(dadoItem.meta_acumulada - dadoItem.valor_acumulado)}`
+                  {(dadoItem?.valor_acumulado || 0) >= (dadoItem?.meta_acumulada || 0)
+                    ? `✓ Acima da meta em ${formatCurrency((dadoItem?.valor_acumulado || 0) - (dadoItem?.meta_acumulada || 0))}`
+                    : `Faltam ${formatCurrency((dadoItem?.meta_acumulada || 0) - (dadoItem?.valor_acumulado || 0))}`
                   }
                 </p>
               </>
@@ -213,7 +216,7 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
               <CardTitle className="text-sm font-semibold">Receita Acumulada</CardTitle>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                {getMesNome(data.mes)} {data.ano}
+                {data?.mes ? getMesNome(data.mes) : ''} {data?.ano || ''}
               </p>
             </div>
           </div>
@@ -227,65 +230,65 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div className="p-2 rounded-md bg-green-50 border border-green-200">
             <div className="text-xs text-green-600 mb-0.5">Receita</div>
-            <div className="text-sm font-bold text-green-700">{formatCurrency(data.valor_total_mes)}</div>
+            <div className="text-sm font-bold text-green-700">{formatCurrency(data?.valor_total_mes)}</div>
           </div>
           
           <div className="p-2 rounded-md bg-blue-50 border border-blue-200">
             <div className="text-xs text-blue-600 mb-0.5">Meta</div>
             <div className="text-sm font-bold text-blue-700">
-              {data.meta_total > 0 ? formatCurrency(data.meta_total) : '-'}
+              {(data?.meta_total || 0) > 0 ? formatCurrency(data?.meta_total) : '-'}
             </div>
           </div>
           
-          {data.meta_total > 0 && (
+          {(data?.meta_total || 0) > 0 && (
             <>
               <div className={`p-2 rounded-md border ${
-                data.valor_total_mes >= data.meta_total 
+                (data?.valor_total_mes || 0) >= (data?.meta_total || 0)
                   ? 'bg-green-50 border-green-200' 
                   : 'bg-orange-50 border-orange-200'
               }`}>
                 <div className={`text-xs mb-0.5 ${
-                  data.valor_total_mes >= data.meta_total 
+                  (data?.valor_total_mes || 0) >= (data?.meta_total || 0)
                     ? 'text-green-600' 
                     : 'text-orange-600'
                 }`}>
                   Progresso
                 </div>
                 <div className={`text-sm font-bold ${
-                  data.valor_total_mes >= data.meta_total 
+                  (data?.valor_total_mes || 0) >= (data?.meta_total || 0)
                     ? 'text-green-700' 
                     : 'text-orange-700'
                 }`}>
-                  {((data.valor_total_mes / data.meta_total) * 100).toFixed(1)}%
+                  {((data?.valor_total_mes || 0) / (data?.meta_total || 1) * 100).toFixed(1)}%
                 </div>
               </div>
               
               <div className={`p-2 rounded-md border ${
-                data.valor_total_mes >= data.meta_total 
+                (data?.valor_total_mes || 0) >= (data?.meta_total || 0)
                   ? 'bg-green-50 border-green-200' 
                   : 'bg-orange-50 border-orange-200'
               }`}>
                 <div className={`text-xs mb-0.5 ${
-                  data.valor_total_mes >= data.meta_total 
+                  (data?.valor_total_mes || 0) >= (data?.meta_total || 0)
                     ? 'text-green-600' 
                     : 'text-orange-600'
                 }`}>
-                  {data.valor_total_mes >= data.meta_total ? 'Superado' : 'Faltam'}
+                  {(data?.valor_total_mes || 0) >= (data?.meta_total || 0) ? 'Superado' : 'Faltam'}
                 </div>
                 <div className={`text-sm font-bold ${
-                  data.valor_total_mes >= data.meta_total 
+                  (data?.valor_total_mes || 0) >= (data?.meta_total || 0)
                     ? 'text-green-700' 
                     : 'text-orange-700'
                 }`}>
-                  {formatCurrency(Math.abs(data.valor_total_mes - data.meta_total))}
+                  {formatCurrency(Math.abs((data?.valor_total_mes || 0) - (data?.meta_total || 0)))}
                 </div>
               </div>
             </>
           )}
           
-          {!data.meta_total && (
+          {!(data?.meta_total || 0) && data?.dados && data.dados.length > 0 && (
             <div className="col-span-2 p-2 rounded-md bg-muted/50 border border-muted flex items-center justify-center">
-              <p className="text-xs text-muted-foreground">Média diária: <span className="font-bold text-foreground">{formatCurrency(data.valor_total_mes / data.dados.length)}</span></p>
+              <p className="text-xs text-muted-foreground">Média diária: <span className="font-bold text-foreground">{formatCurrency((data?.valor_total_mes || 0) / data.dados.length)}</span></p>
             </div>
           )}
         </div>
@@ -315,7 +318,7 @@ export default function OportunidadesChart({ mes, ano, vendedorId, unidadeId }: 
               />
               
               {/* Linha da Meta Acumulada (se houver meta) */}
-              {data.meta_total > 0 && (
+              {(data?.meta_total || 0) > 0 && (
                 <Line 
                   type="monotone" 
                   dataKey="meta_acumulada" 

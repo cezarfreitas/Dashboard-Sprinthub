@@ -16,6 +16,35 @@ function parseJSON(value: any): any[] {
   return []
 }
 
+// Helper para converter data para timezone de São Paulo
+// Recebe data no formato YYYY-MM-DD e retorna datetime no formato MySQL (YYYY-MM-DD HH:MM:SS)
+// Garante que 00:00:00 e 23:59:59 sejam sempre no horário de São Paulo
+function formatDateToSaoPaulo(dateStr: string, isEnd: boolean = false): string {
+  if (!dateStr || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateStr
+  }
+  
+  // Retornar data com horário
+  // A data recebida já está no formato YYYY-MM-DD e representa uma data em São Paulo
+  if (isEnd) {
+    return `${dateStr} 23:59:59`
+  } else {
+    return `${dateStr} 00:00:00`
+  }
+}
+
+// Helper para aplicar CONVERT_TZ em campos de data nas queries
+// Converte do timezone do banco (UTC) para São Paulo (America/Sao_Paulo)
+// Retorna a expressão SQL com CONVERT_TZ aplicado
+function convertTZToSaoPaulo(field: string): string {
+  // Usar CONVERT_TZ para converter de UTC para São Paulo
+  // São Paulo está em UTC-3 (horário padrão) ou UTC-2 (horário de verão)
+  // Usar a função TIMEZONE do MySQL se disponível, ou calcular o offset
+  // Para garantir compatibilidade, vamos usar CONVERT_TZ com offset fixo de -03:00
+  // (horário padrão de São Paulo - pode ter pequena diferença no horário de verão)
+  return `CONVERT_TZ(${field}, '+00:00', '-03:00')`
+}
+
 // Função para construir filtro de unidades (retorna array de user IDs de vendedores ativos)
 async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<number[]> {
   if (!unidadeIdsParam) return []
@@ -226,8 +255,28 @@ export async function GET(request: NextRequest) {
 
     // Filtro de unidade (busca vendedores e adiciona aos userIds)
     let unidadeFilterAplicado = false
+    let unidadesInfo: Array<{ id: number; nome: string }> = []
     if (unidadeIdParam) {
       const unidadeUserIds = await buildUnidadeFilter(unidadeIdParam)
+      
+      // Buscar nomes das unidades
+      const unidadeIds = unidadeIdParam
+        .split(',')
+        .map(id => parseInt(id.trim()))
+        .filter(id => !isNaN(id) && id > 0)
+      
+      if (unidadeIds.length > 0) {
+        const placeholders = unidadeIds.map(() => '?').join(',')
+        const unidades = await executeQuery(
+          `SELECT id, COALESCE(nome, name) as nome FROM unidades WHERE id IN (${placeholders}) AND ativo = 1`,
+          unidadeIds
+        ) as Array<{ id: number; nome: string }>
+        
+        unidadesInfo = unidades.map(u => ({
+          id: u.id,
+          nome: u.nome || 'Sem nome'
+        }))
+      }
       
       // Se foi especificado unidade_id mas não encontrou nenhum vendedor ativo,
       // retornar resultado vazio (0 em todas as métricas)
@@ -253,6 +302,7 @@ export async function GET(request: NextRequest) {
             // ... outros filtros
             group_by: searchParams.get('group_by') || null
           },
+          ...(unidadesInfo.length > 0 ? { unidade_info: unidadesInfo } : {}),
           message: `Unidade(s) ${unidadeIdParam} não possui(em) vendedores ativos ou não foi(ram) encontrada(s)`
         })
       }
@@ -306,84 +356,84 @@ export async function GET(request: NextRequest) {
     // Filtro de data de criação
     // Se all=1, não aplicar filtro de created_date na query principal (será feito separadamente)
     if (createdDateStart && !allParam) {
-      whereClauses.push('o.createDate >= ?')
-      queryParams.push(createdDateStart + ' 00:00:00')
+      whereClauses.push(`${convertTZToSaoPaulo('o.createDate')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(createdDateStart, false))
     }
     if (createdDateEnd && !allParam) {
-      whereClauses.push('o.createDate <= ?')
-      queryParams.push(createdDateEnd + ' 23:59:59')
+      whereClauses.push(`${convertTZToSaoPaulo('o.createDate')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(createdDateEnd, true))
     }
 
     // Filtro de data de ganho
     // Se all=1 e status=gain, não aplicar filtro de gain_date na query principal (será feito separadamente)
     if (gainDateStart && !(allParam && (statusParam === 'gain' || statusParam === 'won'))) {
-      whereClauses.push('o.gain_date >= ?')
-      queryParams.push(gainDateStart + ' 00:00:00')
+      whereClauses.push(`${convertTZToSaoPaulo('o.gain_date')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(gainDateStart, false))
     }
     if (gainDateEnd && !(allParam && (statusParam === 'gain' || statusParam === 'won'))) {
-      whereClauses.push('o.gain_date <= ?')
-      queryParams.push(gainDateEnd + ' 23:59:59')
+      whereClauses.push(`${convertTZToSaoPaulo('o.gain_date')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(gainDateEnd, true))
     }
 
     // Filtro de data de perda
     // Se all=1 e status=lost, não aplicar filtro de lost_date na query principal (será feito separadamente)
     if (lostDateStart && !(allParam && statusParam === 'lost')) {
-      whereClauses.push('o.lost_date >= ?')
-      queryParams.push(lostDateStart + ' 00:00:00')
+      whereClauses.push(`${convertTZToSaoPaulo('o.lost_date')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(lostDateStart, false))
     }
     if (lostDateEnd && !(allParam && statusParam === 'lost')) {
-      whereClauses.push('o.lost_date <= ?')
-      queryParams.push(lostDateEnd + ' 23:59:59')
+      whereClauses.push(`${convertTZToSaoPaulo('o.lost_date')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(lostDateEnd, true))
     }
 
     // Filtro de data de reabertura
     if (reopenDateStart) {
-      whereClauses.push('o.reopen_date >= ?')
-      queryParams.push(reopenDateStart + ' 00:00:00')
+      whereClauses.push(`${convertTZToSaoPaulo('o.reopen_date')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(reopenDateStart, false))
     }
     if (reopenDateEnd) {
-      whereClauses.push('o.reopen_date <= ?')
-      queryParams.push(reopenDateEnd + ' 23:59:59')
+      whereClauses.push(`${convertTZToSaoPaulo('o.reopen_date')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(reopenDateEnd, true))
     }
 
     // Filtro de data esperada de fechamento
     if (expectedCloseDateStart) {
-      whereClauses.push('o.expectedCloseDate >= ?')
-      queryParams.push(expectedCloseDateStart)
+      whereClauses.push(`${convertTZToSaoPaulo('o.expectedCloseDate')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(expectedCloseDateStart, false))
     }
     if (expectedCloseDateEnd) {
-      whereClauses.push('o.expectedCloseDate <= ?')
-      queryParams.push(expectedCloseDateEnd)
+      whereClauses.push(`${convertTZToSaoPaulo('o.expectedCloseDate')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(expectedCloseDateEnd, true))
     }
 
     // Filtro de data de atualização
     if (updateDateStart) {
-      whereClauses.push('o.updateDate >= ?')
-      queryParams.push(updateDateStart + ' 00:00:00')
+      whereClauses.push(`${convertTZToSaoPaulo('o.updateDate')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(updateDateStart, false))
     }
     if (updateDateEnd) {
-      whereClauses.push('o.updateDate <= ?')
-      queryParams.push(updateDateEnd + ' 23:59:59')
+      whereClauses.push(`${convertTZToSaoPaulo('o.updateDate')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(updateDateEnd, true))
     }
 
     // Filtro de última mudança de coluna
     if (lastColumnChangeStart) {
-      whereClauses.push('o.last_column_change >= ?')
-      queryParams.push(lastColumnChangeStart + ' 00:00:00')
+      whereClauses.push(`${convertTZToSaoPaulo('o.last_column_change')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(lastColumnChangeStart, false))
     }
     if (lastColumnChangeEnd) {
-      whereClauses.push('o.last_column_change <= ?')
-      queryParams.push(lastColumnChangeEnd + ' 23:59:59')
+      whereClauses.push(`${convertTZToSaoPaulo('o.last_column_change')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(lastColumnChangeEnd, true))
     }
 
     // Filtro de última mudança de status
     if (lastStatusChangeStart) {
-      whereClauses.push('o.last_status_change >= ?')
-      queryParams.push(lastStatusChangeStart + ' 00:00:00')
+      whereClauses.push(`${convertTZToSaoPaulo('o.last_status_change')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(lastStatusChangeStart, false))
     }
     if (lastStatusChangeEnd) {
-      whereClauses.push('o.last_status_change <= ?')
-      queryParams.push(lastStatusChangeEnd + ' 23:59:59')
+      whereClauses.push(`${convertTZToSaoPaulo('o.last_status_change')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParams.push(formatDateToSaoPaulo(lastStatusChangeEnd, true))
     }
 
     // Filtro de motivo de perda (loss_reason)
@@ -563,10 +613,10 @@ export async function GET(request: NextRequest) {
       whereClausesBase.push('(o.gain_date IS NOT NULL)')
       
       // Filtro de data de ganho (período) - TODAS devem ter gain_date no período
-      whereClausesBase.push('o.gain_date >= ?')
-      queryParamsBase.push(gainDateStart + ' 00:00:00')
-      whereClausesBase.push('o.gain_date <= ?')
-      queryParamsBase.push(gainDateEnd + ' 23:59:59')
+      whereClausesBase.push(`${convertTZToSaoPaulo('o.gain_date')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsBase.push(formatDateToSaoPaulo(gainDateStart, false))
+      whereClausesBase.push(`${convertTZToSaoPaulo('o.gain_date')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsBase.push(formatDateToSaoPaulo(gainDateEnd, true))
       
       // Aplicar outros filtros (unidades, vendedores, etc.)
       if (userIds.length > 0) {
@@ -597,10 +647,10 @@ export async function GET(request: NextRequest) {
       const whereClausesDentro: string[] = [...whereClausesBase]
       const queryParamsDentro: any[] = [...queryParamsBase]
       
-      whereClausesDentro.push('o.createDate >= ?')
-      queryParamsDentro.push(gainDateStart + ' 00:00:00')
-      whereClausesDentro.push('o.createDate <= ?')
-      queryParamsDentro.push(gainDateEnd + ' 23:59:59')
+      whereClausesDentro.push(`${convertTZToSaoPaulo('o.createDate')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsDentro.push(formatDateToSaoPaulo(gainDateStart, false))
+      whereClausesDentro.push(`${convertTZToSaoPaulo('o.createDate')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsDentro.push(formatDateToSaoPaulo(gainDateEnd, true))
       
       const whereClauseDentro = whereClausesDentro.length > 0 ? `WHERE ${whereClausesDentro.join(' AND ')}` : ''
       
@@ -617,9 +667,9 @@ export async function GET(request: NextRequest) {
       const whereClausesFora: string[] = [...whereClausesBase]
       const queryParamsFora: any[] = [...queryParamsBase]
       
-      whereClausesFora.push('(o.createDate < ? OR o.createDate > ?)')
-      queryParamsFora.push(gainDateStart + ' 00:00:00')
-      queryParamsFora.push(gainDateEnd + ' 23:59:59')
+      whereClausesFora.push(`(${convertTZToSaoPaulo('o.createDate')} < CONVERT_TZ(?, '+00:00', '-03:00') OR ${convertTZToSaoPaulo('o.createDate')} > CONVERT_TZ(?, '+00:00', '-03:00'))`)
+      queryParamsFora.push(formatDateToSaoPaulo(gainDateStart, false))
+      queryParamsFora.push(formatDateToSaoPaulo(gainDateEnd, true))
       
       const whereClauseFora = whereClausesFora.length > 0 ? `WHERE ${whereClausesFora.join(' AND ')}` : ''
       
@@ -657,10 +707,10 @@ export async function GET(request: NextRequest) {
       const queryParamsCriadas: any[] = []
       
       // Filtro de data de criação (período baseado no createDate)
-      whereClausesCriadas.push('o.createDate >= ?')
-      queryParamsCriadas.push(gainDateStart + ' 00:00:00')
-      whereClausesCriadas.push('o.createDate <= ?')
-      queryParamsCriadas.push(gainDateEnd + ' 23:59:59')
+      whereClausesCriadas.push(`${convertTZToSaoPaulo('o.createDate')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsCriadas.push(formatDateToSaoPaulo(gainDateStart, false))
+      whereClausesCriadas.push(`${convertTZToSaoPaulo('o.createDate')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsCriadas.push(formatDateToSaoPaulo(gainDateEnd, true))
       
       // Aplicar outros filtros (unidades, vendedores, etc.) - mesmo filtro das outras queries
       if (userIds.length > 0) {
@@ -745,10 +795,10 @@ export async function GET(request: NextRequest) {
       whereClausesPeriodo.push('(o.gain_date IS NULL AND o.lost_date IS NULL)')
       
       // Filtro de data de criação (período)
-      whereClausesPeriodo.push('o.createDate >= ?')
-      queryParamsPeriodo.push(createdDateStart + ' 00:00:00')
-      whereClausesPeriodo.push('o.createDate <= ?')
-      queryParamsPeriodo.push(createdDateEnd + ' 23:59:59')
+      whereClausesPeriodo.push(`${convertTZToSaoPaulo('o.createDate')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsPeriodo.push(formatDateToSaoPaulo(createdDateStart, false))
+      whereClausesPeriodo.push(`${convertTZToSaoPaulo('o.createDate')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsPeriodo.push(formatDateToSaoPaulo(createdDateEnd, true))
       
       // Aplicar outros filtros (unidades, vendedores, etc.)
       if (userIds.length > 0) {
@@ -799,10 +849,10 @@ export async function GET(request: NextRequest) {
       whereClausesBase.push('(o.lost_date IS NOT NULL)')
       
       // Filtro de data de perda (período) - TODAS devem ter lost_date no período
-      whereClausesBase.push('o.lost_date >= ?')
-      queryParamsBase.push(lostDateStart + ' 00:00:00')
-      whereClausesBase.push('o.lost_date <= ?')
-      queryParamsBase.push(lostDateEnd + ' 23:59:59')
+      whereClausesBase.push(`${convertTZToSaoPaulo('o.lost_date')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsBase.push(formatDateToSaoPaulo(lostDateStart, false))
+      whereClausesBase.push(`${convertTZToSaoPaulo('o.lost_date')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsBase.push(formatDateToSaoPaulo(lostDateEnd, true))
       
       // Aplicar outros filtros (unidades, vendedores, etc.)
       if (userIds.length > 0) {
@@ -833,10 +883,10 @@ export async function GET(request: NextRequest) {
       const whereClausesDentro: string[] = [...whereClausesBase]
       const queryParamsDentro: any[] = [...queryParamsBase]
       
-      whereClausesDentro.push('o.createDate >= ?')
-      queryParamsDentro.push(lostDateStart + ' 00:00:00')
-      whereClausesDentro.push('o.createDate <= ?')
-      queryParamsDentro.push(lostDateEnd + ' 23:59:59')
+      whereClausesDentro.push(`${convertTZToSaoPaulo('o.createDate')} >= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsDentro.push(formatDateToSaoPaulo(lostDateStart, false))
+      whereClausesDentro.push(`${convertTZToSaoPaulo('o.createDate')} <= CONVERT_TZ(?, '+00:00', '-03:00')`)
+      queryParamsDentro.push(formatDateToSaoPaulo(lostDateEnd, true))
       
       const whereClauseDentro = whereClausesDentro.length > 0 ? `WHERE ${whereClausesDentro.join(' AND ')}` : ''
       
@@ -852,9 +902,9 @@ export async function GET(request: NextRequest) {
       const whereClausesFora: string[] = [...whereClausesBase]
       const queryParamsFora: any[] = [...queryParamsBase]
       
-      whereClausesFora.push('(o.createDate < ? OR o.createDate > ?)')
-      queryParamsFora.push(lostDateStart + ' 00:00:00')
-      queryParamsFora.push(lostDateEnd + ' 23:59:59')
+      whereClausesFora.push(`(${convertTZToSaoPaulo('o.createDate')} < CONVERT_TZ(?, '+00:00', '-03:00') OR ${convertTZToSaoPaulo('o.createDate')} > CONVERT_TZ(?, '+00:00', '-03:00'))`)
+      queryParamsFora.push(formatDateToSaoPaulo(lostDateStart, false))
+      queryParamsFora.push(formatDateToSaoPaulo(lostDateEnd, true))
       
       const whereClauseFora = whereClausesFora.length > 0 ? `WHERE ${whereClausesFora.join(' AND ')}` : ''
       
@@ -1109,7 +1159,8 @@ export async function GET(request: NextRequest) {
           }),
           ...(statsPorVendedorComNome.length > 0 ? { por_vendedor: statsPorVendedorComNome } : {})
         },
-        ...(Object.keys(activeFilters).length > 0 ? { filters: activeFilters } : {})
+        ...(Object.keys(activeFilters).length > 0 ? { filters: activeFilters } : {}),
+        ...(unidadesInfo.length > 0 ? { unidade_info: unidadesInfo } : {})
       })
     } else {
       // Sem agrupamento: retornar objeto único
@@ -1363,7 +1414,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: dataResponse,
-        ...(Object.keys(activeFilters).length > 0 ? { filters: activeFilters } : {})
+        ...(Object.keys(activeFilters).length > 0 ? { filters: activeFilters } : {}),
+        ...(unidadesInfo.length > 0 ? { unidade_info: unidadesInfo } : {})
       })
     }
 

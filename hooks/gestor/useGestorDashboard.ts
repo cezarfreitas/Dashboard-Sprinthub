@@ -76,7 +76,10 @@ export function useGestorDashboard() {
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('este-mes')
   const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState<Date | undefined>(undefined)
   const [dataFimPersonalizada, setDataFimPersonalizada] = useState<Date | undefined>(undefined)
+  const [funilSelecionado, setFunilSelecionado] = useState<string | null>(null)
   const [exportando, setExportando] = useState(false)
+  const [cardsData, setCardsData] = useState<any>(null)
+  const [loadingCards, setLoadingCards] = useState(false)
 
   const getPeriodoDatas = useCallback(() => {
     const agora = new Date()
@@ -210,6 +213,181 @@ export function useGestorDashboard() {
       setLoading(false)
     }
   }, [gestor, unidadeSelecionada, getPeriodoDatas])
+
+  const fetchCardsData = useCallback(async () => {
+    if (!unidadeSelecionada) {
+      setCardsData(null)
+      return
+    }
+
+    try {
+      setLoadingCards(true)
+      const { dataInicio, dataFim } = getPeriodoDatas()
+      
+      // Construir parâmetros base
+      const baseParams = new URLSearchParams()
+      baseParams.append('unidade_id', unidadeSelecionada.toString())
+      
+      if (funilSelecionado) {
+        baseParams.append('funil_id', funilSelecionado)
+      }
+
+      // 1. Buscar dados de HOJE (usando API /today)
+      const hojeParams = new URLSearchParams(baseParams)
+      const hojeResponse = await fetch(`/api/oportunidades/today?${hojeParams.toString()}`)
+      const hojeData = hojeResponse.ok ? await hojeResponse.json() : null
+
+      // 2. Buscar ABERTAS (com all=1 para divisão por período)
+      const abertasParams = new URLSearchParams(baseParams)
+      abertasParams.append('status', 'open')
+      abertasParams.append('created_date_start', dataInicio)
+      abertasParams.append('created_date_end', dataFim)
+      abertasParams.append('all', '1')
+      const abertasResponse = await fetch(`/api/oportunidades/stats?${abertasParams.toString()}`)
+      const abertasData = abertasResponse.ok ? await abertasResponse.json() : null
+
+      // 3. Buscar PERDIDAS (com all=1)
+      const perdidasParams = new URLSearchParams(baseParams)
+      perdidasParams.append('status', 'lost')
+      perdidasParams.append('lost_date_start', dataInicio)
+      perdidasParams.append('lost_date_end', dataFim)
+      perdidasParams.append('all', '1')
+      const perdidasResponse = await fetch(`/api/oportunidades/stats?${perdidasParams.toString()}`)
+      const perdidasData = perdidasResponse.ok ? await perdidasResponse.json() : null
+
+      // 4. Buscar GANHAS (com all=1 para taxa de conversão)
+      const ganhasParams = new URLSearchParams(baseParams)
+      ganhasParams.append('status', 'won')
+      ganhasParams.append('gain_date_start', dataInicio)
+      ganhasParams.append('gain_date_end', dataFim)
+      ganhasParams.append('all', '1')
+      const ganhasResponse = await fetch(`/api/oportunidades/stats?${ganhasParams.toString()}`)
+      const ganhasData = ganhasResponse.ok ? await ganhasResponse.json() : null
+
+      // 5. Determinar mês/ano para meta baseado no período selecionado
+      // Para períodos mensais, usar o mês do período. Para outros, usar mês atual.
+      const { dataInicioObj } = getPeriodoDatas()
+      let mesMeta: number
+      let anoMeta: number
+      
+      // Determinar qual mês usar baseado no período
+      if (periodoFiltro === 'mes-passado') {
+        // Mês passado
+        const hoje = new Date()
+        if (hoje.getMonth() === 0) {
+          // Janeiro: mês passado é dezembro do ano anterior
+          mesMeta = 12
+          anoMeta = hoje.getFullYear() - 1
+        } else {
+          mesMeta = hoje.getMonth() // getMonth() retorna 0-11, então mês passado é getMonth()
+          anoMeta = hoje.getFullYear()
+        }
+      } else if (periodoFiltro === 'personalizado' && dataInicioPersonalizada) {
+        // Mês da data personalizada
+        const dataInicio = new Date(dataInicioPersonalizada)
+        mesMeta = dataInicio.getMonth() + 1
+        anoMeta = dataInicio.getFullYear()
+      } else {
+        // Para outros períodos (hoje, ontem, semanas, este-mes), usar mês atual
+        const hoje = new Date()
+        mesMeta = hoje.getMonth() + 1
+        anoMeta = hoje.getFullYear()
+      }
+      
+      // Buscar META MENSAL da unidade para o mês/ano determinado
+      const metaStatsParams = new URLSearchParams()
+      metaStatsParams.append('unidade_id', unidadeSelecionada.toString())
+      metaStatsParams.append('mes', mesMeta.toString())
+      metaStatsParams.append('ano', anoMeta.toString())
+      
+      const metaStatsResponse = await fetch(`/api/meta/stats?${metaStatsParams.toString()}`)
+      const metaStatsData = metaStatsResponse.ok ? await metaStatsResponse.json() : null
+      
+      // Extrair meta total da unidade
+      let metaTotal = 0
+      if (metaStatsData?.success && metaStatsData?.estatisticas) {
+        metaTotal = Number(metaStatsData.estatisticas.meta_total) || 0
+      }
+
+      // 6. Buscar GANHOS do MÊS determinado (não sempre do mês atual)
+      const primeiroDiaMes = new Date(anoMeta, mesMeta - 1, 1)
+      const ultimoDiaMes = new Date(anoMeta, mesMeta, 0)
+      
+      const formatarData = (data: Date) => {
+        const ano = data.getFullYear()
+        const mes = String(data.getMonth() + 1).padStart(2, '0')
+        const dia = String(data.getDate()).padStart(2, '0')
+        return `${ano}-${mes}-${dia}`
+      }
+      
+      const dataInicioMes = formatarData(primeiroDiaMes)
+      const dataFimMes = formatarData(ultimoDiaMes)
+      
+      const ganhasMesParams = new URLSearchParams(baseParams)
+      ganhasMesParams.append('status', 'won')
+      ganhasMesParams.append('gain_date_start', dataInicioMes)
+      ganhasMesParams.append('gain_date_end', dataFimMes)
+      
+      const ganhasMesResponse = await fetch(`/api/oportunidades/stats?${ganhasMesParams.toString()}`)
+      const ganhasMesData = ganhasMesResponse.ok ? await ganhasMesResponse.json() : null
+
+      // Processar dados
+      const cards: any = {
+        // HOJE
+        criadasHoje: hojeData?.data?.hoje?.criadas?.total || 0,
+        valorCriadasHoje: hojeData?.data?.hoje?.criadas?.valor_total || 0,
+        criadasOntem: hojeData?.data?.ontem?.criadas?.total || 0,
+        valorCriadasOntem: hojeData?.data?.ontem?.criadas?.valor_total || 0,
+        ganhasHoje: hojeData?.data?.hoje?.ganhas?.total || 0,
+        valorGanhasHoje: hojeData?.data?.hoje?.ganhas?.valor_total || 0,
+        
+        // ABERTAS
+        abertasTotal: abertasData?.data?.total_abertas_geral || abertasData?.data?.total_abertas || 0,
+        abertasValorTotal: abertasData?.data?.valor_abertas || 0,
+        abertasCriadasNoPeriodo: abertasData?.data?.total_abertas_periodo || 0,
+        abertasValorCriadasNoPeriodo: abertasData?.data?.valor_abertas_periodo || 0,
+        abertasCriadasOutrosPeriodos: abertasData?.data?.total_abertas_fora_periodo || 0,
+        abertasValorCriadasOutrosPeriodos: abertasData?.data?.valor_abertas_fora_periodo || 0,
+        
+        // PERDIDAS
+        perdidasTotal: perdidasData?.data?.total_perdidas_periodo || perdidasData?.data?.total_perdidas || 0,
+        perdidasCriadasDentro: perdidasData?.data?.total_perdidas_dentro_createDate || 0,
+        perdidasValorCriadasDentro: perdidasData?.data?.valor_perdidas_dentro_createDate || 0,
+        perdidasCriadasFora: perdidasData?.data?.total_perdidas_fora_createDate || 0,
+        perdidasValorCriadasFora: perdidasData?.data?.valor_perdidas_fora_createDate || 0,
+        
+        // GANHAS (do período selecionado)
+        ganhosValorTotal: ganhasData?.data?.valor_ganhas_periodo || ganhasData?.data?.valor_ganhas || 0,
+        ganhosTotalOportunidades: ganhasData?.data?.total_ganhas_periodo || ganhasData?.data?.total_ganhas || 0,
+        ganhosCriadasDentro: ganhasData?.data?.total_ganhas_dentro_createDate || 0,
+        ganhosValorCriadasDentro: ganhasData?.data?.valor_ganhas_dentro_createDate || 0,
+        ganhosCriadasFora: ganhasData?.data?.total_ganhas_fora_createDate || 0,
+        ganhosValorCriadasFora: ganhasData?.data?.valor_ganhas_fora_createDate || 0,
+        
+        // META E GANHOS DO MÊS ATUAL (para barra de progresso)
+        ganhosMeta: metaTotal,
+        ganhosValorTotalMes: ganhasMesData?.data?.valor_ganhas || 0,
+        
+        // TAXA DE CONVERSÃO
+        taxaCriadas: ganhasData?.data?.total_criadas_periodo || 0,
+        taxaGanhas: ganhasData?.data?.total_ganhas_periodo || 0,
+        
+        // TICKET MÉDIO
+        ticketTotalVendas: ganhasData?.data?.total_ganhas_periodo || ganhasData?.data?.total_ganhas || 0,
+        ticketValorTotal: ganhasData?.data?.valor_ganhas_periodo || ganhasData?.data?.valor_ganhas || 0
+      }
+
+      setCardsData(cards)
+    } catch (error) {
+      setCardsData(null)
+    } finally {
+      setLoadingCards(false)
+    }
+  }, [unidadeSelecionada, funilSelecionado, getPeriodoDatas, periodoFiltro, dataInicioPersonalizada])
+
+  useEffect(() => {
+    fetchCardsData()
+  }, [fetchCardsData])
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('gestor')
@@ -498,11 +676,15 @@ export function useGestorDashboard() {
     setDataInicioPersonalizada,
     dataFimPersonalizada,
     setDataFimPersonalizada,
+    funilSelecionado,
+    setFunilSelecionado,
     getPeriodoDatas,
     fetchStats,
     handleLogout,
     exportarOportunidades,
-    exportando
+    exportando,
+    cardsData,
+    loadingCards
   }
 }
 

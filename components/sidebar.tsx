@@ -53,7 +53,18 @@ const menuItems = [
   {
     title: "Analytics",
     icon: BarChart3,
-    href: "/analytics"
+    href: "/analytics",
+    hasSubmenu: true,
+    submenu: [
+      {
+        title: "Análise Unidade",
+        href: "/analytics/unidade"
+      },
+      {
+        title: "Motivos de Perda",
+        href: "/analytics/motivos-perda"
+      }
+    ]
   },
   {
     title: "Ranking",

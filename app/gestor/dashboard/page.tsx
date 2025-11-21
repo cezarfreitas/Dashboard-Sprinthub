@@ -1,77 +1,37 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
-import { useGestorDashboard, VendedorStats } from "@/hooks/gestor/useGestorDashboard"
-import { GestorHeader } from "@/components/gestor/GestorHeader"
-import { GestorUnidadesBadges } from "@/components/gestor/GestorUnidadesBadges"
+import { HeaderGestor } from "@/components/header_gestor"
+import { useGestorDashboard } from "@/hooks/gestor/useGestorDashboard"
+import { GestorEstatisticasCards } from "@/components/gestor/GestorEstatisticasCards"
 import { GestorPeriodoFilter } from "@/components/gestor/GestorPeriodoFilter"
-import { GestorResumoUnidade } from "@/components/gestor/GestorResumoUnidade"
-import { GestorMetaCard } from "@/components/gestor/GestorMetaCard"
-import { GestorPerformanceTable } from "@/components/gestor/GestorPerformanceTable"
-import { GestorFunilVendas } from "@/components/gestor/GestorFunilVendas"
-import { GestorOportunidadesDialog } from "@/components/gestor/GestorOportunidadesDialog"
-import { GestorMatrizTabs } from "@/components/gestor/GestorMatrizTabs"
-import { GestorPerformanceVendedores } from "@/components/gestor/GestorPerformanceVendedores"
-import { GestorAtendimentosWhatsapp } from "@/components/gestor/GestorAtendimentosWhatsapp"
-import { GestorFunilColunas } from "@/components/gestor/GestorFunilColunas"
-import { GestorMatrizPerdasVendedor } from "@/components/gestor/GestorMatrizPerdasVendedor"
-import { GestorNegociosGanhos } from "@/components/gestor/GestorNegociosGanhos"
+import { GestorBarraProgressoMeta } from "@/components/gestor/GestorBarraProgressoMeta"
+import { GestorMatrizMotivosPerda } from "@/components/gestor/GestorMatrizMotivosPerda"
+import { GestorOportunidadesDiarias } from "@/components/gestor/GestorOportunidadesDiarias"
+import { GestorGanhosDiarios } from "@/components/gestor/GestorGanhosDiarios"
 
 export default function GestorDashboard() {
-  const {
-    gestor,
-    unidadeSelecionada,
+  const { 
+    unidadeSelecionada, 
     setUnidadeSelecionada,
-    stats,
-    loading,
-    error,
     periodoFiltro,
     setPeriodoFiltro,
     dataInicioPersonalizada,
     setDataInicioPersonalizada,
     dataFimPersonalizada,
     setDataFimPersonalizada,
-    getPeriodoDatas,
-    fetchStats,
-    handleLogout
+    funilSelecionado,
+    setFunilSelecionado,
+    cardsData,
+    loadingCards,
+    getPeriodoDatas
   } = useGestorDashboard()
-
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [vendedorSelecionado, setVendedorSelecionado] = useState<VendedorStats | null>(null)
-
-  const periodoDatas = useMemo(() => getPeriodoDatas(), [getPeriodoDatas])
-
-  const handleVerOportunidades = useCallback((vendedor: VendedorStats) => {
-    setVendedorSelecionado(vendedor)
-    setDialogOpen(true)
-  }, [])
-
-  if (!gestor) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Carregando...</div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <GestorHeader
-        gestorName={gestor.name}
-        gestorLastName={gestor.lastName}
-        totalUnidades={gestor.unidades.length}
-        onLogout={handleLogout}
-      />
-
-      <GestorUnidadesBadges
-        unidades={gestor.unidades}
+      <HeaderGestor 
         unidadeSelecionada={unidadeSelecionada}
-        onSelectUnidade={setUnidadeSelecionada}
+        setUnidadeSelecionada={setUnidadeSelecionada}
       />
-
       <GestorPeriodoFilter
         periodoFiltro={periodoFiltro}
         setPeriodoFiltro={setPeriodoFiltro}
@@ -79,109 +39,73 @@ export default function GestorDashboard() {
         setDataInicioPersonalizada={setDataInicioPersonalizada}
         dataFimPersonalizada={dataFimPersonalizada}
         setDataFimPersonalizada={setDataFimPersonalizada}
+        funilSelecionado={funilSelecionado}
+        setFunilSelecionado={setFunilSelecionado}
       />
-
-      <div className="max-w-[1900px] mx-auto px-20 py-3">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-            <p className="ml-2 text-muted-foreground">Carregando dados...</p>
+      <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-20 py-3 space-y-4">
+        {loadingCards ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-gray-500">Carregando dados...</div>
           </div>
-        ) : error ? (
-          <Card className="border-red-200 bg-red-50 max-w-4xl mx-auto">
-            <CardContent className="pt-6">
-              <div className="text-center text-red-700">
-                <p className="font-medium">Erro ao carregar dados</p>
-                <p className="text-sm">{error}</p>
-                <Button onClick={fetchStats} className="mt-4">
-                  Tentar novamente
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : !stats ? (
-          <Card className="max-w-4xl mx-auto">
-            <CardContent className="pt-6">
-              <div className="text-center text-muted-foreground py-12">
-                <p className="font-medium mb-2">Nenhum dado disponível</p>
-                <p className="text-sm">
-                  Gestor ID: {gestor?.id} | Unidade: {unidadeSelecionada}
-                </p>
-                <Button onClick={fetchStats} className="mt-4" variant="outline">
-                  Recarregar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         ) : (
-          <div className="space-y-3">
-            <div className="grid grid-cols-7 gap-3 w-full">
-            <GestorResumoUnidade
-              unidadeId={unidadeSelecionada}
-              dataInicio={periodoDatas.dataInicio}
-              dataFim={periodoDatas.dataFim}
-            />
-
-            <GestorMetaCard
-              metaTotal={stats.meta_total}
-              valorGanho={stats.valor_ganho}
-            />
-            </div>
-
-            <GestorPerformanceTable
-              vendedores={stats.vendedores}
-              onVerOportunidades={handleVerOportunidades}
-            />
-
-            <GestorFunilVendas etapasFunil={stats.etapas_funil} />
-
-            <GestorMatrizTabs
-              unidadeId={unidadeSelecionada}
-              dataInicio={periodoDatas.dataInicio}
-              dataFim={periodoDatas.dataFim}
-              vendedores={stats.vendedores.map(v => ({
-                id: v.id,
-                name: v.name,
-                lastName: v.lastName
-              }))}
-            />
-
-            <div className="grid grid-cols-2 gap-3">
-            <GestorPerformanceVendedores
-              unidadeId={unidadeSelecionada}
-              dataInicio={periodoDatas.dataInicio}
-              dataFim={periodoDatas.dataFim}
-            />
-
-            <GestorAtendimentosWhatsapp
-                unidadeId={unidadeSelecionada}
-                dataInicio={periodoDatas.dataInicio}
-                dataFim={periodoDatas.dataFim}
+          <>
+            {cardsData?.ganhosMeta > 0 && (
+              <GestorBarraProgressoMeta
+                valorAtual={cardsData?.ganhosValorTotalMes || 0}
+                meta={cardsData?.ganhosMeta || 0}
               />
-            </div>
-
-            <GestorMatrizPerdasVendedor
-              unidadeId={unidadeSelecionada}
-              dataInicio={periodoDatas.dataInicio}
-              dataFim={periodoDatas.dataFim}
+            )}
+            <GestorEstatisticasCards
+            criadasHoje={cardsData?.criadasHoje || 0}
+            valorCriadasHoje={cardsData?.valorCriadasHoje || 0}
+            criadasOntem={cardsData?.criadasOntem || 0}
+            valorCriadasOntem={cardsData?.valorCriadasOntem || 0}
+            ganhasHoje={cardsData?.ganhasHoje || 0}
+            valorGanhasHoje={cardsData?.valorGanhasHoje || 0}
+            abertasTotal={cardsData?.abertasTotal || 0}
+            abertasValorTotal={cardsData?.abertasValorTotal || 0}
+            abertasCriadasNoPeriodo={cardsData?.abertasCriadasNoPeriodo || 0}
+            abertasValorCriadasNoPeriodo={cardsData?.abertasValorCriadasNoPeriodo || 0}
+            abertasCriadasOutrosPeriodos={cardsData?.abertasCriadasOutrosPeriodos || 0}
+            abertasValorCriadasOutrosPeriodos={cardsData?.abertasValorCriadasOutrosPeriodos || 0}
+            perdidasTotal={cardsData?.perdidasTotal || 0}
+            perdidasCriadasDentro={cardsData?.perdidasCriadasDentro || 0}
+            perdidasValorCriadasDentro={cardsData?.perdidasValorCriadasDentro || 0}
+            perdidasCriadasFora={cardsData?.perdidasCriadasFora || 0}
+            perdidasValorCriadasFora={cardsData?.perdidasValorCriadasFora || 0}
+            ganhosValorTotal={cardsData?.ganhosValorTotal || 0}
+            ganhosTotalOportunidades={cardsData?.ganhosTotalOportunidades || 0}
+            ganhosCriadasDentro={cardsData?.ganhosCriadasDentro || 0}
+            ganhosValorCriadasDentro={cardsData?.ganhosValorCriadasDentro || 0}
+            ganhosCriadasFora={cardsData?.ganhosCriadasFora || 0}
+            ganhosValorCriadasFora={cardsData?.ganhosValorCriadasFora || 0}
+            taxaCriadas={cardsData?.taxaCriadas || 0}
+            taxaGanhas={cardsData?.taxaGanhas || 0}
+            ticketTotalVendas={cardsData?.ticketTotalVendas || 0}
+            ticketValorTotal={cardsData?.ticketValorTotal || 0}
             />
-
-            <GestorNegociosGanhos
-              unidadeId={unidadeSelecionada}
-              dataInicio={periodoDatas.dataInicio}
-              dataFim={periodoDatas.dataFim}
-            />
-          </div>
+            {unidadeSelecionada && getPeriodoDatas && (
+              <>
+                <GestorOportunidadesDiarias
+                  unidadeId={unidadeSelecionada}
+                  dataInicio={getPeriodoDatas().dataInicio}
+                  dataFim={getPeriodoDatas().dataFim}
+                />
+                <GestorGanhosDiarios
+                  unidadeId={unidadeSelecionada}
+                  dataInicio={getPeriodoDatas().dataInicio}
+                  dataFim={getPeriodoDatas().dataFim}
+                />
+                <GestorMatrizMotivosPerda
+                  unidadeId={unidadeSelecionada}
+                  dataInicio={getPeriodoDatas().dataInicio}
+                  dataFim={getPeriodoDatas().dataFim}
+                />
+              </>
+            )}
+          </>
         )}
       </div>
-
-      <GestorOportunidadesDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        vendedor={vendedorSelecionado}
-        dataInicio={periodoDatas.dataInicio}
-        dataFim={periodoDatas.dataFim}
-      />
     </div>
   )
 }

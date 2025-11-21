@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
     const unidadeIdParam = searchParams.get('unidade_id')
     const userIdParam = searchParams.get('user_id')
     const funilIdParam = searchParams.get('funil_id')
+    const allParam = searchParams.get('all') === '1'
 
     // Validações
     if (!tipo) {
@@ -114,20 +115,91 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Validar formato das datas
-    const dataInicioDate = new Date(dataInicio + 'T00:00:00')
-    const dataFimDate = new Date(dataFim + 'T23:59:59')
+    // Validar e corrigir datas (ajustar para último dia válido do mês se necessário)
+    let dataInicioValida = dataInicio
+    let dataFimValida = dataFim
     
-    if (isNaN(dataInicioDate.getTime()) || isNaN(dataFimDate.getTime())) {
+    // Validar data de início
+    try {
+      let dataInicioDate = new Date(dataInicio + 'T00:00:00')
+      
+      // Se a data for inválida, pode ser porque o dia não existe no mês
+      if (isNaN(dataInicioDate.getTime())) {
+        const partes = dataInicio.split('-')
+        if (partes.length === 3) {
+          const ano = parseInt(partes[0])
+          const mes = parseInt(partes[1])
+          const dia = parseInt(partes[2])
+          
+          // Criar data no primeiro dia do mês seguinte e subtrair 1 dia
+          const ultimoDiaMes = new Date(ano, mes, 0) // Dia 0 = último dia do mês anterior
+          dataInicioDate = new Date(ano, mes - 1, Math.min(dia, ultimoDiaMes.getDate()))
+          dataInicioValida = `${ano}-${String(mes).padStart(2, '0')}-${String(Math.min(dia, ultimoDiaMes.getDate())).padStart(2, '0')}`
+        } else {
+          return NextResponse.json(
+            {
+              success: false,
+              message: 'Data de início inválida. Use o formato YYYY-MM-DD'
+            },
+            { status: 400 }
+          )
+        }
+      } else {
+        dataInicioValida = dataInicio
+      }
+    } catch (error) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Formato de data inválido. Use YYYY-MM-DD'
+          message: 'Data de início inválida. Use o formato YYYY-MM-DD'
         },
         { status: 400 }
       )
     }
 
+    // Validar data de fim
+    try {
+      let dataFimDate = new Date(dataFim + 'T00:00:00')
+      
+      // Se a data for inválida, pode ser porque o dia não existe no mês (ex: 31/11)
+      // Tentar ajustar para o último dia válido do mês
+      if (isNaN(dataFimDate.getTime())) {
+        const partes = dataFim.split('-')
+        if (partes.length === 3) {
+          const ano = parseInt(partes[0])
+          const mes = parseInt(partes[1])
+          const dia = parseInt(partes[2])
+          
+          // Criar data no primeiro dia do mês seguinte e subtrair 1 dia
+          const ultimoDiaMes = new Date(ano, mes, 0) // Dia 0 = último dia do mês anterior
+          dataFimDate = new Date(ano, mes - 1, ultimoDiaMes.getDate())
+          dataFimValida = `${ano}-${String(mes).padStart(2, '0')}-${String(ultimoDiaMes.getDate()).padStart(2, '0')}`
+        } else {
+          return NextResponse.json(
+            {
+              success: false,
+              message: 'Data de fim inválida. Use o formato YYYY-MM-DD'
+            },
+            { status: 400 }
+          )
+        }
+      } else {
+        dataFimValida = dataFim
+      }
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Data de fim inválida. Use o formato YYYY-MM-DD'
+        },
+        { status: 400 }
+      )
+    }
+
+    // Validar que data de início <= data de fim
+    const dataInicioDate = new Date(dataInicioValida + 'T00:00:00')
+    const dataFimDate = new Date(dataFimValida + 'T23:59:59')
+    
     if (dataInicioDate > dataFimDate) {
       return NextResponse.json(
         {
@@ -173,11 +245,12 @@ export async function GET(request: NextRequest) {
         )
     }
 
-    // Filtro de data
-    whereClauses.push(`${campoData} >= ?`)
-    queryParams.push(dataInicio + ' 00:00:00')
-    whereClauses.push(`${campoData} <= ?`)
-    queryParams.push(dataFim + ' 23:59:59')
+    // Filtro de data (usando DATE() para garantir comparação apenas por data, sem hora)
+    // Usar as datas validadas e corrigidas
+    whereClauses.push(`DATE(${campoData}) >= DATE(?)`)
+    queryParams.push(dataInicioValida)
+    whereClauses.push(`DATE(${campoData}) <= DATE(?)`)
+    queryParams.push(dataFimValida)
 
     // Filtro de unidades
     let userIds: number[] = []
@@ -242,35 +315,99 @@ export async function GET(request: NextRequest) {
 
     const resultados = await executeQuery(query, queryParams) as any[]
 
-    // Formatar resposta
-    const dados = resultados.map(r => {
-      // Formatar data para YYYY-MM-DD (sem hora)
-      let dataFormatada: string | null = null
-      if (r.data) {
-        // Se já é uma string no formato YYYY-MM-DD, usar diretamente
-        if (typeof r.data === 'string' && r.data.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          dataFormatada = r.data
-        } else {
-          // Se é Date object, converter para YYYY-MM-DD
-          const date = new Date(r.data)
-          if (!isNaN(date.getTime())) {
-            const year = date.getFullYear()
-            const month = String(date.getMonth() + 1).padStart(2, '0')
-            const day = String(date.getDate()).padStart(2, '0')
-            dataFormatada = `${year}-${month}-${day}`
+    // Query para agrupar por dia E por vendedor (apenas se all=1)
+    let resultadosPorVendedor: any[] = []
+    if (allParam) {
+      const queryPorVendedor = `
+        SELECT 
+          DATE(${campoData}) as data,
+          DAY(${campoData}) as dia,
+          MONTH(${campoData}) as mes,
+          YEAR(${campoData}) as ano,
+          CAST(o.user AS UNSIGNED) as vendedor_id,
+          COALESCE(CONCAT(v.name, ' ', v.lastName), CONCAT(v.name, ''), 'Sem vendedor') as vendedor_nome,
+          COUNT(*) as total
+          ${campoValor}
+        FROM oportunidades o
+        LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
+        ${whereClause}
+        GROUP BY DATE(${campoData}), DAY(${campoData}), MONTH(${campoData}), YEAR(${campoData}), CAST(o.user AS UNSIGNED), v.name, v.lastName
+        ORDER BY data ASC, vendedor_nome ASC
+      `
+
+      resultadosPorVendedor = await executeQuery(queryPorVendedor, queryParams) as any[]
+    }
+
+    // Formatar resposta geral (mantém compatibilidade)
+    const dados = resultados
+      .map(r => {
+        // Formatar data para YYYY-MM-DD (sem hora)
+        let dataFormatada: string | null = null
+        if (r.data) {
+          // Se já é uma string no formato YYYY-MM-DD, usar diretamente
+          if (typeof r.data === 'string' && r.data.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            dataFormatada = r.data
+          } else {
+            // Se é Date object, converter para YYYY-MM-DD
+            const date = new Date(r.data)
+            if (!isNaN(date.getTime())) {
+              const year = date.getFullYear()
+              const month = String(date.getMonth() + 1).padStart(2, '0')
+              const day = String(date.getDate()).padStart(2, '0')
+              dataFormatada = `${year}-${month}-${day}`
+            }
           }
         }
-      }
-      
-      return {
-        data: dataFormatada,
-        dia: Number(r.dia || 0),
-        mes: Number(r.mes || 0),
-        ano: Number(r.ano || 0),
-        total: Number(r.total || 0),
-        ...(campoValor ? { valor_total: Number(r.valor_total || 0) } : {})
-      }
-    })
+        
+        return {
+          data: dataFormatada,
+          dia: Number(r.dia || 0),
+          mes: Number(r.mes || 0),
+          ano: Number(r.ano || 0),
+          total: Number(r.total || 0),
+          ...(campoValor ? { valor_total: Number(r.valor_total || 0) } : {})
+        }
+      })
+      .filter(item => {
+        // Filtrar apenas datas dentro do período especificado
+        if (!item.data) return false
+        return item.data >= dataInicio && item.data <= dataFim
+      })
+
+    // Formatar resposta por vendedor (apenas se all=1)
+    const dadosPorVendedor = allParam ? resultadosPorVendedor
+      .map(r => {
+        let dataFormatada: string | null = null
+        if (r.data) {
+          if (typeof r.data === 'string' && r.data.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            dataFormatada = r.data
+          } else {
+            const date = new Date(r.data)
+            if (!isNaN(date.getTime())) {
+              const year = date.getFullYear()
+              const month = String(date.getMonth() + 1).padStart(2, '0')
+              const day = String(date.getDate()).padStart(2, '0')
+              dataFormatada = `${year}-${month}-${day}`
+            }
+          }
+        }
+        
+        return {
+          data: dataFormatada,
+          dia: Number(r.dia || 0),
+          mes: Number(r.mes || 0),
+          ano: Number(r.ano || 0),
+          vendedor_id: Number(r.vendedor_id || 0),
+          vendedor_nome: r.vendedor_nome || 'Sem vendedor',
+          total: Number(r.total || 0),
+          ...(campoValor ? { valor_total: Number(r.valor_total || 0) } : {})
+        }
+      })
+      .filter(item => {
+        // Filtrar apenas datas dentro do período especificado (usar datas validadas)
+        if (!item.data) return false
+        return item.data >= dataInicioValida && item.data <= dataFimValida
+      }) : []
 
     // Calcular totais
     const totalGeral = dados.reduce((sum, item) => sum + item.total, 0)
@@ -280,12 +417,18 @@ export async function GET(request: NextRequest) {
       success: true,
       tipo,
       periodo: {
-        data_inicio: dataInicio,
-        data_fim: dataFim
+        data_inicio: dataInicioValida,
+        data_fim: dataFimValida,
+        ...(dataInicioValida !== dataInicio || dataFimValida !== dataFim ? {
+          data_inicio_original: dataInicio,
+          data_fim_original: dataFim,
+          data_corrigida: true
+        } : {})
       },
       total_geral: totalGeral,
       ...(campoValor ? { valor_total_geral: valorTotalGeral } : {}),
-      dados,
+      dados, // Agrupamento geral por dia (mantém compatibilidade)
+      ...(allParam ? { dados_por_vendedor: dadosPorVendedor } : {}), // Agrupamento por dia e vendedor (apenas se all=1)
       ...(Object.keys(queryParams).length > 0 ? {
         filtros: {
           ...(unidadeIdParam ? { unidade_id: unidadeIdParam } : {}),
