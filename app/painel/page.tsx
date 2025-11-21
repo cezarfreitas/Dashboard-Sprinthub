@@ -326,6 +326,7 @@ export default function PainelPage() {
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
+              funilId={filtros.funilSelecionado}
             />
             <PainelOportunidadesPerdidasCard 
               unidadesIds={filtros.unidadesSelecionadas}

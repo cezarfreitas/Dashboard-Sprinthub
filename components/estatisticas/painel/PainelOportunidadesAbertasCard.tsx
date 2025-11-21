@@ -11,12 +11,14 @@ interface PainelOportunidadesAbertasCardProps {
   unidadesIds?: number[]
   periodoInicio?: string
   periodoFim?: string
+  funilId?: string
 }
 
 function PainelOportunidadesAbertasCard({ 
   unidadesIds = [],
   periodoInicio,
-  periodoFim
+  periodoFim,
+  funilId
 }: PainelOportunidadesAbertasCardProps) {
   const { user, loading: authLoading } = useAuthSistema()
   const [loading, setLoading] = useState(true)
@@ -44,6 +46,10 @@ function PainelOportunidadesAbertasCard({
     return `${periodoInicio || ''}-${periodoFim || ''}`
   }, [periodoInicio, periodoFim])
 
+  const funilKey = useMemo(() => {
+    return funilId || ''
+  }, [funilId])
+
   const fetchAbertasData = useCallback(async () => {
     if (authLoading || !user) {
       setAbertasTotal(0)
@@ -64,6 +70,10 @@ function PainelOportunidadesAbertasCard({
       
       if (unidadesIds.length > 0) {
         paramsBase.append('unidade_id', unidadesIds.join(','))
+      }
+      
+      if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+        paramsBase.append('funil_id', funilId)
       }
       
       if (periodoInicio && periodoFim) {
@@ -162,7 +172,7 @@ function PainelOportunidadesAbertasCard({
     } finally {
       setLoading(false)
     }
-  }, [authLoading, user, unidadesIdsKey, periodoKey])
+  }, [authLoading, user, unidadesIdsKey, periodoKey, funilKey])
 
   useEffect(() => {
     fetchAbertasData()
