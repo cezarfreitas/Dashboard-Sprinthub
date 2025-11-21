@@ -221,16 +221,16 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
   if (loading) {
     return (
       <header className={cn(
-        "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+        "sticky top-0 z-50 w-full border-b border-gray-800 bg-black",
         className
       )}>
         <div className="container flex h-14 items-center">
           <div className="mr-4 flex">
-            <Building2 className="h-6 w-6 mr-2" />
-            <span className="font-bold">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
+            <Building2 className="h-6 w-6 mr-2 text-white" />
+            <span className="font-bold text-white">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
           </div>
           <div className="flex-1 flex justify-center">
-            <span className="text-sm text-muted-foreground">Carregando...</span>
+            <span className="text-sm text-gray-400">Carregando...</span>
           </div>
         </div>
       </header>
@@ -273,15 +273,15 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                         <ChevronDown className="h-4 w-4 ml-2" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-48 p-1">
+                    <PopoverContent className="w-48 p-1 bg-black border-gray-800">
                       <div className="space-y-1">
                         {item.submenu?.map((subItem: any) => (
                           <Link
                             key={subItem.title}
                             href={subItem.href}
                             className={cn(
-                              "flex items-center px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer",
-                              isExactRoute(subItem.href) && "bg-accent text-accent-foreground"
+                              "flex items-center px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white cursor-pointer",
+                              isExactRoute(subItem.href) && "bg-white/10 text-white"
                             )}
                           >
                             {subItem.title}
@@ -324,7 +324,7 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                   </Avatar>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-64 p-2" align="end">
+              <PopoverContent className="w-64 p-2 bg-black border-gray-800" align="end">
                 <div className="flex items-center gap-3 p-3 mb-2">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-primary text-primary-foreground text-lg">
@@ -332,26 +332,26 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium text-sm">{user.nome}</p>
+                    <p className="font-medium text-sm text-white">{user.nome}</p>
                     {user.email && (
-                      <p className="text-xs text-muted-foreground truncate max-w-[180px]">
+                      <p className="text-xs text-gray-400 truncate max-w-[180px]">
                         {user.email}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground capitalize">
+                    <p className="text-xs text-gray-400 capitalize">
                       {user.role || 'Usuário'}
                     </p>
                   </div>
                 </div>
-                <div className="border-t my-2"></div>
+                <div className="border-t border-gray-800 my-2"></div>
                 <div className="space-y-1">
                   {hasPermission('configuracoes') && (
-                    <Link href="/configuracoes" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer">
+                    <Link href="/configuracoes" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Configurações</span>
                     </Link>
                   )}
-                  <button onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer text-red-600">
+                  <button onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Sair</span>
                   </button>
@@ -388,7 +388,7 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                 <div key={item.title}>
                   {item.hasSubmenu ? (
                     <div className="space-y-2">
-                      <div className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-400">
+                      <div className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white">
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </div>
