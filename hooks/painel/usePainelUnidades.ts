@@ -53,53 +53,122 @@ export function usePainelUnidades(
       setLoading(true)
       setError(null)
 
-      const params = new URLSearchParams()
-      params.append('date_start', filtros.periodoInicio)
-      params.append('date_end', filtros.periodoFim)
-
+      // Buscar unidades primeiro para ter a lista
+      const paramsUnidades = new URLSearchParams()
       if (filtros.unidadesSelecionadas && filtros.unidadesSelecionadas.length > 0) {
-        params.append('unidade_id', filtros.unidadesSelecionadas.join(','))
+        paramsUnidades.append('unidade_id', filtros.unidadesSelecionadas.join(','))
       }
 
-      if (filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos' && filtros.grupoSelecionado !== 'undefined') {
-        params.append('grupo_id', String(filtros.grupoSelecionado))
+      const [responseUnidades, ...responsesStats] = await Promise.all([
+        fetch(`/api/unidades/list?${paramsUnidades.toString()}`, { cache: 'no-store', signal }),
+        // Buscar stats para cada unidade (abertas, ganhas, perdidas)
+        ...(filtros.unidadesSelecionadas && filtros.unidadesSelecionadas.length > 0
+          ? filtros.unidadesSelecionadas.map(unidadeId => {
+              const paramsStats = new URLSearchParams()
+              paramsStats.append('status', 'open')
+              paramsStats.append('created_date_start', filtros.periodoInicio!)
+              paramsStats.append('created_date_end', filtros.periodoFim!)
+              paramsStats.append('unidade_id', String(unidadeId))
+              paramsStats.append('all', '1')
+              
+              if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos' && filtros.funilSelecionado !== 'undefined') {
+                paramsStats.append('funil_id', String(filtros.funilSelecionado))
+              }
+              
+              return fetch(`/api/oportunidades/stats?${paramsStats.toString()}`, { cache: 'no-store', signal })
+            })
+          : [])
+      ])
+
+      if (signal.aborted) return
+
+      const dataUnidades = await responseUnidades.json()
+      
+      if (!dataUnidades.success || !dataUnidades.unidades) {
+        throw new Error('Erro ao carregar unidades')
       }
 
-      if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos' && filtros.funilSelecionado !== 'undefined') {
-        params.append('funil_id', String(filtros.funilSelecionado))
-      }
+      // Buscar stats de ganhas e perdidas também
+      const responsesGanhas = filtros.unidadesSelecionadas && filtros.unidadesSelecionadas.length > 0
+        ? await Promise.all(
+            filtros.unidadesSelecionadas.map(unidadeId => {
+              const paramsStats = new URLSearchParams()
+              paramsStats.append('status', 'won')
+              paramsStats.append('gain_date_start', filtros.periodoInicio!)
+              paramsStats.append('gain_date_end', filtros.periodoFim!)
+              paramsStats.append('unidade_id', String(unidadeId))
+              
+              if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos' && filtros.funilSelecionado !== 'undefined') {
+                paramsStats.append('funil_id', String(filtros.funilSelecionado))
+              }
+              
+              return fetch(`/api/oportunidades/stats?${paramsStats.toString()}`, { cache: 'no-store', signal })
+            })
+          )
+        : []
 
-      const response = await fetch(
-        `/api/oportunidades/unidades?${params.toString()}`,
-        { cache: 'no-store', signal }
+      const responsesPerdidas = filtros.unidadesSelecionadas && filtros.unidadesSelecionadas.length > 0
+        ? await Promise.all(
+            filtros.unidadesSelecionadas.map(unidadeId => {
+              const paramsStats = new URLSearchParams()
+              paramsStats.append('status', 'lost')
+              paramsStats.append('lost_date_start', filtros.periodoInicio!)
+              paramsStats.append('lost_date_end', filtros.periodoFim!)
+              paramsStats.append('unidade_id', String(unidadeId))
+              
+              if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos' && filtros.funilSelecionado !== 'undefined') {
+                paramsStats.append('funil_id', String(filtros.funilSelecionado))
+              }
+              
+              return fetch(`/api/oportunidades/stats?${paramsStats.toString()}`, { cache: 'no-store', signal })
+            })
+          )
+        : []
+
+      if (signal.aborted) return
+
+      const dataStatsAbertas = await Promise.all(responsesStats.map(r => r.json()))
+      const dataStatsGanhas = await Promise.all(responsesGanhas.map(r => r.json()))
+      const dataStatsPerdidas = await Promise.all(responsesPerdidas.map(r => r.json()))
+
+      // Buscar metas das unidades
+      const mesMeta = new Date(filtros.periodoInicio + 'T00:00:00').getMonth() + 1
+      const anoMeta = new Date(filtros.periodoInicio + 'T00:00:00').getFullYear()
+      
+      const unidadesComStats = await Promise.all(
+        dataUnidades.unidades.map(async (unidade: any, index: number) => {
+          const statsAbertas = dataStatsAbertas[index]?.data || {}
+          const statsGanhas = dataStatsGanhas[index]?.data || {}
+          const statsPerdidas = dataStatsPerdidas[index]?.data || {}
+
+          // Buscar meta da unidade
+          const responseMeta = await fetch(
+            `/api/meta/stats?unidade_id=${unidade.id}&mes=${mesMeta}&ano=${anoMeta}`,
+            { cache: 'no-store', signal }
+          )
+          const dataMeta = await responseMeta.json()
+          const metaValor = dataMeta.success && dataMeta.data?.meta_valor ? Number(dataMeta.data.meta_valor) : 0
+
+          return {
+            id: unidade.id,
+            nome: unidade.nome || unidade.name,
+            name: unidade.nome || unidade.name,
+            nome_exibicao: unidade.nome || unidade.name,
+            grupo_id: unidade.grupo_id || null,
+            oportunidades_abertas: Number(statsAbertas.total_abertas_geral || statsAbertas.total_abertas || 0),
+            oportunidades_ganhas: Number(statsGanhas.total || 0),
+            oportunidades_perdidas: Number(statsPerdidas.total || 0),
+            valor_aberto: Number(statsAbertas.valor_abertas || 0),
+            valor_ganho: Number(statsGanhas.valor_total || 0),
+            valor_perdido: Number(statsPerdidas.valor_total || 0),
+            meta_valor: metaValor
+          }
+        })
       )
-      
-      if (signal.aborted) return
-      
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Erro ao carregar unidades')
-      }
 
       if (signal.aborted) return
 
-      const unidadesMapeadas: PainelUnidade[] = (data.unidades || []).map((item: any) => ({
-        id: item.unidade_id,
-        nome: item.unidade_nome,
-        name: item.unidade_nome,
-        nome_exibicao: item.unidade_nome,
-        grupo_id: null,
-        oportunidades_abertas: item.abertas?.quantidade || 0,
-        oportunidades_ganhas: item.ganhas?.quantidade || 0,
-        oportunidades_perdidas: item.perdidas?.quantidade || 0,
-        valor_aberto: item.abertas?.valor || 0,
-        valor_ganho: item.ganhas?.valor || 0,
-        valor_perdido: item.perdidas?.valor || 0,
-        meta_valor: item.meta?.valor || 0
-      }))
-
-      setUnidades(unidadesMapeadas)
+      setUnidades(unidadesComStats)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
