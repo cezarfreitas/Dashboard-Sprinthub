@@ -181,7 +181,6 @@ export default function FilaDeLeadsPage() {
               <FilaLeadsCard
                 key={fila.id}
                 fila={fila}
-                onToggleStatus={handleToggleStatus}
                 onManageQueue={handleManageQueue}
               />
             ))}

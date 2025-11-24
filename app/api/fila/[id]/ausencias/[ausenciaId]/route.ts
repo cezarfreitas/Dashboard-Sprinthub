@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeMutation } from '@/lib/database'
+import { executeQuery, executeMutation } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +34,7 @@ export async function DELETE(
     }
 
     // Deletar ausência
-    await executeQuery(
+    await executeMutation(
       `DELETE FROM vendedores_ausencias WHERE id = ?`,
       [ausenciaId]
     )
