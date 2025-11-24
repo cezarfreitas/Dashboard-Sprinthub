@@ -27,6 +27,8 @@ npm start
 
 ### 2. Environment Variables
 
+⚠️ **IMPORTANTE**: Variáveis que começam com `NEXT_PUBLIC_*` devem estar configuradas **ANTES** do build, pois são incorporadas no código durante a compilação.
+
 Configure as seguintes variáveis de ambiente no Easypanel:
 
 #### Obrigatórias:
@@ -45,8 +47,10 @@ DB_NAME=nome-do-banco
 # JWT
 JWT_SECRET=seu-jwt-secret-forte
 
-# URLs
+# URLs e Título da Aplicação
+NEXT_PUBLIC_APP_URL=https://seu-dominio.com
 NEXT_PUBLIC_URL_PUBLIC=https://seu-dominio.com
+NEXT_PUBLIC_APP_TITLE=GrupoInteli
 URLPATCH=https://seu-crm.com/api
 ```
 
@@ -212,6 +216,14 @@ Para atualizar a aplicação:
 Ou manualmente:
 1. Clique em "Redeploy" no Easypanel
 2. Aguarde build e restart
+
+### ⚠️ Atualizando Variáveis NEXT_PUBLIC_*
+
+Se você adicionar ou alterar variáveis que começam com `NEXT_PUBLIC_*` (como `NEXT_PUBLIC_APP_TITLE`), é **OBRIGATÓRIO** fazer um novo build:
+
+1. **Adicione/Atualize a variável** no Easypanel (Environment Variables)
+2. **Faça um Redeploy** para que o build seja executado novamente
+3. Variáveis `NEXT_PUBLIC_*` são incorporadas no código durante o build, então não funcionam apenas com restart
 
 ---
 

@@ -26,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useAuthSistema } from "@/hooks/use-auth-sistema"
+import { APP_TITLE } from "@/lib/app-config"
 
 interface HeaderGestorProps {
   className?: string
@@ -138,7 +140,7 @@ export function HeaderGestor({
         <div className="container flex h-14 items-center">
           <div className="mr-4 flex">
             <Building2 className="h-6 w-6 mr-2" />
-            <span className="font-bold">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
+            <span className="font-bold">{APP_TITLE}</span>
           </div>
           <div className="flex-1 flex justify-center">
             <span className="text-sm text-muted-foreground">Carregando...</span>
@@ -164,7 +166,7 @@ export function HeaderGestor({
         <div className="mr-4 flex">
           <Link href="/gestor/dashboard" className="flex items-center space-x-2 text-white hover:text-gray-300">
             <Building2 className="h-6 w-6" />
-            <span className="font-bold">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
+            <span className="font-bold">{APP_TITLE}</span>
           </Link>
         </div>
 

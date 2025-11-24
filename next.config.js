@@ -15,6 +15,13 @@ const nextConfig = {
   // Para Docker/Easypanel, podemos usar npm start sem standalone
   output: process.env.NEXT_STANDALONE === 'true' ? 'standalone' : undefined,
   
+  // Garantir que variáveis NEXT_PUBLIC_* sejam expostas no build
+  env: {
+    NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE || 'GrupoInteli',
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || '',
+    NEXT_PUBLIC_URL_PUBLIC: process.env.NEXT_PUBLIC_URL_PUBLIC || 'https://grupointeli.sprinthub.app',
+  },
+  
   // Otimizações de build
   swcMinify: true, // Usar SWC para minificação (mais rápido que Terser)
   
