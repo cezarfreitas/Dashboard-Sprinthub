@@ -25,7 +25,7 @@ export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
     return Math.min(100, (valorAtual / meta) * 100)
   }, [valorAtual, meta])
 
-  if (meta === 0) {
+  if (meta === 0 && valorAtual === 0) {
     return null
   }
 
@@ -34,11 +34,15 @@ export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 flex-shrink-0">
           <Target className="w-5 h-5 text-gray-700" />
-          <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">Meta do Mês:</span>
+          <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+            {meta === 0 ? 'Vendas do Mês:' : 'Meta do Mês:'}
+          </span>
         </div>
         
-        {/* Barra de Progresso Grande */}
-        <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden flex-1">
+        {meta > 0 ? (
+          <>
+            {/* Barra de Progresso Grande */}
+            <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden flex-1">
           <div 
             className={cn(
               "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-3",
@@ -46,7 +50,7 @@ export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
                 ? "bg-gradient-to-r from-yellow-400 to-yellow-500" 
                 : "bg-gradient-to-r from-green-400 to-green-500"
             )}
-            style={{ width: `${Math.min(100, percentualMeta)}%` }}
+            style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
           >
             {percentualMeta > 15 && (
               <span className="text-white text-xs font-bold">
@@ -54,7 +58,7 @@ export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
               </span>
             )}
           </div>
-          {percentualMeta <= 15 && (
+          {percentualMeta <= 15 && percentualMeta > 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-gray-600 text-xs font-bold">
                 {percentualMeta.toFixed(1)}%
@@ -82,6 +86,18 @@ export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
             </span>
           </div>
         </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="text-right">
+              <span className="text-xs text-gray-500">Total vendido: </span>
+              <span className="text-sm font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
+            </div>
+            <div className="px-3 py-1 bg-orange-50 border border-orange-200 rounded-md">
+              <span className="text-xs text-orange-600">Sem meta cadastrada</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

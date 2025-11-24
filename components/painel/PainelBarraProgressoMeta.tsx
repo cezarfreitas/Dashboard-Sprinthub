@@ -132,7 +132,7 @@ function PainelBarraProgressoMeta({
     )
   }
 
-  if (meta === 0) {
+  if (meta === 0 && valorAtual === 0) {
     return null
   }
 
@@ -141,11 +141,15 @@ function PainelBarraProgressoMeta({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 flex-shrink-0">
           <Target className="w-5 h-5 text-white/90" />
-          <span className="text-sm font-semibold text-white/90 whitespace-nowrap">Meta do Período:</span>
+          <span className="text-sm font-semibold text-white/90 whitespace-nowrap">
+            {meta === 0 ? 'Vendas do Período:' : 'Meta do Período:'}
+          </span>
         </div>
         
-        {/* Barra de Progresso */}
-        <div className="relative h-8 bg-gray-800 rounded-full overflow-hidden flex-1">
+        {meta > 0 ? (
+          <>
+            {/* Barra de Progresso */}
+            <div className="relative h-8 bg-gray-800 rounded-full overflow-hidden flex-1">
           <div 
             className={cn(
               "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-3",
@@ -153,7 +157,7 @@ function PainelBarraProgressoMeta({
                 ? "bg-gradient-to-r from-yellow-500 to-yellow-600" 
                 : "bg-gradient-to-r from-green-500 to-green-600"
             )}
-            style={{ width: `${Math.min(100, percentualMeta)}%` }}
+            style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
           >
             {percentualMeta > 15 && (
               <span className="text-white text-xs font-bold">
@@ -161,7 +165,7 @@ function PainelBarraProgressoMeta({
               </span>
             )}
           </div>
-          {percentualMeta <= 15 && (
+          {percentualMeta <= 15 && percentualMeta > 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-gray-400 text-xs font-bold">
                 {percentualMeta.toFixed(1)}%
@@ -189,6 +193,18 @@ function PainelBarraProgressoMeta({
             </span>
           </div>
         </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="text-right">
+              <span className="text-xs text-white/70">Total vendido: </span>
+              <span className="text-sm font-bold text-white">{formatCurrency(valorAtual)}</span>
+            </div>
+            <div className="px-3 py-1 bg-orange-500/20 border border-orange-500/30 rounded-md">
+              <span className="text-xs text-orange-400">Sem meta cadastrada</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

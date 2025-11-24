@@ -12,17 +12,6 @@ export async function GET(request: NextRequest) {
     const mes = searchParams.get('mes')
     const ano = searchParams.get('ano')
 
-    // Validar que pelo menos unidade_id ou vendedor_id foi fornecido
-    if (!unidade_id && !vendedor_id) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: 'É necessário fornecer unidade_id ou vendedor_id' 
-        },
-        { status: 400 }
-      )
-    }
-
     // Usar mês e ano atual se não especificados
     const currentDate = new Date()
     const targetMes = mes ? parseInt(mes) : currentDate.getMonth() + 1
@@ -67,15 +56,21 @@ export async function GET(request: NextRequest) {
     
     const params: any[] = [targetMes, targetAno]
 
-    // Aplicar filtros
+    // Aplicar filtros - suportar múltiplas unidades
     if (unidade_id) {
-      query += ' AND m.unidade_id = ?'
-      params.push(parseInt(unidade_id))
+      const unidadeIds = unidade_id.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+      if (unidadeIds.length > 0) {
+        query += ` AND m.unidade_id IN (${unidadeIds.map(() => '?').join(',')})`
+        params.push(...unidadeIds)
+      }
     }
 
     if (vendedor_id) {
-      query += ' AND m.vendedor_id = ?'
-      params.push(parseInt(vendedor_id))
+      const vendedorIds = vendedor_id.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+      if (vendedorIds.length > 0) {
+        query += ` AND m.vendedor_id IN (${vendedorIds.map(() => '?').join(',')})`
+        params.push(...vendedorIds)
+      }
     }
 
     query += ' ORDER BY u.nome, v.name'
@@ -135,14 +130,21 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      data: {
+        meta_valor: metaTotal,
+        meta_total: metaTotal,
+        total_vendedores: totalVendedores,
+        meta_media: metaMedia,
+        total_unidades: Object.keys(metasPorUnidade).length
+      },
       periodo: {
         mes: targetMes,
         ano: targetAno,
         mes_nome: new Date(targetAno, targetMes - 1).toLocaleString('pt-BR', { month: 'long' })
       },
       filtros: {
-        unidade_id: unidade_id ? parseInt(unidade_id) : null,
-        vendedor_id: vendedor_id ? parseInt(vendedor_id) : null
+        unidade_id: unidade_id || null,
+        vendedor_id: vendedor_id || null
       },
       estatisticas: {
         meta_total: metaTotal,
@@ -163,8 +165,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro ao buscar estatísticas de meta:', error)
-    
     return NextResponse.json(
       { 
         success: false, 
