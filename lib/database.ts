@@ -68,6 +68,23 @@ export async function executeQueryOne<T = any>(
   return results.length > 0 ? results[0] : null
 }
 
+// Função para executar INSERT/UPDATE/DELETE e retornar o resultado
+export async function executeMutation(
+  query: string,
+  params: any[] = []
+): Promise<{ insertId?: number; affectedRows: number }> {
+  const connection = getConnectionPool()
+  try {
+    const [result] = await connection.query(query, params) as any
+    return {
+      insertId: result.insertId,
+      affectedRows: result.affectedRows || 0
+    }
+  } catch (error) {
+    throw error
+  }
+}
+
 // Função para fechar o pool de conexões
 export async function closeConnectionPool(): Promise<void> {
   if (pool) {

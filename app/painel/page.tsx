@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAudioPlayer } from "@/hooks/use-audio-player"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
 import { PainelUnidadesGrid } from "@/components/painel/PainelUnidadesGrid"
 import PainelFiltersInline from "@/components/painel/PainelFiltersInline"
@@ -24,7 +23,6 @@ export default function PainelPage() {
   const [oportunidadesCriadas, setOportunidadesCriadas] = useState<any[]>([])
   const [receitaDiaria, setReceitaDiaria] = useState<any[]>([])
   const [loadingGraficos, setLoadingGraficos] = useState(true)
-  const { playAudio, playBellSound, isReady: audioReady } = useAudioPlayer()
   
   // Período inicial
   const periodoInicial = useMemo(() => {
@@ -285,19 +283,6 @@ export default function PainelPage() {
       <div className="min-h-screen bg-black">
         <Header />
         
-        {!audioReady && (
-          <div className="fixed top-20 right-4 z-50">
-            <div 
-              className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 cursor-pointer hover:bg-blue-500/30 transition-all"
-              onClick={() => playBellSound()}
-              title="Clique para ativar sons"
-            >
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
-              Clique para ativar sons
-            </div>
-          </div>
-        )}
-
         <div className="w-full overflow-y-auto scrollbar-hide">
         <div className="p-6">
           <PainelFiltersInline

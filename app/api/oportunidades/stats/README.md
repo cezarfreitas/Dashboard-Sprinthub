@@ -87,3 +87,5 @@ GET /api/oportunidades/stats?group_by=day&created_date_start=2025-01-01&created_
 
 Veja a [documentação completa](../../../../docs/API_OPORTUNIDADES_STATS.md) para mais exemplos e casos de uso.
 
+
+

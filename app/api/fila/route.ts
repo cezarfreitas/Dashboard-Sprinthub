@@ -3,436 +3,288 @@ import { executeQuery } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
-interface FilaResponse {
-  sucesso: boolean
-  vendedor?: {
-    id: number
-    nome: string
-    email: string
-    telefone: string | null
-    username: string
-    posicao_fila: number
-  }
-  lead?: {
-    data: {
-      lead: {
-        id: number
-        firstname: string
-        lastname: string
-        email: string | null
-        mobile: string | null
-        userAccess: number[]
-      }
-    }
-  } | null
-  lead_update_payload?: {
-    leadIds: number[]
-    data: {
-      userAccess: number[]
-      departmentAccess: any[]
-      ignoreSubDepartments: boolean
-    }
-  } | null
-  opportunity_payload?: {
-    crm_column: number
-    lead_id: number
-    status: string
-    title: string
-    value: number
-    user: number
-    sequence: string
-  } | null
-  unidade?: {
-    id: number
-    nome: string
-    nome_com_id: string
-    department_id: number | null
-    branches: any[]
-  }
-  total_distribuicoes: number
-  total_fila: number
-  mensagem?: string
-  erro?: string
-}
-
-// GET - Retornar próximo vendedor da fila (com ou sem dados do lead)
+// GET - Listar todas as filas de leads
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const unidadeIdParam = searchParams.get('unidade')
-  const leadId = searchParams.get('idlead')
-
-  // Validar unidade
-  if (!unidadeIdParam) {
-    return NextResponse.json(
-      { 
-        sucesso: false, 
-        erro: 'Parâmetro "unidade" é obrigatório',
-        total_distribuicoes: 0,
-        total_fila: 0
-      } as FilaResponse,
-      { status: 400 }
-    )
-  }
-
-  const unidadeId = parseInt(unidadeIdParam)
-  if (isNaN(unidadeId)) {
-    return NextResponse.json(
-      { 
-        sucesso: false, 
-        erro: 'ID da unidade inválido',
-        total_distribuicoes: 0,
-        total_fila: 0
-      } as FilaResponse,
-      { status: 400 }
-    )
-  }
-
   try {
-    // 1. Buscar informações da unidade
-    const unidadeResult = await executeQuery(`
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get('search')
+    const gestorId = request.headers.get('x-gestor-id')
+
+    // Query simplificada para buscar apenas unidades
+    let query = `
       SELECT 
-        id, 
-        name as nome,
-        department_id,
-        fila_leads,
-        branches,
-        dpto_gestao,
-        user_gestao
-      FROM unidades 
-      WHERE id = ? AND ativo = 1
-    `, [unidadeId]) as any[]
+        u.id,
+        u.id as unidade_id,
+        COALESCE(u.nome, u.name) as unidade_nome,
+        u.ativo,
+        u.fila_leads,
+        u.created_at,
+        u.updated_at
+      FROM unidades u
+      WHERE 1=1
+    `
 
-    if (unidadeResult.length === 0) {
-      return NextResponse.json(
-        { 
-          sucesso: false, 
-          erro: 'Unidade não encontrada ou inativa',
-          total_distribuicoes: 0,
-          total_fila: 0
-        } as FilaResponse,
-        { status: 404 }
-      )
-    }
+    const params: any[] = []
 
-    const unidade = unidadeResult[0]
-
-    // 2. Parsear fila de leads
-    let filaLeads: any[] = []
-    if (unidade.fila_leads) {
-      try {
-        const parsed = typeof unidade.fila_leads === 'string' 
-          ? JSON.parse(unidade.fila_leads) 
-          : unidade.fila_leads
-        
-        if (Array.isArray(parsed)) {
-          filaLeads = parsed
-            .filter((item: any) => item.vendedor_id)
-            .sort((a: any, b: any) => (a.sequencia || 0) - (b.sequencia || 0))
-        }
-      } catch (e) {
-        console.warn(`Erro ao parsear fila_leads da unidade ${unidadeId}:`, e)
+    // Filtrar apenas unidades do gestor logado
+    if (gestorId) {
+      const gestorIdNum = parseInt(gestorId, 10)
+      if (!isNaN(gestorIdNum)) {
+        query += ` AND u.user_gestao = ?`
+        params.push(gestorIdNum)
       }
     }
 
-    if (filaLeads.length === 0) {
-      return NextResponse.json(
-        { 
-          sucesso: false, 
-          erro: 'Nenhum vendedor configurado na fila desta unidade',
-          total_distribuicoes: 0,
-          total_fila: 0
-        } as FilaResponse,
-        { status: 404 }
-      )
+    if (search) {
+      query += ` AND (u.nome LIKE ? OR u.name LIKE ?)`
+      params.push(`%${search}%`, `%${search}%`)
     }
 
-    // 3. Buscar última distribuição desta unidade
-    const ultimaDistribuicaoResult = await executeQuery(`
-      SELECT vendedor_id 
-      FROM fila_leads_log 
-      WHERE unidade_id = ?
-      ORDER BY distribuido_em DESC, id DESC
-      LIMIT 1
-    `, [unidadeId]) as any[]
+    query += ` ORDER BY COALESCE(u.nome, u.name) ASC`
 
-    let proximoIndex = 0
+    const unidades = await executeQuery(query, params) as any[]
+
+    // Buscar contagem de vendedores apenas para as unidades retornadas
+    let vendedoresPorUnidade: any[] = []
     
-    if (ultimaDistribuicaoResult.length > 0) {
-      const ultimoVendedorId = ultimaDistribuicaoResult[0].vendedor_id
-      const ultimoIndex = filaLeads.findIndex(v => v.vendedor_id === ultimoVendedorId)
-      
-      if (ultimoIndex !== -1) {
-        proximoIndex = (ultimoIndex + 1) % filaLeads.length
-      } else {
-        proximoIndex = 0
-      }
+    if (unidades.length > 0) {
+      const unidadeIds = unidades.map(u => u.id)
+      const vendedoresQuery = `
+        SELECT 
+          unidade_id,
+          COUNT(*) as total
+        FROM vendedores 
+        WHERE ativo = 1 
+          AND unidade_id IS NOT NULL
+          AND unidade_id IN (${unidadeIds.map(() => '?').join(',')})
+        GROUP BY unidade_id
+      `
+      vendedoresPorUnidade = await executeQuery(vendedoresQuery, unidadeIds) as any[]
     }
+    
+    // Criar mapa de vendedores por unidade (para contagem)
+    const vendedoresCountMap = new Map<number, number>()
+    vendedoresPorUnidade.forEach((v: any) => {
+      vendedoresCountMap.set(v.unidade_id, Number(v.total || 0))
+    })
 
-    // 4. Pegar vendedor da posição calculada
-    const vendedorFila = filaLeads[proximoIndex]
-
-    // 5. Buscar informações do vendedor
-    const vendedorResult = await executeQuery(`
-      SELECT 
-        id,
-        name,
-        lastName,
-        email,
-        username,
-        telephone
-      FROM vendedores 
-      WHERE id = ? AND ativo = 1
-    `, [vendedorFila.vendedor_id]) as any[]
-
-    if (vendedorResult.length === 0) {
-      return NextResponse.json(
-        { 
-          sucesso: false, 
-          erro: 'Vendedor não encontrado ou inativo',
-          total_distribuicoes: 0,
-          total_fila: filaLeads.length
-        } as FilaResponse,
-        { status: 404 }
-      )
-    }
-
-    const vendedor = vendedorResult[0]
-
-    // 6. Consultar dados do lead na API do SprintHub (se leadId fornecido)
-    let leadData = null
-    if (leadId) {
-      console.log('🔍 Buscando lead:', leadId)
-      const apiToken = process.env.APITOKEN
-      const groupId = process.env.I
-      const urlPatch = process.env.URLPATCH
-
-      if (apiToken && groupId && urlPatch) {
-        console.log('✅ Token configurado')
+    // Coletar todos os IDs de vendedores que estão nas filas
+    const vendedorIdsSet = new Set<number>()
+    unidades.forEach((unidade: any) => {
+      if (unidade.fila_leads) {
         try {
-          const url = `${urlPatch}/leads/${leadId}?query={lead{id,firstname,lastname,userAccess,departmentAccess}}&apitoken=${apiToken}&i=${groupId}`
-          console.log('📡 URL:', url)
+          const filaData = typeof unidade.fila_leads === 'string' 
+            ? JSON.parse(unidade.fila_leads)
+            : unidade.fila_leads
           
-          const leadResponse = await fetch(url, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': 'CRM-by-INTELI/1.0'
-            },
-            cache: 'no-store'
-          })
-
-          console.log('📊 Status da resposta:', leadResponse.status)
-          
-          if (leadResponse.ok) {
-            const leadJson = await leadResponse.json()
-            console.log('📦 Resposta completa:', JSON.stringify(leadJson, null, 2))
-            
-            // API retorna: { data: { lead: {...} } }
-            // Retornar a estrutura completa com data
-            leadData = leadJson || null
-            console.log('✅ Lead extraído:', JSON.stringify(leadData))
-          } else {
-            const errorText = await leadResponse.text()
-            console.error(`❌ Erro ao consultar lead ${leadId}:`, leadResponse.status, errorText)
-          }
-        } catch (leadError) {
-          console.error('❌ Erro ao consultar API do SprintHub:', leadError)
-          // Continua mesmo sem os dados do lead
-        }
-      } else {
-        console.error('❌ APITOKEN, I ou URLPATCH não configurado no .env')
-      }
-    } else {
-      console.log('ℹ️ Nenhum leadId fornecido')
-    }
-
-    // 7. Atualizar lead no SprintHub (adicionar vendedor ao userAccess)
-    let updatePayload = null
-    let opportunityPayload = null
-    if (leadId && leadData) {
-      const apiToken = process.env.APITOKEN
-      const groupId = process.env.I
-      const urlPatch = process.env.URLPATCH
-
-      if (apiToken && groupId && urlPatch) {
-        try {
-          console.log('🔄 Atualizando lead no SprintHub...')
-          
-          // Obter userAccess atual do lead
-          const currentUserAccess = leadData?.data?.lead?.userAccess || []
-          console.log('👥 UserAccess atual:', currentUserAccess)
-          
-          // Adicionar o novo vendedor se ainda não estiver no array
-          const updatedUserAccess = [...currentUserAccess]
-          if (!updatedUserAccess.includes(vendedor.id)) {
-            updatedUserAccess.push(vendedor.id)
-          }
-          console.log('👥 UserAccess atualizado:', updatedUserAccess)
-          
-          // Preparar departmentAccess com dpto_gestao se existir
-          const departmentAccess = unidade.dpto_gestao ? [unidade.dpto_gestao] : []
-          console.log('🏢 Departamento de Gestão:', unidade.dpto_gestao || 'Não definido')
-          console.log('📋 DepartmentAccess:', departmentAccess)
-          
-          updatePayload = {
-            leadIds: [parseInt(leadId)],
-            data: {
-              userAccess: updatedUserAccess,
-              departmentAccess: departmentAccess,
-              ignoreSubDepartments: true
-            }
-          }
-
-          console.log('📤 Payload:', JSON.stringify(updatePayload, null, 2))
-
-          const updateResponse = await fetch(
-            `${urlPatch}/leads/batchupdate?apitoken=${apiToken}&i=${groupId}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'CRM-by-INTELI/1.0'
-              },
-              body: JSON.stringify(updatePayload),
-              cache: 'no-store'
-            }
-          )
-
-          if (updateResponse.ok) {
-            const updateResult = await updateResponse.json()
-            console.log('✅ Lead atualizado no SprintHub:', updateResult)
-          } else {
-            const errorText = await updateResponse.text()
-            console.error('❌ Erro ao atualizar lead no SprintHub:', updateResponse.status, errorText)
-          }
-
-          // 7.1. Criar oportunidade no CRM
-          try {
-            console.log('🎯 Criando oportunidade no CRM...')
-            
-            const leadName = `${leadData?.data?.lead?.firstname || ''} ${leadData?.data?.lead?.lastname || ''}`.trim()
-            
-            opportunityPayload = {
-              crm_column: 8,
-              lead_id: parseInt(leadId),
-              status: "open",
-              title: leadName || `Lead #${leadId}`,
-              value: 0,
-              user: vendedor.id,
-              sequence: ""
-            }
-
-            console.log('📤 Payload oportunidade:', JSON.stringify(opportunityPayload, null, 2))
-
-            const opportunityResponse = await fetch(
-              `${urlPatch}/crmopportunity?id=4&apitoken=${apiToken}&i=${groupId}`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'User-Agent': 'CRM-by-INTELI/1.0'
-                },
-                body: JSON.stringify(opportunityPayload),
-                cache: 'no-store'
+          if (Array.isArray(filaData)) {
+            filaData.forEach((item: any) => {
+              const vendedorId = item.vendedor_id || item.id
+              if (vendedorId && typeof vendedorId === 'number') {
+                vendedorIdsSet.add(vendedorId)
               }
-            )
-
-            if (opportunityResponse.ok) {
-              const opportunityResult = await opportunityResponse.json()
-              console.log('✅ Oportunidade criada no CRM:', opportunityResult)
-            } else {
-              const errorText = await opportunityResponse.text()
-              console.error('❌ Erro ao criar oportunidade no CRM:', opportunityResponse.status, errorText)
-            }
-          } catch (opportunityError) {
-            console.error('❌ Erro ao conectar com SprintHub para criar oportunidade:', opportunityError)
+            })
           }
-
-        } catch (updateError) {
-          console.error('❌ Erro ao conectar com SprintHub para atualizar lead:', updateError)
+        } catch (e) {
+          // Ignore parse errors
         }
       }
+    })
+
+    // Buscar nomes dos vendedores
+    const vendedoresMap = new Map<number, { name: string; lastName: string }>()
+    if (vendedorIdsSet.size > 0) {
+      const vendedorIds = Array.from(vendedorIdsSet)
+      const vendedoresQuery = `
+        SELECT 
+          id,
+          name,
+          lastName
+        FROM vendedores 
+        WHERE id IN (${vendedorIds.map(() => '?').join(',')})
+          AND ativo = 1
+      `
+      const vendedores = await executeQuery(vendedoresQuery, vendedorIds) as Array<{
+        id: number
+        name: string
+        lastName: string
+      }>
+      
+      vendedores.forEach((v: any) => {
+        vendedoresMap.set(Number(v.id), {
+          name: v.name || '',
+          lastName: v.lastName || ''
+        })
+      })
     }
 
-    // 8. Registrar log da distribuição
-    try {
-      await executeQuery(`
-        INSERT INTO fila_leads_log (
-          unidade_id, 
-          vendedor_id, 
-          posicao_fila,
-          total_fila
-        )
-        VALUES (?, ?, ?, ?)
-      `, [unidadeId, vendedor.id, proximoIndex + 1, filaLeads.length])
-    } catch (logError) {
-      console.warn('Erro ao registrar log da fila:', logError)
-    }
-
-    // 9. Contar total de distribuições
-    const totalDistResult = await executeQuery(`
-      SELECT COUNT(*) as total 
-      FROM fila_leads_log 
-      WHERE unidade_id = ?
-    `, [unidadeId]) as any[]
+    // Buscar contagem de distribuições por vendedor e unidade da tabela fila_leads_log
+    const distribuicoesMap = new Map<string, number>() // key: "unidade_id-vendedor_id"
+    const unidadeStatsMap = new Map<number, { total: number; ultima_distribuicao: string | null }>() // key: unidade_id
+    const ausenciasMap = new Map<string, { data_fim: string }>() // key: "unidade_id-vendedor_id"
     
-    const totalDistribuicoes = totalDistResult[0]?.total || 0
+    if (unidades.length > 0) {
+      const unidadeIds = unidades.map(u => u.id)
+      
+      // Buscar distribuições por vendedor
+      const distribuicoesQuery = `
+        SELECT 
+          unidade_id,
+          vendedor_id,
+          COUNT(*) as total_distribuicoes
+        FROM fila_leads_log
+        WHERE unidade_id IN (${unidadeIds.map(() => '?').join(',')})
+        GROUP BY unidade_id, vendedor_id
+      `
+      const distribuicoes = await executeQuery(distribuicoesQuery, unidadeIds) as Array<{
+        unidade_id: number
+        vendedor_id: number
+        total_distribuicoes: number
+      }>
+      
+      distribuicoes.forEach((d: any) => {
+        const key = `${d.unidade_id}-${d.vendedor_id}`
+        distribuicoesMap.set(key, Number(d.total_distribuicoes || 0))
+      })
 
-    // 11. Parsear branches se existir
-    let branchesArray: any[] = []
-    if (unidade.branches) {
-      try {
-        branchesArray = typeof unidade.branches === 'string' 
-          ? JSON.parse(unidade.branches) 
-          : unidade.branches
-      } catch (e) {
-        console.warn(`Erro ao parsear branches da unidade ${unidadeId}:`, e)
+      // Buscar estatísticas por unidade (total e última distribuição)
+      const statsQuery = `
+        SELECT 
+          unidade_id,
+          COUNT(*) as total_distribuicoes,
+          MAX(distribuido_em) as ultima_distribuicao
+        FROM fila_leads_log
+        WHERE unidade_id IN (${unidadeIds.map(() => '?').join(',')})
+        GROUP BY unidade_id
+      `
+      const stats = await executeQuery(statsQuery, unidadeIds) as Array<{
+        unidade_id: number
+        total_distribuicoes: number
+        ultima_distribuicao: string | null
+      }>
+      
+      stats.forEach((s: any) => {
+        unidadeStatsMap.set(s.unidade_id, {
+          total: Number(s.total_distribuicoes || 0),
+          ultima_distribuicao: s.ultima_distribuicao || null
+        })
+      })
+
+      // Buscar ausências ativas (onde a data atual está entre data_inicio e data_fim)
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+      const ausenciasQuery = `
+        SELECT 
+          unidade_id,
+          vendedor_id,
+          data_fim
+        FROM vendedores_ausencias
+        WHERE unidade_id IN (${unidadeIds.map(() => '?').join(',')})
+          AND data_inicio <= ?
+          AND data_fim >= ?
+        ORDER BY data_fim ASC
+      `
+      const ausencias = await executeQuery(ausenciasQuery, [...unidadeIds, now, now]) as Array<{
+        unidade_id: number
+        vendedor_id: number
+        data_fim: string
+      }>
+      
+      ausencias.forEach((a: any) => {
+        const key = `${a.unidade_id}-${a.vendedor_id}`
+        // Se já existe uma ausência, manter a que tem data_fim mais próxima (já ordenado ASC)
+        if (!ausenciasMap.has(key)) {
+          ausenciasMap.set(key, {
+            data_fim: a.data_fim
+          })
+        }
+      })
+    }
+
+    // Processar resultados
+    const filas = unidades.map((unidade: any) => {
+      let vendedoresFila: any[] = []
+      
+      // Parse fila_leads JSON e mapear nomes
+      if (unidade.fila_leads) {
+        try {
+          const filaData = typeof unidade.fila_leads === 'string' 
+            ? JSON.parse(unidade.fila_leads)
+            : unidade.fila_leads
+          
+          if (Array.isArray(filaData)) {
+            vendedoresFila = filaData.map((item: any, index: number) => {
+              const vendedorId = item.vendedor_id || item.id
+              const vendedor = vendedoresMap.get(vendedorId)
+              
+              // Buscar contagem de distribuições da tabela fila_leads_log
+              const key = `${unidade.id}-${vendedorId}`
+              const totalDistribuicoes = distribuicoesMap.get(key) || 0
+              
+              // Buscar ausência ativa
+              const ausencia = ausenciasMap.get(key)
+              
+              return {
+                id: vendedorId,
+                nome: vendedor 
+                  ? `${vendedor.name} ${vendedor.lastName || ''}`.trim()
+                  : (item.nome || 'Sem nome'),
+                sequencia: item.sequencia || item.ordem || (index + 1),
+                total_distribuicoes: totalDistribuicoes,
+                ausencia_retorno: ausencia?.data_fim || null
+              }
+            })
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
       }
-    }
 
-    // 12. Retornar resposta
-    const nomeComId = unidade.id 
-      ? `${unidade.nome} #${unidade.id}`
-      : unidade.nome
-    
-    const response: FilaResponse = {
-      sucesso: true,
-      vendedor: {
-        id: vendedor.id,
-        nome: `${vendedor.name} ${vendedor.lastName}`,
-        email: vendedor.email,
-        telefone: vendedor.telephone,
-        username: vendedor.username,
-        posicao_fila: proximoIndex + 1
-      },
-      lead: leadData,
-      lead_update_payload: updatePayload,
-      opportunity_payload: opportunityPayload,
-      unidade: {
+      // Buscar estatísticas da unidade do log
+      const stats = unidadeStatsMap.get(unidade.id) || { total: 0, ultima_distribuicao: null }
+
+      return {
         id: unidade.id,
-        nome: unidade.nome,
-        nome_com_id: nomeComId,
-        department_id: unidade.department_id,
-        branches: branchesArray
-      },
-      total_distribuicoes: totalDistribuicoes,
-      total_fila: filaLeads.length
+        unidade_id: unidade.unidade_id,
+        unidade_nome: unidade.unidade_nome || 'Sem nome',
+        total_vendedores: vendedoresCountMap.get(unidade.id) || 0,
+        vendedores_fila: vendedoresFila,
+        ultima_distribuicao: stats.ultima_distribuicao,
+        total_leads_distribuidos: stats.total,
+        ativo: Boolean(unidade.ativo),
+        created_at: unidade.created_at,
+        updated_at: unidade.updated_at
+      }
+    })
+
+    // Calcular estatísticas
+    const stats = {
+      total_unidades: filas.length,
+      unidades_com_fila: filas.filter(f => f.vendedores_fila.length > 0).length,
+      total_vendedores: filas.reduce((sum, f) => sum + f.total_vendedores, 0),
+      total_leads_distribuidos: 0,
+      ultima_atualizacao: filas.length > 0 
+        ? filas.reduce((latest, f) => {
+            if (!latest) return f.updated_at
+            return new Date(f.updated_at) > new Date(latest) ? f.updated_at : latest
+          }, null as string | null)
+        : null
     }
 
-    return NextResponse.json(response)
+    return NextResponse.json({
+      success: true,
+      filas,
+      stats
+    })
 
   } catch (error) {
-    console.error('❌ Erro ao processar fila de leads:', error)
-    
     return NextResponse.json(
-      { 
-        sucesso: false, 
-        erro: 'Erro interno do servidor',
-        total_distribuicoes: 0,
-        total_fila: 0
-      } as FilaResponse,
+      {
+        success: false,
+        message: 'Erro ao buscar filas de leads',
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        stack: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     )
   }
 }
-

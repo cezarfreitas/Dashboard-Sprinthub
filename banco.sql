@@ -207,6 +207,18 @@ CREATE TABLE vendedores (
   unidade_id int DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE vendedores_ausencias (
+  id int NOT NULL,
+  unidade_id int NOT NULL COMMENT 'ID da unidade',
+  vendedor_id int NOT NULL COMMENT 'ID do vendedor que está ausente',
+  data_inicio datetime NOT NULL COMMENT 'Data e hora de início da ausência (GMT-3 São Paulo)',
+  data_fim datetime NOT NULL COMMENT 'Data e hora de fim da ausência (GMT-3 São Paulo)',
+  motivo text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Motivo da ausência',
+  created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by int DEFAULT NULL COMMENT 'ID do usuário que criou a ausência'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 ALTER TABLE colunas_funil
   ADD PRIMARY KEY (id),
@@ -298,6 +310,14 @@ ALTER TABLE vendedores
   ADD KEY idx_ativo (ativo),
   ADD KEY idx_unidade_id (unidade_id);
 
+ALTER TABLE vendedores_ausencias
+  ADD PRIMARY KEY (id),
+  ADD KEY idx_unidade_id (unidade_id),
+  ADD KEY idx_vendedor_id (vendedor_id),
+  ADD KEY idx_data_inicio (data_inicio),
+  ADD KEY idx_data_fim (data_fim),
+  ADD KEY idx_unidade_vendedor (unidade_id, vendedor_id);
+
 
 ALTER TABLE configuracoes
   MODIFY id int NOT NULL AUTO_INCREMENT;
@@ -321,6 +341,9 @@ ALTER TABLE unidade_grupos
   MODIFY id int NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE usuarios_sistema
+  MODIFY id int NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE vendedores_ausencias
   MODIFY id int NOT NULL AUTO_INCREMENT;
 
 

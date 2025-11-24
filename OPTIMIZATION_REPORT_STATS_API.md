@@ -295,3 +295,5 @@ A mudança é transparente para o frontend e mantém 100% de compatibilidade com
 **Documentado por:** AI Assistant  
 **Data:** 2025-11-20
 
+
+

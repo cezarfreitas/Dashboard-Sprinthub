@@ -19,7 +19,6 @@ export function useSSE() {
   const { playBellSound } = useAudioPlayer()
 
   const openDialog = useCallback(() => {
-    console.log('Abrindo dialog via SSE')
     setIsDialogOpen(true)
   }, [])
 
@@ -31,32 +30,25 @@ export function useSSE() {
     const eventSource = new EventSource('/api/events')
     
     eventSource.onopen = () => {
-      console.log('SSE conectado')
       setIsConnected(true)
     }
 
     eventSource.onmessage = (event) => {
       try {
         const data: SSEEvent = JSON.parse(event.data)
-        console.log('📡 Evento SSE recebido:', data)
         setLastEvent(data)
         
         if (data.type === 'goal_achieved') {
-          console.log('🎯 Objetivo alcançado via SSE - iniciando celebração')
-          console.log('🎉 Chamando celebrate()...')
-          celebrate() // 🎉 Apenas fogos (sem sons sintéticos)
-          console.log('🔔 Chamando playBellSound()...')
-          playBellSound() // 🔔 bell.wav
-          console.log('📱 Chamando openDialog()...')
+          celebrate()
+          playBellSound()
           openDialog()
         }
       } catch (error) {
-        console.error('❌ Erro ao processar evento SSE:', error)
+        // Erro ao processar evento
       }
     }
 
-    eventSource.onerror = (error) => {
-      console.error('Erro na conexão SSE:', error)
+    eventSource.onerror = () => {
       setIsConnected(false)
     }
 
