@@ -58,15 +58,24 @@ export const FilaLogsDialog = memo(function FilaLogsDialog({
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/fila/${fila.unidade_id}/logs`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setLogs(data.logs || [])
-        }
+      // Usar fila.id ao invés de fila.unidade_id (ambos contêm o ID da unidade, mas id é mais confiável)
+      const unidadeId = fila.id || fila.unidade_id
+      const response = await fetch(`/api/fila/${unidadeId}/logs`)
+      
+      if (!response.ok) {
+        console.error('Erro ao carregar logs:', response.status, response.statusText)
+        return
+      }
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        setLogs(data.logs || [])
+      } else {
+        console.error('API retornou erro:', data.message || data.error)
       }
     } catch (err) {
-      // Error silencioso
+      console.error('Erro ao buscar logs:', err)
     } finally {
       setLoading(false)
     }

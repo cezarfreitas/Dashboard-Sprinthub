@@ -224,7 +224,7 @@ export const FilaLeadsConfigDialog = memo(function FilaLeadsConfigDialog({
                           </div>
                           {vendedor.total_distribuicoes !== undefined && (
                             <div className="text-xs text-muted-foreground">
-                              {vendedor.total_distribuicoes} leads recebidos
+                              {vendedor.total_distribuicoes} leads
                             </div>
                           )}
                         </div>

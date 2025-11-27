@@ -211,39 +211,39 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CalendarX className="h-5 w-5" />
-            Registro de Ausências - {fila.unidade_nome}
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <CalendarX className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="truncate">Ausências - {fila.unidade_nome}</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Gerencie as ausências dos vendedores da unidade
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto py-4">
-          <div className="grid grid-cols-2 gap-4 h-full">
+        <div className="flex-1 overflow-y-auto py-2 sm:py-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 h-full">
             {/* Coluna 1: Formulário de Nova Ausência */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Nova Ausência</CardTitle>
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-sm sm:text-base">Nova Ausência</CardTitle>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="vendedor">Vendedor</Label>
+              <CardContent className="space-y-3 sm:space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="vendedor" className="text-xs sm:text-sm">Vendedor</Label>
                   <Select
                     value={selectedVendedor ? String(selectedVendedor) : ''}
                     onValueChange={(value) => setSelectedVendedor(value ? Number(value) : '')}
                     required
                   >
-                    <SelectTrigger id="vendedor">
+                    <SelectTrigger id="vendedor" className="h-11 sm:h-10 text-sm">
                       <SelectValue placeholder="Selecione um vendedor" />
                     </SelectTrigger>
                     <SelectContent>
                       {vendedores.map((v) => (
-                        <SelectItem key={v.id} value={String(v.id)}>
+                        <SelectItem key={v.id} value={String(v.id)} className="text-sm">
                           {v.name} {v.lastName}
                         </SelectItem>
                       ))}
@@ -251,27 +251,32 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Data/Hora Início</Label>
-                  <div className="flex gap-2">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label className="text-xs sm:text-sm">Data/Hora Início</Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Popover open={openInicio} onOpenChange={setOpenInicio}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            "w-full justify-start text-left font-normal h-11 sm:h-10 text-sm",
                             !dataInicio && "text-muted-foreground"
                           )}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           {dataInicio ? (
                             format(dataInicio, "dd/MM/yyyy", { locale: ptBR })
                           ) : (
-                            <span>Selecione a data</span>
+                            <span className="text-xs sm:text-sm">Selecione a data</span>
                           )}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent 
+                        className="w-auto p-0 z-50" 
+                        align="center" 
+                        side="bottom"
+                        sideOffset={5}
+                      >
                         <Calendar
                           mode="single"
                           selected={dataInicio}
@@ -281,6 +286,7 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                           }}
                           locale={ptBR}
                           initialFocus
+                          className="rounded-md border"
                         />
                       </PopoverContent>
                     </Popover>
@@ -288,33 +294,38 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                       type="time"
                       value={horaInicio}
                       onChange={(e) => setHoraInicio(e.target.value)}
-                      className="w-32"
+                      className="w-full sm:w-32 h-11 sm:h-10 text-sm"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Data/Hora Fim</Label>
-                  <div className="flex gap-2">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label className="text-xs sm:text-sm">Data/Hora Fim</Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Popover open={openFim} onOpenChange={setOpenFim}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            "w-full justify-start text-left font-normal h-11 sm:h-10 text-sm",
                             !dataFim && "text-muted-foreground"
                           )}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           {dataFim ? (
                             format(dataFim, "dd/MM/yyyy", { locale: ptBR })
                           ) : (
-                            <span>Selecione a data</span>
+                            <span className="text-xs sm:text-sm">Selecione a data</span>
                           )}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent 
+                        className="w-auto p-0 z-50" 
+                        align="center" 
+                        side="bottom"
+                        sideOffset={5}
+                      >
                         <Calendar
                           mode="single"
                           selected={dataFim}
@@ -324,6 +335,7 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                           }}
                           locale={ptBR}
                           initialFocus
+                          className="rounded-md border"
                         />
                       </PopoverContent>
                     </Popover>
@@ -331,31 +343,32 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                       type="time"
                       value={horaFim}
                       onChange={(e) => setHoraFim(e.target.value)}
-                      className="w-32"
+                      className="w-full sm:w-32 h-11 sm:h-10 text-sm"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="motivo">Motivo</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="motivo" className="text-xs sm:text-sm">Motivo</Label>
                   <Textarea
                     id="motivo"
                     value={motivo}
                     onChange={(e) => setMotivo(e.target.value)}
                     placeholder="Descreva o motivo da ausência"
                     rows={3}
+                    className="text-sm resize-none"
                     required
                   />
                 </div>
 
-                <Button type="submit" disabled={saving} className="w-full">
+                <Button type="submit" disabled={saving} className="w-full min-h-[44px] text-sm">
                   {saving ? (
-                    <>Salvando...</>
+                    <span className="text-sm">Salvando...</span>
                   ) : (
                     <>
                       <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Ausência
+                      <span>Adicionar Ausência</span>
                     </>
                   )}
                 </Button>
@@ -365,27 +378,27 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
 
             {/* Coluna 2: Lista de Ausências */}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3 sm:pb-6">
                 <div className="flex items-center gap-2">
-                  <CalendarX className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-base">Ausências Registradas</CardTitle>
-                  <Badge variant="secondary">
+                  <CalendarX className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm sm:text-base">Ausências Registradas</CardTitle>
+                  <Badge variant="secondary" className="text-xs">
                     {ausencias.length}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[400px] rounded-md border p-3">
+                <ScrollArea className="h-[300px] sm:h-[400px] rounded-md border p-2 sm:p-3">
                 {loading ? (
-                  <div className="text-center text-sm text-muted-foreground py-8">
+                  <div className="text-center text-xs sm:text-sm text-muted-foreground py-6 sm:py-8">
                     Carregando...
                   </div>
                 ) : ausencias.length === 0 ? (
-                  <div className="text-center text-sm text-muted-foreground py-8">
+                  <div className="text-center text-xs sm:text-sm text-muted-foreground py-6 sm:py-8">
                     Nenhuma ausência registrada
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {ausencias.map((ausencia) => {
                       const agora = new Date()
                       const inicio = new Date(ausencia.data_inicio)
@@ -396,7 +409,7 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                       return (
                         <div
                           key={ausencia.id}
-                          className={`flex items-start justify-between p-3 rounded-lg border transition-colors ${
+                          className={`flex items-start justify-between p-2 sm:p-3 rounded-lg border transition-colors ${
                             estaAtiva 
                               ? 'border-orange-200 bg-orange-50/50' 
                               : jaPassou
@@ -405,32 +418,32 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="text-sm font-medium">
+                            <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
+                              <div className="text-xs sm:text-sm font-medium truncate">
                                 {ausencia.vendedor_nome || `Vendedor #${ausencia.vendedor_id}`}
                               </div>
                               {estaAtiva && (
-                                <Badge variant="destructive" className="text-xs">
+                                <Badge variant="destructive" className="text-[10px] sm:text-xs">
                                   Ativa
                                 </Badge>
                               )}
                               {!estaAtiva && !jaPassou && (
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge variant="secondary" className="text-[10px] sm:text-xs">
                                   Agendada
                                 </Badge>
                               )}
                             </div>
-                            <div className="text-xs text-muted-foreground space-y-0.5">
+                            <div className="text-[10px] sm:text-xs text-muted-foreground space-y-0.5">
                               <div className="flex items-center gap-1">
                                 <span className="font-medium">Início:</span>
-                                <span>{formatDate(ausencia.data_inicio)}</span>
+                                <span className="truncate">{formatDate(ausencia.data_inicio)}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <span className="font-medium">Fim:</span>
-                                <span>{formatDate(ausencia.data_fim)}</span>
+                                <span className="truncate">{formatDate(ausencia.data_fim)}</span>
                               </div>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t line-clamp-2">
                               {ausencia.motivo}
                             </div>
                           </div>
@@ -438,10 +451,10 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                             size="sm"
                             variant="ghost"
                             onClick={() => handleDelete(ausencia.id)}
-                            className="ml-2 flex-shrink-0"
+                            className="ml-1 sm:ml-2 flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 p-0"
                             title="Remover ausência"
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-destructive" />
                           </Button>
                         </div>
                       )
@@ -454,11 +467,12 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="pt-3 sm:pt-4">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={saving}
+            className="w-full sm:w-auto min-h-[44px] text-sm"
           >
             Fechar
           </Button>

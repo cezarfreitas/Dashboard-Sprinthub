@@ -65,15 +65,15 @@ export default function FilaDeLeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-display flex items-center gap-3">
-            <ListOrdered className="h-8 w-8 text-primary" />
-            Gestão de Fila de Leads
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display flex items-center gap-2 sm:gap-3">
+            <ListOrdered className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-primary" />
+            <span className="leading-tight">Gestão de Fila de Leads</span>
           </h1>
-          <p className="text-muted-foreground font-body mt-2">
+          <p className="text-xs sm:text-sm text-muted-foreground font-body mt-1 sm:mt-2">
             Configure a distribuição rotativa de leads por unidade
           </p>
         </div>
