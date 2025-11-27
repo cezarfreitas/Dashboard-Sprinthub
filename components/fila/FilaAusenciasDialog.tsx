@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/select'
 import { CalendarIcon } from 'lucide-react'
 import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import {
   CalendarX,
@@ -265,7 +264,7 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                         >
                           <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           {dataInicio ? (
-                            format(dataInicio, "dd/MM/yyyy", { locale: ptBR })
+                            format(dataInicio, "dd/MM/yyyy")
                           ) : (
                             <span className="text-xs sm:text-sm">Selecione a data</span>
                           )}
@@ -284,7 +283,6 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                             setDataInicio(date)
                             setOpenInicio(false)
                           }}
-                          locale={ptBR}
                           initialFocus
                           className="rounded-md border"
                         />
@@ -314,7 +312,7 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                         >
                           <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           {dataFim ? (
-                            format(dataFim, "dd/MM/yyyy", { locale: ptBR })
+                            format(dataFim, "dd/MM/yyyy")
                           ) : (
                             <span className="text-xs sm:text-sm">Selecione a data</span>
                           )}
@@ -333,7 +331,6 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
                             setDataFim(date)
                             setOpenFim(false)
                           }}
-                          locale={ptBR}
                           initialFocus
                           className="rounded-md border"
                         />
