@@ -66,6 +66,7 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loadingVendedores, setLoadingVendedores] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   
   // Form state
   const [selectedVendedor, setSelectedVendedor] = useState<number | ''>('')
@@ -76,6 +77,16 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
   const [motivo, setMotivo] = useState('')
   const [openInicio, setOpenInicio] = useState(false)
   const [openFim, setOpenFim] = useState(false)
+  
+  // Detectar mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // Carregar vendedores e ausências
   useEffect(() => {
@@ -252,98 +263,240 @@ export const FilaAusenciasDialog = memo(function FilaAusenciasDialog({
 
                 <div className="space-y-1.5 sm:space-y-2">
                   <Label className="text-xs sm:text-sm">Data/Hora Início</Label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Popover open={openInicio} onOpenChange={setOpenInicio}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal h-11 sm:h-10 text-sm",
-                            !dataInicio && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          {dataInicio ? (
-                            format(dataInicio, "dd/MM/yyyy")
-                          ) : (
-                            <span className="text-xs sm:text-sm">Selecione a data</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent 
-                        className="w-auto p-0 z-50" 
-                        align="center" 
-                        side="bottom"
-                        sideOffset={5}
-                      >
-                        <Calendar
-                          mode="single"
-                          selected={dataInicio}
-                          onSelect={(date) => {
-                            setDataInicio(date)
-                            setOpenInicio(false)
+                  {isMobile ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        <Select
+                          value={dataInicio ? dataInicio.getDate().toString() : ''}
+                          onValueChange={(value) => {
+                            const newDate = dataInicio || new Date()
+                            newDate.setDate(parseInt(value))
+                            setDataInicio(new Date(newDate))
                           }}
-                          initialFocus
-                          className="rounded-md border"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <Input
-                      type="time"
-                      value={horaInicio}
-                      onChange={(e) => setHoraInicio(e.target.value)}
-                      className="w-full sm:w-32 h-11 sm:h-10 text-sm"
-                      required
-                    />
-                  </div>
+                        >
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Dia" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                              <SelectItem key={day} value={day.toString()}>
+                                {day}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={dataInicio ? (dataInicio.getMonth() + 1).toString() : ''}
+                          onValueChange={(value) => {
+                            const newDate = dataInicio || new Date()
+                            newDate.setMonth(parseInt(value) - 1)
+                            setDataInicio(new Date(newDate))
+                          }}
+                        >
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Mês" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((mes, i) => (
+                              <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                {mes}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={dataInicio ? dataInicio.getFullYear().toString() : ''}
+                          onValueChange={(value) => {
+                            const newDate = dataInicio || new Date()
+                            newDate.setFullYear(parseInt(value))
+                            setDataInicio(new Date(newDate))
+                          }}
+                        >
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Ano" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i).map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Input
+                        type="time"
+                        value={horaInicio}
+                        onChange={(e) => setHoraInicio(e.target.value)}
+                        className="w-full h-11 text-sm"
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Popover open={openInicio} onOpenChange={setOpenInicio}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal h-10 text-sm",
+                              !dataInicio && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dataInicio ? (
+                              format(dataInicio, "dd/MM/yyyy")
+                            ) : (
+                              <span className="text-sm">Selecione a data</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent 
+                          className="w-auto p-0 z-50" 
+                          align="center" 
+                          side="bottom"
+                          sideOffset={5}
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={dataInicio}
+                            onSelect={(date) => {
+                              setDataInicio(date)
+                              setOpenInicio(false)
+                            }}
+                            initialFocus
+                            className="rounded-md border"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="time"
+                        value={horaInicio}
+                        onChange={(e) => setHoraInicio(e.target.value)}
+                        className="w-32 h-10 text-sm"
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1.5 sm:space-y-2">
                   <Label className="text-xs sm:text-sm">Data/Hora Fim</Label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Popover open={openFim} onOpenChange={setOpenFim}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal h-11 sm:h-10 text-sm",
-                            !dataFim && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          {dataFim ? (
-                            format(dataFim, "dd/MM/yyyy")
-                          ) : (
-                            <span className="text-xs sm:text-sm">Selecione a data</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent 
-                        className="w-auto p-0 z-50" 
-                        align="center" 
-                        side="bottom"
-                        sideOffset={5}
-                      >
-                        <Calendar
-                          mode="single"
-                          selected={dataFim}
-                          onSelect={(date) => {
-                            setDataFim(date)
-                            setOpenFim(false)
+                  {isMobile ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        <Select
+                          value={dataFim ? dataFim.getDate().toString() : ''}
+                          onValueChange={(value) => {
+                            const newDate = dataFim || new Date()
+                            newDate.setDate(parseInt(value))
+                            setDataFim(new Date(newDate))
                           }}
-                          initialFocus
-                          className="rounded-md border"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <Input
-                      type="time"
-                      value={horaFim}
-                      onChange={(e) => setHoraFim(e.target.value)}
-                      className="w-full sm:w-32 h-11 sm:h-10 text-sm"
-                      required
-                    />
-                  </div>
+                        >
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Dia" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                              <SelectItem key={day} value={day.toString()}>
+                                {day}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={dataFim ? (dataFim.getMonth() + 1).toString() : ''}
+                          onValueChange={(value) => {
+                            const newDate = dataFim || new Date()
+                            newDate.setMonth(parseInt(value) - 1)
+                            setDataFim(new Date(newDate))
+                          }}
+                        >
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Mês" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((mes, i) => (
+                              <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                {mes}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={dataFim ? dataFim.getFullYear().toString() : ''}
+                          onValueChange={(value) => {
+                            const newDate = dataFim || new Date()
+                            newDate.setFullYear(parseInt(value))
+                            setDataFim(new Date(newDate))
+                          }}
+                        >
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Ano" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i).map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Input
+                        type="time"
+                        value={horaFim}
+                        onChange={(e) => setHoraFim(e.target.value)}
+                        className="w-full h-11 text-sm"
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Popover open={openFim} onOpenChange={setOpenFim}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal h-10 text-sm",
+                              !dataFim && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dataFim ? (
+                              format(dataFim, "dd/MM/yyyy")
+                            ) : (
+                              <span className="text-sm">Selecione a data</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent 
+                          className="w-auto p-0 z-50" 
+                          align="center" 
+                          side="bottom"
+                          sideOffset={5}
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={dataFim}
+                            onSelect={(date) => {
+                              setDataFim(date)
+                              setOpenFim(false)
+                            }}
+                            initialFocus
+                            className="rounded-md border"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="time"
+                        value={horaFim}
+                        onChange={(e) => setHoraFim(e.target.value)}
+                        className="w-32 h-10 text-sm"
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1.5 sm:space-y-2">
