@@ -44,26 +44,20 @@ export const FilaLogsDialog = memo(function FilaLogsDialog({
 }: FilaLogsDialogProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (fila && open) {
-      carregarLogs()
-    } else {
-      setLogs([])
-    }
-  }, [fila, open])
-
-  const carregarLogs = async () => {
+  const carregarLogs = useCallback(async () => {
     if (!fila) return
 
     setLoading(true)
+    setError(null)
     try {
       // Usar fila.id ao invés de fila.unidade_id (ambos contêm o ID da unidade, mas id é mais confiável)
       const unidadeId = fila.id || fila.unidade_id
       const response = await fetch(`/api/fila/${unidadeId}/logs`)
       
       if (!response.ok) {
-        console.error('Erro ao carregar logs:', response.status, response.statusText)
+        setError(`Erro ao carregar logs: ${response.status}`)
         return
       }
       
@@ -72,14 +66,23 @@ export const FilaLogsDialog = memo(function FilaLogsDialog({
       if (data.success) {
         setLogs(data.logs || [])
       } else {
-        console.error('API retornou erro:', data.message || data.error)
+        setError(data.message || 'Erro ao carregar logs')
       }
     } catch (err) {
-      console.error('Erro ao buscar logs:', err)
+      setError('Erro de conexão ao buscar logs')
     } finally {
       setLoading(false)
     }
-  }
+  }, [fila])
+
+  useEffect(() => {
+    if (fila && open) {
+      carregarLogs()
+    } else {
+      setLogs([])
+      setError(null)
+    }
+  }, [fila, open, carregarLogs])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -114,6 +117,20 @@ export const FilaLogsDialog = memo(function FilaLogsDialog({
               <RefreshCw className="h-6 w-6 mx-auto mb-2 animate-spin" />
               Carregando logs...
             </div>
+          ) : error ? (
+            <Card className="border-destructive">
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-destructive opacity-50" />
+                  <h3 className="text-lg font-semibold mb-2 text-destructive">Erro ao carregar logs</h3>
+                  <p className="text-muted-foreground text-sm mb-4">{error}</p>
+                  <Button variant="outline" size="sm" onClick={carregarLogs}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Tentar Novamente
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ) : logs.length === 0 ? (
             <Card>
               <CardContent className="py-12">
