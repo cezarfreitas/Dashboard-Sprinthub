@@ -96,6 +96,7 @@ COPY hooks ./hooks
 COPY contexts ./contexts
 COPY types ./types
 COPY config ./config
+COPY scripts ./scripts
 COPY public ./public
 
 # Build da aplicação para produção
