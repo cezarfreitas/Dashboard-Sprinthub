@@ -3,6 +3,10 @@ import { executeQuery } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
+// ============================================
+// INTERFACES E TIPOS
+// ============================================
+
 interface FilaV2Response {
   sucesso: boolean
   unidade?: {
@@ -17,7 +21,7 @@ interface FilaV2Response {
   departamento?: number | null
   lead_id?: number
   lead_atualizado?: boolean
-  lead_recuperado?: any
+  lead_recuperado?: FilaV2LeadData
   antes?: {
     owner: number | null
     owner_nome: string | null
@@ -30,16 +34,16 @@ interface FilaV2Response {
     userAccess: number[]
     departmentAccess: number[]
   }
-  resultado_put?: any
+  resultado_put?: SprintHubResponse
   erro?: string
 }
 
-interface VendedorFila {
+interface FilaV2VendedorFila {
   vendedor_id: number
   sequencia: number
 }
 
-interface LeadData {
+interface FilaV2LeadData {
   id: number
   firstname?: string
   lastname?: string
@@ -52,213 +56,331 @@ interface LeadData {
   departmentAccess?: number[]
 }
 
-// Cache de variáveis de ambiente (carregadas uma vez)
-const ENV_CONFIG = {
-  apiToken: process.env.APITOKEN,
-  groupId: process.env.I,
-  urlPatch: process.env.URLPATCH
+interface SprintHubResponse {
+  success?: boolean
+  data?: {
+    lead?: FilaV2LeadData
+    [key: string]: any
+  }
+  error?: string
+  [key: string]: any
 }
 
-// Função auxiliar para parsear e processar fila
-function processarFila(filaLeads: any): VendedorFila[] | null {
-  try {
-    const parsed = typeof filaLeads === 'string' ? JSON.parse(filaLeads) : filaLeads
+// ============================================
+// CONFIGURAÇÃO
+// ============================================
+
+const FILA_V2_CONFIG = {
+  apiToken: process.env.APITOKEN || '',
+  groupId: process.env.I || '',
+  urlPatch: process.env.URLPATCH || ''
+} as const
+
+// ============================================
+// NAMESPACE: FUNÇÕES AUXILIARES
+// ============================================
+
+namespace FilaV2Utils {
+  /**
+   * Parsear e processar fila de vendedores
+   */
+  export function processarFila(filaLeads: any): FilaV2VendedorFila[] | null {
+    try {
+      const parsed = typeof filaLeads === 'string' ? JSON.parse(filaLeads) : filaLeads
+      
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return null
+      }
+      
+      const filaAtiva = parsed
+        .filter((item: any) => {
+          // Aceitar tanto 'vendedor_id' quanto 'id' para compatibilidade
+          const vendedorId = item?.vendedor_id || item?.id
+          return vendedorId && !isNaN(Number(vendedorId))
+        })
+        .map((item: any) => ({
+          vendedor_id: item.vendedor_id || item.id,
+          sequencia: item.sequencia || 0
+        }))
+        .sort((a: any, b: any) => (a.sequencia || 0) - (b.sequencia || 0))
+      
+      return filaAtiva.length > 0 ? filaAtiva : null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Buscar próximo vendedor disponível (ativo e não ausente)
+   */
+  export async function buscarProximoVendedorDisponivel(
+    filaAtiva: FilaV2VendedorFila[], 
+    unidadeId: number
+  ): Promise<{ vendedor_id: number; nome: string } | null> {
+    if (!filaAtiva || filaAtiva.length === 0) {
+      return null
+    }
+
+    const vendedorIds = filaAtiva.map(v => v.vendedor_id)
+    const agora = new Date()
+    const agoraISO = agora.toISOString().slice(0, 19).replace('T', ' ')
     
-    if (!Array.isArray(parsed) || parsed.length === 0) {
+    // Buscar todos os vendedores ativos da fila de uma vez (otimização)
+    const vendedoresResult = await executeQuery(
+      `SELECT id, name FROM vendedores WHERE id IN (${vendedorIds.map(() => '?').join(',')}) AND ativo = 1`,
+      vendedorIds
+    ) as Array<{ id: number; name: string }>
+    
+    // Criar mapa de vendedores ativos
+    const vendedoresAtivosMap = new Map(
+      vendedoresResult.map(v => [v.id, v])
+    )
+    
+    // Buscar ausências ativas de todos vendedores da fila de uma vez (otimização)
+    const ausenciasResult = await executeQuery(
+      `SELECT vendedor_id 
+       FROM vendedores_ausencias 
+       WHERE unidade_id = ? 
+         AND vendedor_id IN (${vendedorIds.map(() => '?').join(',')})
+         AND data_inicio <= ? 
+         AND data_fim >= ?`,
+      [unidadeId, ...vendedorIds, agoraISO, agoraISO]
+    ) as Array<{ vendedor_id: number }>
+    
+    // Criar set de vendedores em ausência
+    const vendedoresAusentesSet = new Set(
+      ausenciasResult.map(a => a.vendedor_id)
+    )
+    
+    // Procurar primeiro vendedor disponível (na ordem da fila)
+    for (const item of filaAtiva) {
+      const vendedorId = item.vendedor_id
+      const vendedor = vendedoresAtivosMap.get(vendedorId)
+      
+      // Verificar se está ativo e não está ausente
+      if (vendedor && !vendedoresAusentesSet.has(vendedorId)) {
+        return {
+          vendedor_id: vendedor.id,
+          nome: vendedor.name
+        }
+      }
+    }
+    
+    return null
+  }
+
+  /**
+   * Rotacionar fila (move vendedor atribuído para o final)
+   */
+  export async function rotacionarFila(
+    unidadeId: number, 
+    filaAtiva: FilaV2VendedorFila[], 
+    vendedorAtribuidoId: number
+  ): Promise<void> {
+    if (filaAtiva.length <= 1) {
+      return
+    }
+    
+    try {
+      const indexVendedorAtribuido = filaAtiva.findIndex(v => v.vendedor_id === vendedorAtribuidoId)
+      
+      if (indexVendedorAtribuido === -1) {
+        return
+      }
+      
+      const vendedorAtribuido = filaAtiva[indexVendedorAtribuido]
+      const novaFila = [
+        ...filaAtiva.slice(0, indexVendedorAtribuido),
+        ...filaAtiva.slice(indexVendedorAtribuido + 1),
+        vendedorAtribuido
+      ]
+      
+      const filaReordenada = novaFila.map((item, index) => ({
+        ...item,
+        sequencia: index + 1
+      }))
+      
+      await executeQuery(
+        'UPDATE unidades SET fila_leads = ? WHERE id = ?',
+        [JSON.stringify(filaReordenada), unidadeId]
+      )
+    } catch (error) {
+      throw error
+    }
+  }
+
+  /**
+   * Consultar lead no SprintHub
+   */
+  export async function consultarLeadSprintHub(leadId: string): Promise<SprintHubResponse | null> {
+    const { apiToken, groupId, urlPatch } = FILA_V2_CONFIG
+    
+    if (!apiToken || !groupId || !urlPatch) {
+      throw new Error('Configuração da API não encontrada')
+    }
+    
+    const url = `${urlPatch}/leads/${leadId}?allFields=1&apitoken=${apiToken}&i=${groupId}`
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'CRM-by-INTELI/2.0'
+      },
+      cache: 'no-store'
+    })
+    
+    if (!response.ok) {
       return null
     }
     
-    const filaAtiva = parsed
-      .filter((item: any) => item?.vendedor_id)
-      .sort((a: any, b: any) => (a.sequencia || 0) - (b.sequencia || 0))
-    
-    return filaAtiva.length > 0 ? filaAtiva : null
-  } catch {
-    return null
+    return await response.json() as SprintHubResponse
   }
-}
 
-// Função auxiliar para rodar a fila
-async function rotacionarFila(unidadeId: number, filaAtiva: VendedorFila[]): Promise<void> {
-  if (filaAtiva.length <= 1) {
-    return
-  }
-  
-  try {
-    const primeiroVendedor = filaAtiva[0]
-    const novaFila = [...filaAtiva.slice(1), primeiroVendedor]
-    
-    const filaReordenada = novaFila.map((item, index) => ({
-      ...item,
-      sequencia: index + 1
-    }))
-    
-    await executeQuery(
-      'UPDATE unidades SET fila_leads = ? WHERE id = ?',
-      [JSON.stringify(filaReordenada), unidadeId]
-    )
-  } catch (error) {
-    throw error
-  }
-}
-
-// Função auxiliar para consultar lead no SprintHub
-async function consultarLeadSprintHub(leadId: string): Promise<any> {
-  const { apiToken, groupId, urlPatch } = ENV_CONFIG
-  
-  if (!apiToken || !groupId || !urlPatch) {
-    throw new Error('Configuração da API não encontrada')
-  }
-  
-  const url = `${urlPatch}/leads/${leadId}?allFields=1&apitoken=${apiToken}&i=${groupId}`
-  
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'User-Agent': 'CRM-by-INTELI/2.0'
-    },
-    cache: 'no-store'
-  })
-  
-  if (!response.ok) {
-    return null
-  }
-  
-  return await response.json()
-}
-
-// Função auxiliar para registrar log
-async function registrarLog(
-  unidadeId: number, 
-  vendedorId: number, 
-  leadId: number, 
-  totalFila: number,
-  ownerAnterior: number | null,
-  userAccessAnterior: string,
-  departmentAccessAnterior: string
-): Promise<void> {
-  try {
-    await executeQuery(
-      `INSERT INTO fila_leads_log 
-       (unidade_id, vendedor_id, lead_id, posicao_fila, total_fila, owner_anterior, user_access_anterior, department_access_anterior) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [unidadeId, vendedorId, leadId, 1, totalFila, ownerAnterior, userAccessAnterior, departmentAccessAnterior]
-    )
-  } catch (logError: any) {
-    if (logError?.code === 'ER_BAD_FIELD_ERROR') {
-      try {
-        await executeQuery(
-          'INSERT INTO fila_leads_log (unidade_id, vendedor_id, lead_id, posicao_fila, total_fila) VALUES (?, ?, ?, ?, ?)',
-          [unidadeId, vendedorId, leadId, 1, totalFila]
-        )
-      } catch {
-        await executeQuery(
-          'INSERT INTO fila_leads_log (unidade_id, vendedor_id, posicao_fila, total_fila) VALUES (?, ?, ?, ?)',
-          [unidadeId, vendedorId, 1, totalFila]
-        )
+  /**
+   * Registrar log de distribuição
+   */
+  export async function registrarLog(
+    unidadeId: number, 
+    vendedorId: number, 
+    leadId: number, 
+    totalFila: number,
+    ownerAnterior: number | null,
+    userAccessAnterior: string,
+    departmentAccessAnterior: string
+  ): Promise<void> {
+    try {
+      await executeQuery(
+        `INSERT INTO fila_leads_log 
+         (unidade_id, vendedor_id, lead_id, posicao_fila, total_fila, owner_anterior, user_access_anterior, department_access_anterior) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [unidadeId, vendedorId, leadId, 1, totalFila, ownerAnterior, userAccessAnterior, departmentAccessAnterior]
+      )
+    } catch (logError: any) {
+      if (logError?.code === 'ER_BAD_FIELD_ERROR') {
+        try {
+          await executeQuery(
+            'INSERT INTO fila_leads_log (unidade_id, vendedor_id, lead_id, posicao_fila, total_fila) VALUES (?, ?, ?, ?, ?)',
+            [unidadeId, vendedorId, leadId, 1, totalFila]
+          )
+        } catch {
+          await executeQuery(
+            'INSERT INTO fila_leads_log (unidade_id, vendedor_id, posicao_fila, total_fila) VALUES (?, ?, ?, ?)',
+            [unidadeId, vendedorId, 1, totalFila]
+          )
+        }
+      } else {
+        throw logError
       }
-    } else {
-      throw logError
     }
   }
-}
 
-// Função auxiliar para atualizar lead no SprintHub
-async function atualizarLeadSprintHub(
-  leadId: string,
-  vendedorId: number,
-  dptoGestao: number | null,
-  leadDataAtual?: LeadData,
-  filial?: string | null
-): Promise<any> {
-  const { apiToken, groupId, urlPatch } = ENV_CONFIG
-  
-  if (!apiToken || !groupId || !urlPatch) {
-    throw new Error('Configuração da API não encontrada')
-  }
-  
-  const lead = leadDataAtual || (await consultarLeadSprintHub(leadId))?.data?.lead as LeadData | undefined
-  
-  const whatsapp = lead?.whatsapp || lead?.phone || lead?.mobile || ''
-  
-  const updateData: Record<string, any> = {
-    owner: vendedorId,
-    userAccess: [vendedorId],
-    departmentAccess: dptoGestao ? [dptoGestao] : [],
-    whatsapp
-  }
-  
-  if (lead?.firstname) updateData.firstname = lead.firstname
-  if (lead?.lastname) updateData.lastname = lead.lastname
-  if (filial) updateData.filial = filial
-  
-  const url = `${urlPatch}/leads/${leadId}?apitoken=${apiToken}&i=${groupId}`
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'User-Agent': 'CRM-by-INTELI/2.0'
-    },
-    body: JSON.stringify(updateData),
-    cache: 'no-store'
-  })
-  
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Erro ao atualizar lead: ${response.status} - ${errorText}`)
-  }
-  
-  return await response.json()
-}
-
-// Função auxiliar para processar requisição (query params ou body JSON)
-async function processarRequisicao(request: NextRequest): Promise<{ unidadeIdParam: string | null; leadId: string | null }> {
-  let unidadeIdParam: string | null = null
-  let leadId: string | null = null
-
-  try {
-    const contentType = request.headers.get('content-type')
-    if (contentType && contentType.includes('application/json')) {
-      const body = await request.json() as { unidade?: string; unidadeId?: string; idlead?: string; leadId?: string }
-      unidadeIdParam = body.unidade || body.unidadeId || null
-      leadId = body.idlead || body.leadId || null
+  /**
+   * Atualizar lead no SprintHub
+   */
+  export async function atualizarLeadSprintHub(
+    leadId: string,
+    vendedorId: number,
+    dptoGestao: number | null,
+    leadDataAtual?: FilaV2LeadData,
+    filial?: string | null
+  ): Promise<SprintHubResponse> {
+    const { apiToken, groupId, urlPatch } = FILA_V2_CONFIG
+    
+    if (!apiToken || !groupId || !urlPatch) {
+      throw new Error('Configuração da API não encontrada')
     }
-  } catch {
-    // Continuar com query params se body não for válido
+    
+    const leadResponse = leadDataAtual ? null : await consultarLeadSprintHub(leadId)
+    const lead = leadDataAtual || leadResponse?.data?.lead
+    
+    const whatsapp = lead?.whatsapp || lead?.phone || lead?.mobile || ''
+    
+    const updateData: Record<string, any> = {
+      owner: vendedorId,
+      userAccess: [vendedorId],
+      departmentAccess: dptoGestao ? [dptoGestao] : [],
+      whatsapp
+    }
+    
+    if (lead?.firstname) updateData.firstname = lead.firstname
+    if (lead?.lastname) updateData.lastname = lead.lastname
+    if (filial) updateData.filial = filial
+    
+    const url = `${urlPatch}/leads/${leadId}?apitoken=${apiToken}&i=${groupId}`
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'CRM-by-INTELI/2.0'
+      },
+      body: JSON.stringify(updateData),
+      cache: 'no-store'
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Erro ao atualizar lead: ${response.status} - ${errorText}`)
+    }
+    
+    return await response.json() as SprintHubResponse
   }
 
-  if (!unidadeIdParam || !leadId) {
-    const { searchParams } = new URL(request.url)
-    unidadeIdParam = unidadeIdParam || searchParams.get('unidade')
-    leadId = leadId || searchParams.get('idlead')
+  /**
+   * Processar requisição (query params ou body JSON)
+   */
+  export async function processarRequisicao(request: NextRequest): Promise<{ unidadeIdParam: string | null; leadId: string | null }> {
+    let unidadeIdParam: string | null = null
+    let leadId: string | null = null
+
+    try {
+      const contentType = request.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const body = await request.json() as { unidade?: string; unidadeId?: string; idlead?: string; leadId?: string }
+        unidadeIdParam = body.unidade || body.unidadeId || null
+        leadId = body.idlead || body.leadId || null
+      }
+    } catch {
+      // Continuar com query params se body não for válido
+    }
+
+    if (!unidadeIdParam || !leadId) {
+      const { searchParams } = new URL(request.url)
+      unidadeIdParam = unidadeIdParam || searchParams.get('unidade')
+      leadId = leadId || searchParams.get('idlead')
+    }
+
+    return { unidadeIdParam, leadId }
   }
 
-  return { unidadeIdParam, leadId }
+  /**
+   * Validar e parsear IDs
+   */
+  export function validarIds(unidadeIdParam: string | null, leadId: string | null): { unidadeId: number; leadIdNum: number } | null {
+    if (!unidadeIdParam || !leadId) {
+      return null
+    }
+
+    const leadIdLimpo = leadId.replace(/\{contactfield=id\}/gi, '').trim()
+    const unidadeId = parseInt(unidadeIdParam, 10)
+    const leadIdNum = parseInt(leadIdLimpo, 10)
+    
+    if (isNaN(unidadeId) || unidadeId <= 0 || isNaN(leadIdNum) || leadIdNum <= 0) {
+      return null
+    }
+
+    return { unidadeId, leadIdNum }
+  }
 }
 
-// Função auxiliar para validar e parsear IDs
-function validarIds(unidadeIdParam: string | null, leadId: string | null): { unidadeId: number; leadIdNum: number } | null {
-  if (!unidadeIdParam || !leadId) {
-    return null
-  }
+// ============================================
+// FUNÇÃO PRINCIPAL
+// ============================================
 
-  const leadIdLimpo = leadId.replace(/\{contactfield=id\}/gi, '').trim()
-  const unidadeId = parseInt(unidadeIdParam, 10)
-  const leadIdNum = parseInt(leadIdLimpo, 10)
-  
-  if (isNaN(unidadeId) || unidadeId <= 0 || isNaN(leadIdNum) || leadIdNum <= 0) {
-    return null
-  }
-
-  return { unidadeId, leadIdNum }
-}
-
-// Função principal para processar fila V2
 async function processarFilaV2(request: NextRequest): Promise<NextResponse<FilaV2Response>> {
   const startTime = Date.now()
   
-  const { unidadeIdParam, leadId } = await processarRequisicao(request)
+  const { unidadeIdParam, leadId } = await FilaV2Utils.processarRequisicao(request)
 
   if (!unidadeIdParam) {
     return NextResponse.json(
@@ -274,7 +396,7 @@ async function processarFilaV2(request: NextRequest): Promise<NextResponse<FilaV
     )
   }
 
-  const ids = validarIds(unidadeIdParam, leadId)
+  const ids = FilaV2Utils.validarIds(unidadeIdParam, leadId)
   if (!ids) {
     return NextResponse.json(
       { sucesso: false, erro: 'IDs inválidos' } as FilaV2Response,
@@ -305,7 +427,7 @@ async function processarFilaV2(request: NextRequest): Promise<NextResponse<FilaV
     }
 
     const unidade = unidadeResult[0]
-    const filaAtiva = processarFila(unidade.fila_leads)
+    const filaAtiva = FilaV2Utils.processarFila(unidade.fila_leads)
     
     if (!filaAtiva || filaAtiva.length === 0) {
       return NextResponse.json(
@@ -314,35 +436,24 @@ async function processarFilaV2(request: NextRequest): Promise<NextResponse<FilaV
       )
     }
 
-    const proximoVendedorId = filaAtiva[0].vendedor_id
+    // Buscar próximo vendedor disponível (ativo e não ausente)
+    const proximoFila = await FilaV2Utils.buscarProximoVendedorDisponivel(filaAtiva, unidadeId)
     
-    // Buscar informações do vendedor
-    const vendedorResult = await executeQuery(
-      'SELECT id, name FROM vendedores WHERE id = ? AND ativo = 1 LIMIT 1',
-      [proximoVendedorId]
-    ) as Array<{ id: number; name: string }>
-    
-    if (vendedorResult.length === 0) {
+    if (!proximoFila) {
       return NextResponse.json(
-        { sucesso: false, erro: 'Vendedor da fila não encontrado ou inativo' } as FilaV2Response,
+        { sucesso: false, erro: 'Nenhum vendedor disponível na fila desta unidade (todos inativos ou ausentes)' } as FilaV2Response,
         { status: 404 }
       )
     }
 
-    const vendedor = vendedorResult[0]
-    const proximoFila = {
-      vendedor_id: vendedor.id,
-      nome: vendedor.name
-    }
-
     // Consultar estado anterior do lead
     let dadosAntes: { owner: number | null; owner_nome: string | null; userAccess: number[]; departmentAccess: number[] } | null = null
-    let leadAntes: LeadData | null = null
+    let leadAntes: FilaV2LeadData | null = null
     
     try {
-      const leadData = await consultarLeadSprintHub(String(leadIdNum))
+      const leadData = await FilaV2Utils.consultarLeadSprintHub(String(leadIdNum))
       if (leadData?.data?.lead) {
-        leadAntes = leadData.data.lead as LeadData
+        leadAntes = leadData.data.lead
         dadosAntes = {
           owner: leadAntes.owner?.id || null,
           owner_nome: leadAntes.owner?.name || null,
@@ -356,11 +467,11 @@ async function processarFilaV2(request: NextRequest): Promise<NextResponse<FilaV
 
     // Atualizar lead no SprintHub
     let leadAtualizado = false
-    let resultadoPut: any = null
+    let resultadoPut: SprintHubResponse | null = null
     let dadosDepois: { owner: number; owner_nome: string; userAccess: number[]; departmentAccess: number[] } | null = null
     
     try {
-      resultadoPut = await atualizarLeadSprintHub(
+      resultadoPut = await FilaV2Utils.atualizarLeadSprintHub(
         String(leadIdNum), 
         proximoFila.vendedor_id, 
         unidade.dpto_gestao,
@@ -382,7 +493,7 @@ async function processarFilaV2(request: NextRequest): Promise<NextResponse<FilaV
         const userAccessAnterior = JSON.stringify(dadosAntes?.userAccess || [])
         const departmentAccessAnterior = JSON.stringify(dadosAntes?.departmentAccess || [])
         
-        await registrarLog(
+        await FilaV2Utils.registrarLog(
           unidadeId, 
           proximoFila.vendedor_id, 
           leadIdNum, 
@@ -397,7 +508,7 @@ async function processarFilaV2(request: NextRequest): Promise<NextResponse<FilaV
       
       // Rodar a fila (não-bloqueante)
       try {
-        await rotacionarFila(unidadeId, filaAtiva)
+        await FilaV2Utils.rotacionarFila(unidadeId, filaAtiva, proximoFila.vendedor_id)
       } catch {
         // Não impede o fluxo
       }
@@ -455,6 +566,10 @@ async function processarFilaV2(request: NextRequest): Promise<NextResponse<FilaV
   }
 }
 
+// ============================================
+// ROUTE HANDLERS
+// ============================================
+
 // GET/POST - Distribuir lead automaticamente
 export async function GET(request: NextRequest) {
   return await processarFilaV2(request)
@@ -466,7 +581,7 @@ export async function POST(request: NextRequest) {
 
 // PUT - Método legado (mantido para compatibilidade)
 export async function PUT(request: NextRequest) {
-  const { unidadeIdParam, leadId } = await processarRequisicao(request)
+  const { unidadeIdParam, leadId } = await FilaV2Utils.processarRequisicao(request)
 
   if (!unidadeIdParam) {
     return NextResponse.json(
@@ -482,7 +597,7 @@ export async function PUT(request: NextRequest) {
     )
   }
 
-  const ids = validarIds(unidadeIdParam, leadId)
+  const ids = FilaV2Utils.validarIds(unidadeIdParam, leadId)
   if (!ids) {
     return NextResponse.json(
       { sucesso: false, erro: 'IDs inválidos' } as FilaV2Response,
@@ -506,7 +621,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const unidade = unidadeResult[0]
-    const filaAtiva = processarFila(unidade.fila_leads)
+    const filaAtiva = FilaV2Utils.processarFila(unidade.fila_leads)
 
     if (!filaAtiva || filaAtiva.length === 0) {
       return NextResponse.json(
@@ -515,25 +630,22 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const proximoVendedorId = filaAtiva[0].vendedor_id
+    // Buscar próximo vendedor disponível (ativo e não ausente)
+    const proximoFila = await FilaV2Utils.buscarProximoVendedorDisponivel(filaAtiva, unidadeId)
     
-    // Buscar nome do vendedor
-    const vendedorResult = await executeQuery(
-      'SELECT id, name FROM vendedores WHERE id = ? AND ativo = 1 LIMIT 1',
-      [proximoVendedorId]
-    ) as Array<{ id: number; name: string }>
+    if (!proximoFila) {
+      return NextResponse.json(
+        { sucesso: false, erro: 'Nenhum vendedor disponível na fila (todos inativos ou ausentes)' } as FilaV2Response,
+        { status: 404 }
+      )
+    }
     
-    const vendedorNome = vendedorResult.length > 0 ? vendedorResult[0].name : 'Desconhecido'
-    
-    const result = await atualizarLeadSprintHub(String(leadIdNum), proximoVendedorId, unidade.dpto_gestao, undefined, unidade.nome)
+    const result = await FilaV2Utils.atualizarLeadSprintHub(String(leadIdNum), proximoFila.vendedor_id, unidade.dpto_gestao, undefined, unidade.nome)
 
     return NextResponse.json({
       sucesso: true,
       lead_id: leadIdNum,
-      vendedor_atribuido: {
-        vendedor_id: proximoVendedorId,
-        nome: vendedorNome
-      },
+      vendedor_atribuido: proximoFila,
       departamento: unidade.dpto_gestao,
       resultado_put: result
     } as FilaV2Response)

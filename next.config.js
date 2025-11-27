@@ -16,10 +16,11 @@ const nextConfig = {
   output: process.env.NEXT_STANDALONE === 'true' ? 'standalone' : undefined,
   
   // Garantir que variáveis NEXT_PUBLIC_* sejam expostas no build
+  // Sem fallbacks - variáveis devem estar definidas nas variáveis de ambiente
   env: {
-    NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE || 'GrupoInteli',
+    NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE || '',
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || '',
-    NEXT_PUBLIC_URL_PUBLIC: process.env.NEXT_PUBLIC_URL_PUBLIC || 'https://grupointeli.sprinthub.app',
+    NEXT_PUBLIC_URL_PUBLIC: process.env.NEXT_PUBLIC_URL_PUBLIC || '',
   },
   
   // Otimizações de build

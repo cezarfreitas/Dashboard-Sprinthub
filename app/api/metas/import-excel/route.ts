@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery } from '@/lib/database'
+import { executeQuery, executeMutation } from '@/lib/database'
 import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // 60 segundos timeout
 
 // POST - Importar matriz de metas do Excel
 export async function POST(request: NextRequest) {
@@ -18,6 +19,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Verificar tamanho do arquivo (máximo 10MB)
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { success: false, message: 'Arquivo muito grande. Tamanho máximo: 10MB' },
+        { status: 400 }
+      )
+    }
+
     // Verificar se é um arquivo Excel
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
       return NextResponse.json(
@@ -27,8 +37,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Ler arquivo Excel
-    const buffer = await file.arrayBuffer()
-    const workbook = XLSX.read(buffer, { type: 'buffer' })
+    let buffer: ArrayBuffer
+    let workbook: XLSX.WorkBook
+    
+    try {
+      buffer = await file.arrayBuffer()
+      workbook = XLSX.read(buffer, { type: 'buffer' })
+    } catch (error) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Erro ao ler arquivo Excel. Verifique se o arquivo não está corrompido.',
+          error: error instanceof Error ? error.message : 'Erro desconhecido'
+        },
+        { status: 400 }
+      )
+    }
     
     // Pegar primeira planilha
     const sheetName = workbook.SheetNames[0]
@@ -164,42 +188,84 @@ export async function POST(request: NextRequest) {
 
     try {
       // Desativar metas existentes para o ano
-      await executeQuery(`
+      const cancelResult = await executeMutation(`
         UPDATE metas_mensais 
         SET status = 'cancelada' 
         WHERE ano = ? AND status = 'ativa'
       `, [parseInt(ano)])
+      
+      console.log(`[Import Excel] Canceladas ${cancelResult.affectedRows} metas existentes para o ano ${ano}`)
 
       // Inserir novas metas usando INSERT ... ON DUPLICATE KEY UPDATE
       let inseridas = 0
       let atualizadas = 0
       
-      for (const meta of metasValidas) {
-        try {
-          // Primeiro, tentar inserir
-          const result = await executeQuery(`
-            INSERT INTO metas_mensais (vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'ativa')
-          `, [meta.vendedor_id, meta.unidade_id, meta.mes, meta.ano, meta.meta_valor, meta.meta_descricao]) as any
-          
-          if (result && result.insertId) {
-            inseridas++
-          }
-        } catch (error: any) {
-          // Se der erro de duplicata, atualizar a meta existente
-          if (error.code === 'ER_DUP_ENTRY') {
-            await executeQuery(`
-              UPDATE metas_mensais 
-              SET meta_valor = ?, meta_descricao = ?, status = 'ativa', updated_at = CURRENT_TIMESTAMP
-              WHERE vendedor_id = ? AND unidade_id = ? AND mes = ? AND ano = ?
-            `, [meta.meta_valor, meta.meta_descricao, meta.vendedor_id, meta.unidade_id, meta.mes, meta.ano])
-            atualizadas++
-          } else {
-            throw error
+      console.log(`[Import Excel] Processando ${metasValidas.length} metas válidas`)
+      
+      // Processar em batches menores para melhor performance e segurança
+      const batchSize = 50
+      
+      for (let i = 0; i < metasValidas.length; i += batchSize) {
+        const batch = metasValidas.slice(i, i + batchSize)
+        
+        // Processar cada meta do batch usando INSERT ... ON DUPLICATE KEY UPDATE
+        for (const meta of batch) {
+          try {
+            const result = await executeMutation(`
+              INSERT INTO metas_mensais (vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao, status)
+              VALUES (?, ?, ?, ?, ?, ?, 'ativa')
+              ON DUPLICATE KEY UPDATE 
+                meta_valor = VALUES(meta_valor),
+                meta_descricao = VALUES(meta_descricao),
+                status = 'ativa',
+                updated_at = CURRENT_TIMESTAMP
+            `, [meta.vendedor_id, meta.unidade_id, meta.mes, meta.ano, meta.meta_valor, meta.meta_descricao])
+            
+            // INSERT ... ON DUPLICATE KEY UPDATE no MySQL retorna:
+            // - affectedRows = 1 quando insere nova linha
+            // - affectedRows = 2 quando atualiza linha existente
+            // - affectedRows = 0 quando não faz nada
+            if (result.affectedRows === 1) {
+              // Nova linha inserida
+              inseridas++
+            } else if (result.affectedRows === 2) {
+              // Linha existente atualizada
+              atualizadas++
+            }
+            // Se affectedRows = 0, não fazemos nada (já estava igual)
+          } catch (error: any) {
+            // Se der erro, tentar update direto
+            if (error.code === 'ER_DUP_ENTRY' || error.code === 'ER_NO_REFERENCED_ROW_2') {
+              try {
+                const updateResult = await executeMutation(`
+                  UPDATE metas_mensais 
+                  SET meta_valor = ?, meta_descricao = ?, status = 'ativa', updated_at = CURRENT_TIMESTAMP
+                  WHERE vendedor_id = ? AND unidade_id = ? AND mes = ? AND ano = ?
+                `, [meta.meta_valor, meta.meta_descricao, meta.vendedor_id, meta.unidade_id, meta.mes, meta.ano])
+                
+                if (updateResult.affectedRows > 0) {
+                  atualizadas++
+                }
+              } catch (updateError) {
+                erros.push(`Erro ao processar meta do vendedor ${meta.vendedor_id}, mês ${meta.mes}: ${updateError instanceof Error ? updateError.message : 'Erro desconhecido'}`)
+              }
+            } else {
+              const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido'
+              const errorCode = (error as any)?.code || 'NO_CODE'
+              console.error(`[Import Excel] Erro ao processar meta vendedor ${meta.vendedor_id}, unidade ${meta.unidade_id}, mês ${meta.mes}, ano ${meta.ano}:`, errorMsg, `(code: ${errorCode})`)
+              erros.push(`Erro ao processar meta do vendedor ${meta.vendedor_id}, mês ${meta.mes}: ${errorMsg}`)
+            }
           }
         }
       }
+      
+      if (inseridas === 0 && atualizadas === 0 && metasValidas.length > 0) {
+        console.error('[Import Excel] NENHUMA meta foi inserida ou atualizada, mas havia metas válidas!')
+        console.error(`[Import Excel] Metas válidas: ${metasValidas.length}, Inseridas: ${inseridas}, Atualizadas: ${atualizadas}`)
+      }
 
+      console.log(`[Import Excel] Finalizado: ${inseridas} inseridas, ${atualizadas} atualizadas`)
+      
       return NextResponse.json({
         success: true,
         message: 'Importação realizada com sucesso',
@@ -221,6 +287,9 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
+    // Log do erro para debug
+    console.error('Erro ao importar Excel:', error)
+    
     return NextResponse.json(
       { 
         success: false, 

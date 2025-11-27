@@ -70,6 +70,7 @@ export const FilaLeadsCard = memo(function FilaLeadsCard({
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary flex-shrink-0" />
               <h3 className="text-lg font-semibold truncate">
+                <span className="text-muted-foreground font-normal mr-2">#{fila.unidade_id}</span>
                 {fila.unidade_nome}
               </h3>
             </div>
@@ -122,9 +123,27 @@ export const FilaLeadsCard = memo(function FilaLeadsCard({
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs text-muted-foreground mb-1">Última Distribuição</div>
-            <div className="text-sm font-medium">
+            <div className="text-sm font-medium mb-1">
               {formatDate(fila.ultima_distribuicao)}
             </div>
+            {fila.ultima_distribuicao_vendedor && (
+              <div className="space-y-0.5">
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  <span className="font-medium">{fila.ultima_distribuicao_vendedor}</span>
+                </div>
+                {fila.ultima_distribuicao_lead_id && (
+                  <div className="text-xs text-muted-foreground">
+                    Lead #{fila.ultima_distribuicao_lead_id}
+                  </div>
+                )}
+                {fila.ultima_distribuicao_total_fila && (
+                  <div className="text-xs text-muted-foreground">
+                    {fila.ultima_distribuicao_total_fila} vendedor{fila.ultima_distribuicao_total_fila > 1 ? 'es' : ''} na fila
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -137,8 +156,8 @@ export const FilaLeadsCard = memo(function FilaLeadsCard({
                 Ordem na Fila
               </span>
             </div>
-            <div className="space-y-1.5">
-              {fila.vendedores_fila.slice(0, 3).map((vendedor, index) => {
+            <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+              {fila.vendedores_fila.map((vendedor, index) => {
                 const isAusente = vendedor.ausencia_retorno && new Date(vendedor.ausencia_retorno) >= new Date()
                 const formatRetorno = (dateString: string) => {
                   const date = new Date(dateString)
@@ -160,7 +179,7 @@ export const FilaLeadsCard = memo(function FilaLeadsCard({
                   >
                     <div className="flex items-center justify-between">
                       <span className="truncate flex-1 font-medium">
-                        <span className="text-muted-foreground mr-2">{index + 1}.</span>
+                        <span className="text-muted-foreground mr-2">{vendedor.sequencia}.</span>
                         {vendedor.nome}
                       </span>
                       {vendedor.total_distribuicoes !== undefined && (
@@ -178,11 +197,6 @@ export const FilaLeadsCard = memo(function FilaLeadsCard({
                   </div>
                 )
               })}
-              {fila.vendedores_fila.length > 3 && (
-                <div className="text-xs text-muted-foreground text-center pt-1">
-                  +{fila.vendedores_fila.length - 3} vendedores
-                </div>
-              )}
             </div>
           </div>
         )}

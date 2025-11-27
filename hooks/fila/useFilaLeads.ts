@@ -15,6 +15,9 @@ export interface FilaLeads {
   total_vendedores: number
   vendedores_fila: VendedorFila[]
   ultima_distribuicao: string | null
+  ultima_distribuicao_vendedor: string | null
+  ultima_distribuicao_lead_id: number | null
+  ultima_distribuicao_total_fila: number | null
   total_leads_distribuidos: number
   ativo: boolean
   created_at: string
