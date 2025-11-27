@@ -52,24 +52,32 @@ export const FilaLogsDialog = memo(function FilaLogsDialog({
     setLoading(true)
     setError(null)
     try {
-      // Usar fila.id ao invés de fila.unidade_id (ambos contêm o ID da unidade, mas id é mais confiável)
-      const unidadeId = fila.id || fila.unidade_id
-      const response = await fetch(`/api/fila/${unidadeId}/logs`)
+      // Priorizar unidade_id que é o campo correto da tabela fila_leads_log
+      const unidadeId = fila.unidade_id || fila.id
+      const url = `/api/fila/${unidadeId}/logs`
+      
+      const response = await fetch(url)
       
       if (!response.ok) {
-        setError(`Erro ao carregar logs: ${response.status}`)
+        const errorText = await response.text()
+        setError(`Erro ao carregar logs (${response.status}): ${errorText.substring(0, 100)}`)
         return
       }
       
       const data = await response.json()
       
       if (data.success) {
-        setLogs(data.logs || [])
+        if (data.logs && data.logs.length > 0) {
+          setLogs(data.logs)
+        } else {
+          // Mostrar informação útil quando não há logs
+          setError(`Nenhum log encontrado para unidade #${unidadeId} (${fila.unidade_nome}). Total de ${data.total || 0} registros.`)
+        }
       } else {
-        setError(data.message || 'Erro ao carregar logs')
+        setError(data.message || data.error || 'Erro ao carregar logs')
       }
     } catch (err) {
-      setError('Erro de conexão ao buscar logs')
+      setError(`Erro de conexão: ${err instanceof Error ? err.message : 'Desconhecido'}`)
     } finally {
       setLoading(false)
     }
