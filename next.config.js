@@ -2,10 +2,30 @@
 // Next.js já carrega .env.local automaticamente, mas vamos garantir
 const dotenv = require("dotenv");
 const path = require("path");
+const { execSync } = require("child_process");
+const fs = require("fs");
 
 // Carregar .env.local primeiro (tem prioridade), depois .env
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 dotenv.config(); // .env como fallback
+
+// Funções auxiliares para versionamento
+function getGitSHA() {
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  } catch (error) {
+    return 'dev-' + Date.now().toString(36).substring(0, 7);
+  }
+}
+
+function getPackageVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
+    return pkg.version || '0.1.0';
+  } catch (error) {
+    return '0.1.0';
+  }
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -21,6 +41,10 @@ const nextConfig = {
     NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE || '',
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || '',
     NEXT_PUBLIC_URL_PUBLIC: process.env.NEXT_PUBLIC_URL_PUBLIC || '',
+    // Variáveis de versionamento (geradas durante o build)
+    NEXT_PUBLIC_APP_VERSION: getPackageVersion(),
+    NEXT_PUBLIC_BUILD_SHA: getGitSHA(),
+    NEXT_PUBLIC_BUILD_DATE: new Date().toISOString(),
   },
   
   // Otimizações de build

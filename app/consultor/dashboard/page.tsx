@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { AppFooter } from "@/components/app-footer"
 import { 
   User, 
   Building2, 
@@ -129,7 +130,7 @@ export default function ConsultorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -346,6 +347,7 @@ export default function ConsultorDashboard() {
           </div>
         ) : null}
       </div>
+      <AppFooter />
     </div>
   )
 }

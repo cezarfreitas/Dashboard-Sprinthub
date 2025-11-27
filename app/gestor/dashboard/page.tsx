@@ -8,6 +8,7 @@ import { GestorBarraProgressoMeta } from "@/components/gestor/GestorBarraProgres
 import { GestorMatrizMotivosPerda } from "@/components/gestor/GestorMatrizMotivosPerda"
 import { GestorOportunidadesDiarias } from "@/components/gestor/GestorOportunidadesDiarias"
 import { GestorGanhosDiarios } from "@/components/gestor/GestorGanhosDiarios"
+import { AppFooter } from "@/components/app-footer"
 
 export default function GestorDashboard() {
   const { 
@@ -27,7 +28,7 @@ export default function GestorDashboard() {
   } = useGestorDashboard()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <HeaderGestor 
         unidadeSelecionada={unidadeSelecionada}
         setUnidadeSelecionada={setUnidadeSelecionada}
@@ -106,6 +107,7 @@ export default function GestorDashboard() {
           </>
         )}
       </div>
+      <AppFooter />
     </div>
   )
 }

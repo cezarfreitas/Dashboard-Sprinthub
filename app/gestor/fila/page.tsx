@@ -10,6 +10,7 @@ import { GestorFilaEmpty } from './components/GestorFilaEmpty'
 import { GestorFilaGrid } from './components/GestorFilaGrid'
 import { GestorFilaLoading } from './components/GestorFilaLoading'
 import { GestorFilaDialogs } from './components/GestorFilaDialogs'
+import { AppFooter } from '@/components/app-footer'
 
 export default function GestorFilaPage() {
   const {
@@ -61,8 +62,8 @@ export default function GestorFilaPage() {
   return (
     <>
       <HeaderGestor />
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-[1920px] px-6 py-8">
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="mx-auto max-w-[1920px] px-6 py-8 flex-1">
           <GestorFilaHeader />
 
           {error && <GestorFilaError error={error} />}
@@ -78,6 +79,7 @@ export default function GestorFilaPage() {
             />
           )}
         </div>
+        <AppFooter />
       </div>
 
       <GestorFilaDialogs

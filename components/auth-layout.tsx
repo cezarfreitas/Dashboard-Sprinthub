@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Header } from './header'
 import { LoginForm } from './login-form'
+import { AppFooter } from './app-footer'
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -27,14 +28,17 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 
   // Mostrar o layout com header para todas as outras páginas autenticadas
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <Header />
       
       {/* Main Content */}
-      <main className="container mx-auto p-6">
+      <main className="container mx-auto p-6 flex-1">
         {children}
       </main>
+
+      {/* Footer */}
+      <AppFooter />
     </div>
   )
 }

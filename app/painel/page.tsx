@@ -15,6 +15,7 @@ import PainelTicketMedioCard from "@/components/estatisticas/painel/PainelTicket
 import PainelBarraProgressoMeta from "@/components/painel/PainelBarraProgressoMeta"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Header } from "@/components/header"
+import { AppFooter } from "@/components/app-footer"
 
 export default function PainelPage() {
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -280,7 +281,7 @@ export default function PainelPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen bg-black flex flex-col">
         <Header />
         
         <div className="w-full overflow-y-auto scrollbar-hide">
@@ -461,6 +462,7 @@ export default function PainelPage() {
           />
         </div>
       </div>
+      <AppFooter />
     </div>
     </ProtectedRoute>
   )
