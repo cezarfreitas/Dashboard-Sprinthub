@@ -28,6 +28,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { APP_TITLE } from "@/lib/app-config"
 
 interface HeaderProps {
   className?: string
@@ -223,7 +224,7 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
         <div className="container flex h-14 items-center">
           <div className="mr-4 flex">
             <Building2 className="h-6 w-6 mr-2 text-white" />
-            <span className="font-bold text-white">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
+            <span className="font-bold text-white">{APP_TITLE || 'DASHBOARD SG'}</span>
           </div>
           <div className="flex-1 flex justify-center">
             <span className="text-sm text-gray-400">Carregando...</span>
@@ -244,7 +245,7 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
         <div className="mr-4 flex">
           <Link href="/painel" className="flex items-center space-x-2 text-white hover:text-gray-300">
             <Building2 className="h-6 w-6" />
-            <span className="font-bold">{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</span>
+            <span className="font-bold">{APP_TITLE || 'DASHBOARD SG'}</span>
           </Link>
         </div>
 

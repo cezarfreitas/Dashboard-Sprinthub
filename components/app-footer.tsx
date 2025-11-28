@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { APP_TITLE } from '@/lib/app-config'
 
 export const AppFooter = memo(function AppFooter() {
   const version = getAppVersion()
@@ -75,7 +76,7 @@ export const AppFooter = memo(function AppFooter() {
         {/* Copyright */}
         <div className="text-xs text-muted-foreground">
           <span className="hidden sm:inline">© {new Date().getFullYear()} </span>
-          <span className="font-medium">{process.env.NEXT_PUBLIC_APP_TITLE || 'Dashboard'}</span>
+          <span className="font-medium">{APP_TITLE || 'Dashboard'}</span>
         </div>
       </div>
     </footer>

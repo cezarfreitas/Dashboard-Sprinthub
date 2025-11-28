@@ -30,6 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { APP_TITLE } from "@/lib/app-config"
 
 interface SidebarProps {
   className?: string
@@ -217,13 +218,13 @@ export function Sidebar({ className }: SidebarProps) {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="ml-2">
-                  <p>{process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}</p>
+                  <p>{APP_TITLE || 'DASHBOARD SG'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
             <h2 className="text-xl font-display text-sidebar-foreground">
-              {process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}
+              {APP_TITLE || 'DASHBOARD SG'}
             </h2>
           )}
           <Button

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Building2, Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { APP_TITLE } from '@/lib/app-config'
 
 export default function LoginSistemaPage() {
   const router = useRouter()
@@ -73,7 +74,7 @@ export default function LoginSistemaPage() {
           </div>
           <div className="text-center">
             <CardTitle className="text-2xl">
-              {process.env.NEXT_PUBLIC_APP_TITLE || 'Dashboard SG'}
+              {APP_TITLE || 'Dashboard SG'}
             </CardTitle>
             <CardDescription>
               Entre com suas credenciais de acesso

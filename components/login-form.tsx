@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Lock, User, Eye, EyeOff, Heart as HeartOutline } from 'lucide-react'
+import { APP_TITLE } from '@/lib/app-config'
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -72,7 +73,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               Bem-vindo
             </CardTitle>
             <CardDescription className="text-center font-body">
-              Faça login para acessar o {process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG'}
+              Faça login para acessar o {APP_TITLE || 'DASHBOARD SG'}
             </CardDescription>
           </CardHeader>
           <CardContent>
