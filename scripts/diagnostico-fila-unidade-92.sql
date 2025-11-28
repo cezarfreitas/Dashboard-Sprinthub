@@ -169,3 +169,5 @@ SELECT
 FROM fila_leads_log
 WHERE unidade_id = 92;
 
+
+

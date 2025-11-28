@@ -161,3 +161,5 @@ WHERE DATE(data_backup) = CURDATE();
 --    SET u.fila_leads = b.fila_leads_original
 --    WHERE DATE(b.data_backup) = CURDATE();
 
+
+

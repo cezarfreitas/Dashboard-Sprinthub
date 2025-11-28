@@ -82,3 +82,5 @@ echo ""
 echo "💡 Dica: Execute o script SQL de diagnóstico para ver o estado da fila:"
 echo "   mysql -u user -p database < scripts/diagnostico-fila-unidade-92.sql"
 
+
+

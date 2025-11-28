@@ -307,3 +307,5 @@ Se todos os vendedores estiverem inativos ou ausentes:
 
 **Resultado final:** ✅ API funcionando corretamente, performance 5-10x melhor, vendedores inativos/ausentes são pulados automaticamente.
 
+
+

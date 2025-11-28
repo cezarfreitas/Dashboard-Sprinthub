@@ -95,3 +95,5 @@ SELECT
     ELSE '✅ Há vendedores disponíveis. O erro pode ser temporário ou de configuração da API.'
   END as diagnostico;
 
+
+

@@ -53,3 +53,5 @@ export function formatVersionShort(appVersion: AppVersion): string {
   return `v${appVersion.version}-${appVersion.buildNumber}`
 }
 
+
+
