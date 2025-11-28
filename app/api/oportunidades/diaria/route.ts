@@ -3,16 +3,52 @@ import { executeQuery } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
-// Helper para parse JSON
+// Helper para parse JSON ou CSV
 function parseJSON(value: any): any[] {
   if (Array.isArray(value)) return value
-  if (typeof value === 'string') {
+  
+  // Converter Buffer para string se necessário
+  let strValue = value
+  if (value && typeof value === 'object' && value.toString) {
+    strValue = value.toString()
+  }
+  
+  if (typeof strValue === 'string') {
+    // Tentar parse JSON primeiro
     try {
-      return JSON.parse(value)
+      const parsed = JSON.parse(strValue)
+      if (Array.isArray(parsed)) return parsed
+      if (typeof parsed === 'object') return [parsed]
+      return []
     } catch (e) {
+      // Se falhar, tentar parse CSV (ex: "220,250")
+      if (strValue.includes(',')) {
+        const ids = strValue
+          .split(',')
+          .map(id => {
+            const trimmed = id.trim()
+            const num = parseInt(trimmed)
+            return isNaN(num) ? null : num
+          })
+          .filter(id => id !== null)
+        return ids
+      }
+      
+      // Tentar parse como número único
+      const num = parseInt(strValue.trim())
+      if (!isNaN(num)) {
+        return [num]
+      }
+      
       return []
     }
   }
+  
+  // Se for número direto
+  if (typeof strValue === 'number') {
+    return [strValue]
+  }
+  
   return []
 }
 
@@ -247,9 +283,10 @@ export async function GET(request: NextRequest) {
 
     // Filtro de data (usando DATE() para garantir comparação apenas por data, sem hora)
     // Usar as datas validadas e corrigidas
-    whereClauses.push(`DATE(${campoData}) >= DATE(?)`)
+    // IMPORTANTE: Usar CAST para garantir que a comparação seja feita corretamente
+    whereClauses.push(`DATE(${campoData}) >= CAST(? AS DATE)`)
     queryParams.push(dataInicioValida)
-    whereClauses.push(`DATE(${campoData}) <= DATE(?)`)
+    whereClauses.push(`DATE(${campoData}) <= CAST(? AS DATE)`)
     queryParams.push(dataFimValida)
 
     // Filtro de unidades
@@ -343,60 +380,93 @@ export async function GET(request: NextRequest) {
       .map(r => {
         // Formatar data para YYYY-MM-DD (sem hora)
         let dataFormatada: string | null = null
+        let diaExtraido = 0
+        let mesExtraido = 0
+        let anoExtraido = 0
+        
         if (r.data) {
           // Se já é uma string no formato YYYY-MM-DD, usar diretamente
           if (typeof r.data === 'string' && r.data.match(/^\d{4}-\d{2}-\d{2}$/)) {
             dataFormatada = r.data
+            // Extrair dia, mês e ano da string formatada para evitar problemas de timezone
+            const partes = r.data.split('-')
+            if (partes.length === 3) {
+              anoExtraido = parseInt(partes[0], 10)
+              mesExtraido = parseInt(partes[1], 10)
+              diaExtraido = parseInt(partes[2], 10)
+            }
           } else {
             // Se é Date object, converter para YYYY-MM-DD
+            // IMPORTANTE: Usar UTC para evitar problemas de timezone
             const date = new Date(r.data)
             if (!isNaN(date.getTime())) {
-              const year = date.getFullYear()
-              const month = String(date.getMonth() + 1).padStart(2, '0')
-              const day = String(date.getDate()).padStart(2, '0')
+              // Usar UTC para evitar deslocamento de timezone
+              const year = date.getUTCFullYear()
+              const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+              const day = String(date.getUTCDate()).padStart(2, '0')
               dataFormatada = `${year}-${month}-${day}`
+              anoExtraido = year
+              mesExtraido = parseInt(month, 10)
+              diaExtraido = parseInt(day, 10)
             }
           }
         }
         
+        // Usar valores extraídos da data formatada se disponíveis, senão usar valores do banco
         return {
           data: dataFormatada,
-          dia: Number(r.dia || 0),
-          mes: Number(r.mes || 0),
-          ano: Number(r.ano || 0),
+          dia: diaExtraido || Number(r.dia || 0),
+          mes: mesExtraido || Number(r.mes || 0),
+          ano: anoExtraido || Number(r.ano || 0),
           total: Number(r.total || 0),
           ...(campoValor ? { valor_total: Number(r.valor_total || 0) } : {})
         }
       })
       .filter(item => {
-        // Filtrar apenas datas dentro do período especificado
+        // Filtrar apenas datas dentro do período especificado (usar datas validadas)
         if (!item.data) return false
-        return item.data >= dataInicio && item.data <= dataFim
+        return item.data >= dataInicioValida && item.data <= dataFimValida
       })
 
     // Formatar resposta por vendedor (apenas se all=1)
     const dadosPorVendedor = allParam ? resultadosPorVendedor
       .map(r => {
         let dataFormatada: string | null = null
+        let diaExtraido = 0
+        let mesExtraido = 0
+        let anoExtraido = 0
+        
         if (r.data) {
           if (typeof r.data === 'string' && r.data.match(/^\d{4}-\d{2}-\d{2}$/)) {
             dataFormatada = r.data
+            // Extrair dia, mês e ano da string formatada para evitar problemas de timezone
+            const partes = r.data.split('-')
+            if (partes.length === 3) {
+              anoExtraido = parseInt(partes[0], 10)
+              mesExtraido = parseInt(partes[1], 10)
+              diaExtraido = parseInt(partes[2], 10)
+            }
           } else {
             const date = new Date(r.data)
             if (!isNaN(date.getTime())) {
-              const year = date.getFullYear()
-              const month = String(date.getMonth() + 1).padStart(2, '0')
-              const day = String(date.getDate()).padStart(2, '0')
+              // Usar UTC para evitar deslocamento de timezone
+              const year = date.getUTCFullYear()
+              const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+              const day = String(date.getUTCDate()).padStart(2, '0')
               dataFormatada = `${year}-${month}-${day}`
+              anoExtraido = year
+              mesExtraido = parseInt(month, 10)
+              diaExtraido = parseInt(day, 10)
             }
           }
         }
         
+        // Usar valores extraídos da data formatada se disponíveis, senão usar valores do banco
         return {
           data: dataFormatada,
-          dia: Number(r.dia || 0),
-          mes: Number(r.mes || 0),
-          ano: Number(r.ano || 0),
+          dia: diaExtraido || Number(r.dia || 0),
+          mes: mesExtraido || Number(r.mes || 0),
+          ano: anoExtraido || Number(r.ano || 0),
           vendedor_id: Number(r.vendedor_id || 0),
           vendedor_nome: r.vendedor_nome || 'Sem vendedor',
           total: Number(r.total || 0),
