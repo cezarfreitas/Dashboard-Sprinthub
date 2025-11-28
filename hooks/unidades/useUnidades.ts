@@ -5,6 +5,7 @@ export interface VendedorFila {
   nome: string
   sequencia: number
   total_distribuicoes?: number
+  ausencia_retorno?: string | null
 }
 
 export interface Vendedor {
@@ -41,6 +42,12 @@ export interface Unidade {
   synced_at: string
   created_at: string
   updated_at: string
+  // Estatísticas de distribuição
+  total_leads_distribuidos?: number
+  ultima_distribuicao?: string | null
+  ultima_distribuicao_vendedor?: string | null
+  ultima_distribuicao_lead_id?: number | null
+  ultima_distribuicao_total_fila?: number | null
 }
 
 export interface UnidadesStats {

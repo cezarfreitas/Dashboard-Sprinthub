@@ -7,6 +7,8 @@ import CronControls from '@/components/cron-controls'
 import { UnidadeCard } from '@/components/unidades/UnidadeCard'
 import { UnidadeFilters } from '@/components/unidades/UnidadeFilters'
 import { UnidadeFilaDialog } from '@/components/unidades/UnidadeFilaDialog'
+import { UnidadeLogsDialog } from '@/components/unidades/UnidadeLogsDialog'
+import { UnidadeAusenciasDialog } from '@/components/unidades/UnidadeAusenciasDialog'
 import { useUnidades } from '@/hooks/unidades/useUnidades'
 import type { Unidade } from '@/hooks/unidades/useUnidades'
 
@@ -25,10 +27,24 @@ export default function UnidadesPage() {
 
   const [editingUnidade, setEditingUnidade] = useState<Unidade | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [logsUnidade, setLogsUnidade] = useState<Unidade | null>(null)
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false)
+  const [ausenciasUnidade, setAusenciasUnidade] = useState<Unidade | null>(null)
+  const [ausenciasDialogOpen, setAusenciasDialogOpen] = useState(false)
 
   const handleManageQueue = useCallback((unidade: Unidade) => {
     setEditingUnidade(unidade)
     setDialogOpen(true)
+  }, [])
+
+  const handleLogs = useCallback((unidade: Unidade) => {
+    setLogsUnidade(unidade)
+    setLogsDialogOpen(true)
+  }, [])
+
+  const handleAusencias = useCallback((unidade: Unidade) => {
+    setAusenciasUnidade(unidade)
+    setAusenciasDialogOpen(true)
   }, [])
 
   const handleSaveFila = useCallback(async (unidadeId: number, fila: any[]) => {
@@ -130,6 +146,8 @@ export default function UnidadesPage() {
                 unidade={unidade}
                 onToggleStatus={handleToggleStatus}
                 onManageQueue={handleManageQueue}
+                onLogs={handleLogs}
+                onRegistroAusencia={handleAusencias}
               />
             ))}
           </div>
@@ -142,6 +160,20 @@ export default function UnidadesPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={handleSaveFila}
+      />
+
+      {/* Dialog de Logs */}
+      <UnidadeLogsDialog
+        unidade={logsUnidade}
+        open={logsDialogOpen}
+        onOpenChange={setLogsDialogOpen}
+      />
+
+      {/* Dialog de Ausências */}
+      <UnidadeAusenciasDialog
+        unidade={ausenciasUnidade}
+        open={ausenciasDialogOpen}
+        onOpenChange={setAusenciasDialogOpen}
       />
     </div>
   )

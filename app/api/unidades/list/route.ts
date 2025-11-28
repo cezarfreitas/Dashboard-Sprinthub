@@ -50,6 +50,64 @@ export async function GET(request: NextRequest) {
     `) as any[]
     const vendedoresMap = new Map(todosVendedores.map(v => [v.id, v]))
 
+    // Buscar estatísticas de distribuição por unidade
+    const statsDistribuicao = await executeQuery(`
+      SELECT 
+        l.unidade_id,
+        COUNT(*) as total_leads_distribuidos,
+        MAX(l.distribuido_em) as ultima_distribuicao
+      FROM fila_leads_log l
+      GROUP BY l.unidade_id
+    `) as any[]
+    const statsDistribuicaoMap = new Map(statsDistribuicao.map(s => [s.unidade_id, s]))
+
+    // Buscar última distribuição detalhada por unidade
+    const ultimaDistribuicaoQuery = `
+      SELECT 
+        l1.unidade_id,
+        l1.vendedor_id,
+        l1.lead_id,
+        l1.total_fila,
+        l1.distribuido_em,
+        v.name as vendedor_nome,
+        v.lastName as vendedor_sobrenome
+      FROM fila_leads_log l1
+      INNER JOIN (
+        SELECT unidade_id, MAX(distribuido_em) as max_data
+        FROM fila_leads_log
+        GROUP BY unidade_id
+      ) l2 ON l1.unidade_id = l2.unidade_id AND l1.distribuido_em = l2.max_data
+      LEFT JOIN vendedores v ON l1.vendedor_id = v.id
+    ` 
+    const ultimaDistribuicao = await executeQuery(ultimaDistribuicaoQuery) as any[]
+    const ultimaDistribuicaoMap = new Map(ultimaDistribuicao.map(u => [u.unidade_id, u]))
+
+    // Buscar ausências ativas por vendedor
+    const ausenciasAtivas = await executeQuery(`
+      SELECT 
+        vendedor_id,
+        data_fim as ausencia_retorno
+      FROM vendedores_ausencias
+      WHERE data_fim >= NOW()
+        AND data_inicio <= NOW()
+    `) as any[]
+    const ausenciasMap = new Map(ausenciasAtivas.map(a => [a.vendedor_id, a.ausencia_retorno]))
+
+    // Buscar contagem de distribuições por vendedor e unidade
+    const distribuicoesPorVendedor = await executeQuery(`
+      SELECT 
+        l.unidade_id,
+        l.vendedor_id,
+        COUNT(*) as total_distribuicoes
+      FROM fila_leads_log l
+      GROUP BY l.unidade_id, l.vendedor_id
+    `) as any[]
+    const distribuicoesVendedorMap = new Map()
+    distribuicoesPorVendedor.forEach(d => {
+      const key = `${d.unidade_id}-${d.vendedor_id}`
+      distribuicoesVendedorMap.set(key, d.total_distribuicoes)
+    })
+
     // Processar cada unidade
     const unidadesCompletas = unidades.map((unidade) => {
       // Extrair vendedores da unidade
@@ -74,13 +132,23 @@ export async function GET(request: NextRequest) {
 
       // Parsear fila de leads
       const parsedFilaLeads = parseJSON(unidade.fila_leads)
-      const filaLeads = parsedFilaLeads.map((item: any) => ({
-        id: item.vendedor_id || item.id,
-        nome: vendedoresMap.get(item.vendedor_id || item.id) 
-          ? `${vendedoresMap.get(item.vendedor_id || item.id)!.name} ${vendedoresMap.get(item.vendedor_id || item.id)!.lastName || ''}`.trim()
-          : 'Sem nome',
-        sequencia: item.sequencia || item.ordem || 0
-      }))
+      const filaLeads = parsedFilaLeads.map((item: any) => {
+        const vendedorId = item.vendedor_id || item.id
+        const key = `${unidade.id}-${vendedorId}`
+        return {
+          id: vendedorId,
+          nome: vendedoresMap.get(vendedorId) 
+            ? `${vendedoresMap.get(vendedorId)!.name} ${vendedoresMap.get(vendedorId)!.lastName || ''}`.trim()
+            : 'Sem nome',
+          sequencia: item.sequencia || item.ordem || 0,
+          total_distribuicoes: distribuicoesVendedorMap.get(key) || 0,
+          ausencia_retorno: ausenciasMap.get(vendedorId) || null
+        }
+      })
+
+      // Buscar estatísticas de distribuição desta unidade
+      const statsUnidade = statsDistribuicaoMap.get(unidade.id)
+      const ultimaDistUnidade = ultimaDistribuicaoMap.get(unidade.id)
 
       return {
         id: unidade.id,
@@ -111,7 +179,15 @@ export async function GET(request: NextRequest) {
         ativo: Boolean(unidade.ativo),
         synced_at: unidade.synced_at || unidade.updated_at || null,
         created_at: unidade.created_at || unidade.create_date || null,
-        updated_at: unidade.updated_at || unidade.update_date || null
+        updated_at: unidade.updated_at || unidade.update_date || null,
+        // Estatísticas de distribuição
+        total_leads_distribuidos: statsUnidade?.total_leads_distribuidos || 0,
+        ultima_distribuicao: ultimaDistUnidade?.distribuido_em || null,
+        ultima_distribuicao_vendedor: ultimaDistUnidade 
+          ? `${ultimaDistUnidade.vendedor_nome || ''} ${ultimaDistUnidade.vendedor_sobrenome || ''}`.trim() || null
+          : null,
+        ultima_distribuicao_lead_id: ultimaDistUnidade?.lead_id || null,
+        ultima_distribuicao_total_fila: ultimaDistUnidade?.total_fila || null
       }
     })
 
