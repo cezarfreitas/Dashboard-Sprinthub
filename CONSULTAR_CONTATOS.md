@@ -2,45 +2,118 @@
 
 ## ✅ Endpoint Criado
 
-### **GET /api/contatos/check**
+### **POST /api/contatos/check** (Recomendado)
 
 Verifica se um `wpp_contato` existe em uma `wpp_filial` específica.
 
 ⚠️ **IMPORTANTE:** Se o parâmetro `atendimento` for fornecido, a API **automaticamente chama o SprintHub** e retorna a resposta.
 
+**Também suporta:** `GET /api/contatos/check` (compatibilidade com query parameters)
+
 ---
 
 ## 📋 Uso
 
-### **URL:**
+### **Método POST (Recomendado):**
+
+**URL:**
 ```
-GET /api/contatos/check?wpp_filial=5527981920127&wpp_contato=5511989882867&atendimento=15454
+POST /api/contatos/check
 ```
 
-### **Parâmetros Query:**
+**Body (JSON):**
+```json
+{
+  "wpp_filial": "5527981920127",
+  "wpp_contato": "5511989882867",
+  "atendimento": "15454"
+}
+```
+
+**Parâmetros Body:**
 
 **Obrigatórios:**
 - `wpp_filial` - Telefone da filial
 - `wpp_contato` - Telefone do contato
 
 **Opcionais:**
-- `atendimento` - ID do atendimento para referência (não filtra, apenas retorna o valor enviado)
+- `atendimento` - ID do atendimento (se fornecido, chama SprintHub automaticamente)
+
+---
+
+### **Método GET (Compatibilidade):**
+
+**URL:**
+```
+GET /api/contatos/check?wpp_filial=5527981920127&wpp_contato=5511989882867&atendimento=15454
+```
 
 ---
 
 ## 💡 Exemplos
 
-### **1. cURL - Sem atendimento**
+### **1. cURL - POST (Recomendado)**
 ```bash
-curl "http://localhost:3000/api/contatos/check?wpp_filial=5527981920127&wpp_contato=5511989882867"
+curl --location 'https://gestao.grupointeli.com/api/contatos/check' \
+--header 'Content-Type: application/json' \
+--data '{
+    "wpp_filial": "554792616714",
+    "wpp_contato": "5511989882867",
+    "atendimento": "6163"
+}'
 ```
 
-### **2. cURL - Com atendimento**
+### **2. cURL - POST Sem atendimento**
+```bash
+curl --location 'http://localhost:3000/api/contatos/check' \
+--header 'Content-Type: application/json' \
+--data '{
+    "wpp_filial": "5527981920127",
+    "wpp_contato": "5511989882867"
+}'
+```
+
+### **3. cURL - GET (Compatibilidade)**
 ```bash
 curl "http://localhost:3000/api/contatos/check?wpp_filial=5527981920127&wpp_contato=5511989882867&atendimento=15454"
 ```
 
-### **3. JavaScript/TypeScript**
+### **4. JavaScript/TypeScript - POST (Recomendado)**
+```javascript
+const response = await fetch('/api/contatos/check', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    wpp_filial: '5527981920127',
+    wpp_contato: '5511989882867',
+    atendimento: '15454' // opcional
+  })
+})
+
+const data = await response.json()
+
+if (data.exists) {
+  console.log('✅ Contato existe!')
+  console.log('ID:', data.id_contato)
+  console.log('Nome:', data.nome)
+  console.log('Vendedor ID:', data.vendedor_id)
+  
+  // Se chamou SprintHub
+  if (data.sprinthub) {
+    if (data.sprinthub_success) {
+      console.log('✅ SprintHub OK:', data.sprinthub)
+    } else {
+      console.log('❌ SprintHub Error:', data.sprinthub)
+    }
+  }
+} else {
+  console.log('❌ Contato não encontrado')
+}
+```
+
+### **5. JavaScript/TypeScript - GET (Compatibilidade)**
 ```javascript
 const wppFilial = '5527981920127'
 const wppContato = '5511989882867'
@@ -56,22 +129,28 @@ const response = await fetch(url)
 const data = await response.json()
 
 if (data.exists) {
-  console.log('✅ Contato existe!', data.contato)
-  console.log('Parâmetros usados:', data.parametros)
+  console.log('✅ Contato existe!', data)
 } else {
   console.log('❌ Contato não encontrado')
 }
 ```
 
-### **4. Console do Navegador - Sem atendimento**
+### **6. Console do Navegador - POST**
 ```javascript
-fetch('/api/contatos/check?wpp_filial=5527981920127&wpp_contato=5511989882867')
+fetch('/api/contatos/check', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    wpp_filial: '5527981920127',
+    wpp_contato: '5511989882867',
+    atendimento: '15454'
+  })
+})
   .then(r => r.json())
   .then(data => {
     console.log('Existe?', data.exists)
     if (data.exists) {
-      console.log('Dados:', data.contato)
-    }
+      console.log('Dados:', data)
   })
 ```
 

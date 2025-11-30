@@ -4,19 +4,10 @@ import { executeQuery } from '@/lib/database'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/contatos/check?wpp_filial=5527981920127&wpp_contato=5511989882867&atendimento=15454
- * 
- * Verifica se existe um contato específico em uma filial
- * Se 'atendimento' for fornecido, chama automaticamente a API do SprintHub
+ * Função comum para verificar contato
  */
-export async function GET(request: NextRequest) {
+async function checkContato(wppFilial: string | null, wppContato: string | null, atendimento: string | null) {
   try {
-    const { searchParams } = new URL(request.url)
-    
-    const wppFilial = searchParams.get('wpp_filial')
-    const wppContato = searchParams.get('wpp_contato')
-    const atendimento = searchParams.get('atendimento') // id_contato (opcional)
-
     // Validações
     if (!wppFilial || !wppContato) {
       return NextResponse.json(
@@ -28,7 +19,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Buscar contato (atendimento é apenas para exibir, não filtra)
+    // Buscar contato
     const contatos = await executeQuery(
       `SELECT 
         id_contato,
@@ -137,3 +128,46 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * POST /api/contatos/check
+ * Body: { "wpp_filial": "...", "wpp_contato": "...", "atendimento": "..." }
+ * 
+ * Verifica se existe um contato específico em uma filial
+ * Se 'atendimento' for fornecido, chama automaticamente a API do SprintHub
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    
+    const wppFilial = body.wpp_filial || null
+    const wppContato = body.wpp_contato || null
+    const atendimento = body.atendimento || null
+
+    return await checkContato(wppFilial, wppContato, atendimento)
+  } catch (error) {
+    console.error('❌ Erro ao processar POST:', error)
+    return NextResponse.json(
+      {
+        exists: false,
+        error: 'Erro ao processar requisição. Verifique se o body está em formato JSON válido.'
+      },
+      { status: 400 }
+    )
+  }
+}
+
+/**
+ * GET /api/contatos/check?wpp_filial=5527981920127&wpp_contato=5511989882867&atendimento=15454
+ * 
+ * Verifica se existe um contato específico em uma filial (compatibilidade)
+ * Se 'atendimento' for fornecido, chama automaticamente a API do SprintHub
+ */
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  
+  const wppFilial = searchParams.get('wpp_filial')
+  const wppContato = searchParams.get('wpp_contato')
+  const atendimento = searchParams.get('atendimento')
+
+  return await checkContato(wppFilial, wppContato, atendimento)
+}
