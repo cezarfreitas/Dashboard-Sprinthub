@@ -219,6 +219,19 @@ CREATE TABLE vendedores_ausencias (
   created_by int DEFAULT NULL COMMENT 'ID do usuário que criou a ausência'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE contatos_whatsapp (
+  id_contato varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ID único do contato - Chave Primária',
+  wpp_filial varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Telefone WhatsApp da filial',
+  wpp_contato varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Telefone WhatsApp do contato',
+  vendedor varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nome completo do vendedor',
+  vendedor_id int NOT NULL COMMENT 'ID do vendedor na tabela vendedores',
+  nome varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nome do contato',
+  ativo tinyint(1) DEFAULT '1' COMMENT 'Contato ativo (1) ou inativo (0)',
+  observacoes text COLLATE utf8mb4_unicode_ci COMMENT 'Observações sobre o contato',
+  created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Contatos WhatsApp vinculados a vendedores e filiais';
+
 
 ALTER TABLE colunas_funil
   ADD PRIMARY KEY (id),
@@ -317,6 +330,15 @@ ALTER TABLE vendedores_ausencias
   ADD KEY idx_data_inicio (data_inicio),
   ADD KEY idx_data_fim (data_fim),
   ADD KEY idx_unidade_vendedor (unidade_id, vendedor_id);
+
+ALTER TABLE contatos_whatsapp
+  ADD PRIMARY KEY (id_contato),
+  ADD KEY idx_vendedor_id (vendedor_id),
+  ADD KEY idx_wpp_filial (wpp_filial),
+  ADD KEY idx_wpp_contato (wpp_contato),
+  ADD KEY idx_nome (nome),
+  ADD KEY idx_ativo (ativo),
+  ADD KEY idx_created_at (created_at);
 
 
 ALTER TABLE configuracoes
