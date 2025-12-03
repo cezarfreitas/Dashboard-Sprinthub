@@ -98,14 +98,27 @@ Este erro ocorre quando:
 - Verifique os logs do servidor para erros
 
 ### Logotipo não aparece no email
+
+#### Problema 1: Cliente de email bloqueia imagens
 - ⚠️ **Muitos clientes de email bloqueiam imagens externas por padrão** (Gmail, Outlook, etc.)
 - O usuário precisa clicar em "Mostrar imagens" ou "Permitir imagens" no email
+
+#### Problema 2: Formato SVG não suportado
+- ⚠️ **Muitos clientes de email NÃO suportam SVG** (Outlook, Apple Mail, alguns clientes móveis)
+- **Solução**: Use PNG ou JPG para o logotipo em emails
+- Formatos recomendados para emails:
+  - ✅ PNG (melhor compatibilidade)
+  - ✅ JPG/JPEG
+  - ❌ SVG (não recomendado para emails)
+
+#### Verificações:
 - Verifique se a URL do logotipo está acessível publicamente:
   - Acesse a URL diretamente no navegador
   - Deve retornar a imagem, não erro 404
 - Verifique os logs do servidor para ver a URL gerada
 - A URL deve ser absoluta (começar com `http://` ou `https://`)
 - Certifique-se de que `NEXT_PUBLIC_APP_URL` está configurado corretamente no servidor
+- **Recomendação**: Faça upload de uma versão PNG do logotipo ao invés de SVG
 
 ## 📝 Notas Importantes
 

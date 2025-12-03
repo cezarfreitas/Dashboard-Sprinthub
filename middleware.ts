@@ -55,7 +55,8 @@ export function middleware(request: NextRequest) {
     '/analytics',
     '/funil',
     '/ranking',
-    '/painel'
+    '/painel',
+    '/teste'
   ]
   
   // Rotas públicas do SISTEMA

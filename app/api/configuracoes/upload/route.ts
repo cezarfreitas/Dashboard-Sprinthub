@@ -38,9 +38,14 @@ export async function POST(request: NextRequest) {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml', 'image/webp']
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { success: false, message: 'Tipo de arquivo não permitido. Use: JPG, PNG, SVG ou WEBP' },
+        { success: false, message: 'Tipo de arquivo não permitido. Use: JPG, PNG, SVG ou WEBP. Para emails, recomenda-se PNG ou JPG (SVG pode não funcionar em alguns clientes de email).' },
         { status: 400 }
       )
+    }
+    
+    // Aviso sobre SVG em emails (mas ainda permite)
+    if (file.type === 'image/svg+xml') {
+      console.warn('⚠️ SVG detectado: Alguns clientes de email (Outlook, Apple Mail) não suportam SVG. Considere usar PNG ou JPG para melhor compatibilidade em emails.')
     }
 
     // Validar tamanho (máximo 2MB)
