@@ -49,13 +49,17 @@ export async function POST(request: NextRequest) {
     )
 
     // Criar link de recuperação
-    const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/sistema/reset-password?token=${resetToken}`
+    const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/sistema/reset-password?token=${resetToken}`
+
+    // Buscar configurações da empresa para o email
+    const { getEmpresaEmailConfig } = await import('@/lib/get-empresa-email-config')
+    const empresaConfig = await getEmpresaEmailConfig()
 
     // Enviar email
     const emailResult = await sendEmail({
       to: usuario.email,
-      subject: `Recuperação de Senha - ${process.env.NEXT_PUBLIC_APP_TITLE || 'GrupoInteli'}`,
-      html: getPasswordResetEmailTemplate(resetLink, usuario.nome)
+      subject: `Recuperação de Senha - ${empresaConfig.nome}`,
+      html: await getPasswordResetEmailTemplate(resetLink, usuario.nome)
     })
 
     if (!emailResult.success) {
