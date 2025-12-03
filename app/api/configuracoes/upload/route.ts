@@ -120,8 +120,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Retornar URL do arquivo
-    const fileUrl = `/uploads/logos/${fileName}`
+    // Retornar URL do arquivo (usar rota API para garantir que funcione em todos os ambientes)
+    const fileUrl = `/api/uploads/logos/${fileName}`
 
     return NextResponse.json({
       success: true,

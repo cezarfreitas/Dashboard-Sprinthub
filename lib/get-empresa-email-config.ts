@@ -6,6 +6,28 @@ export interface EmpresaEmailConfig {
   corPrincipal: string
 }
 
+function normalizeLogoUrl(url: string | null | undefined): string {
+  if (!url) return ''
+  
+  // Se já é uma URL completa (http/https), retornar como está
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  
+  // Se começa com /uploads/logos/, converter para /api/uploads/logos/
+  if (url.startsWith('/uploads/logos/')) {
+    return url.replace('/uploads/logos/', '/api/uploads/logos/')
+  }
+  
+  // Se já começa com /api/uploads/logos/, retornar como está
+  if (url.startsWith('/api/uploads/logos/')) {
+    return url
+  }
+  
+  // Para qualquer outro caminho relativo, retornar como está
+  return url
+}
+
 export async function getEmpresaEmailConfig(): Promise<EmpresaEmailConfig> {
   try {
     const configuracoes = await executeQuery(
@@ -20,7 +42,7 @@ export async function getEmpresaEmailConfig(): Promise<EmpresaEmailConfig> {
 
     return {
       nome: configMap['empresa_nome'] || process.env.NEXT_PUBLIC_APP_TITLE || 'Sistema',
-      logotipo: configMap['empresa_logotipo'] || '',
+      logotipo: normalizeLogoUrl(configMap['empresa_logotipo']),
       corPrincipal: configMap['empresa_cor_principal'] || '#000000'
     }
   } catch (error) {

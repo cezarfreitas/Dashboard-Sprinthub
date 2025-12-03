@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { hexToHsl, isValidHexColor } from '@/lib/color-utils'
+import { normalizeLogoUrl } from '@/lib/logo-utils'
 
 interface EmpresaConfig {
   nome: string
@@ -26,7 +27,7 @@ export function useEmpresaConfig() {
             
             setConfig({
               nome: data.config.nome || '',
-              logotipo: data.config.logotipo || '',
+              logotipo: normalizeLogoUrl(data.config.logotipo),
               corPrincipal
             })
 
