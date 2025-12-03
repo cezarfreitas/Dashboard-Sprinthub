@@ -48,8 +48,28 @@ export async function POST(request: NextRequest) {
       [resetToken, resetTokenExpires, usuario.id]
     )
 
-    // Criar link de recuperação
-    const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/sistema/reset-password?token=${resetToken}`
+    // Obter URL base do servidor
+    const getBaseUrl = () => {
+      // Tentar obter do header do request (mais confiável em produção)
+      const host = request.headers.get('host')
+      
+      if (host) {
+        // Detectar protocolo: usar HTTPS em produção, HTTP apenas em localhost
+        const protocol = host.includes('localhost') 
+          ? 'http' 
+          : (request.headers.get('x-forwarded-proto') || 'https')
+        return `${protocol}://${host}`
+      }
+      
+      // Fallback para variáveis de ambiente
+      return process.env.NEXT_PUBLIC_APP_URL || 
+             process.env.NEXT_PUBLIC_BASE_URL || 
+             process.env.APP_URL ||
+             'http://localhost:3000'
+    }
+    
+    const baseUrl = getBaseUrl()
+    const resetLink = `${baseUrl}/sistema/reset-password?token=${resetToken}`
 
     // Buscar configurações da empresa para o email
     const { getEmpresaEmailConfig } = await import('@/lib/get-empresa-email-config')
