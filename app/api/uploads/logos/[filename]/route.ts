@@ -48,7 +48,8 @@ export async function GET(
     const contentType = contentTypeMap[extension || ''] || 'application/octet-stream'
 
     // Retornar arquivo com headers apropriados
-    return new NextResponse(fileBuffer, {
+    // Converter Buffer para Uint8Array para compatibilidade com NextResponse
+    return new NextResponse(new Uint8Array(fileBuffer), {
       status: 200,
       headers: {
         'Content-Type': contentType,
