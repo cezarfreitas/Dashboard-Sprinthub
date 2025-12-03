@@ -709,47 +709,41 @@ export default function TestePage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div>
-        <h1 className="text-3xl font-display">Criador de Gráficos Customizados</h1>
-        <p className="text-sm text-muted-foreground">
-          Crie gráficos personalizados com múltiplas séries de dados
-        </p>
+    <div className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display">Criador de Gráficos</h1>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Coluna de Configurações */}
-        <div className="lg:col-span-4 xl:col-span-3">
-          <Card className="sticky top-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Configurações</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Período */}
+      {/* Configurações Compactas em Uma Linha */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="space-y-3">
+            {/* Linha 1: Filtros e Eixos Principais */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
               <div>
-                <Label htmlFor="data_inicio" className="text-xs font-semibold">Data Início</Label>
+                <Label className="text-xs mb-1 block">Data Início</Label>
                 <Input
-                  id="data_inicio"
                   type="date"
                   value={dataInicio}
                   onChange={(e) => setDataInicio(e.target.value)}
+                  className="h-9"
                 />
               </div>
               <div>
-                <Label htmlFor="data_fim" className="text-xs font-semibold">Data Fim</Label>
+                <Label className="text-xs mb-1 block">Data Fim</Label>
                 <Input
-                  id="data_fim"
                   type="date"
                   value={dataFim}
                   onChange={(e) => setDataFim(e.target.value)}
+                  className="h-9"
                 />
               </div>
-
-              {/* Tipo de Gráfico */}
               <div>
-                <Label htmlFor="tipo_grafico" className="text-xs font-semibold">Tipo de Gráfico</Label>
+                <Label className="text-xs mb-1 block">Tipo</Label>
                 <Select value={tipoGrafico} onValueChange={(value) => setTipoGrafico(value as TipoGrafico)}>
-                  <SelectTrigger id="tipo_grafico">
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -760,143 +754,101 @@ export default function TestePage() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Eixos */}
-              <div className="pt-2 border-t">
-                <Label className="text-xs font-semibold mb-2 block">Eixos</Label>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="campo_x" className="text-xs">Eixo X</Label>
-                    <Select value={campoX} onValueChange={setCampoX}>
-                      <SelectTrigger id="campo_x">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {camposDisponiveis
-                          .filter(c => c.tipo === 'categoria')
-                          .map(campo => (
-                            <SelectItem key={campo.value} value={campo.value}>
-                              {campo.label}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="campo_y" className="text-xs">Eixo Y</Label>
-                    <Select value={campoY} onValueChange={setCampoY}>
-                      <SelectTrigger id="campo_y">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {camposDisponiveis
-                          .filter(c => c.tipo === 'numerico')
-                          .map(campo => (
-                            <SelectItem key={campo.value} value={campo.value}>
-                              {campo.label}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {campoY === 'value' && (
-                    <div>
-                      <Label htmlFor="agrupamento" className="text-xs">Agregação</Label>
-                      <Select value={agrupamento} onValueChange={setAgrupamento}>
-                        <SelectTrigger id="agrupamento">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="sum">Soma</SelectItem>
-                          <SelectItem value="avg">Média</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
+              <div>
+                <Label className="text-xs mb-1 block">Eixo X</Label>
+                <Select value={campoX} onValueChange={setCampoX}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {camposDisponiveis
+                      .filter(c => c.tipo === 'categoria')
+                      .map(campo => (
+                        <SelectItem key={campo.value} value={campo.value}>
+                          {campo.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
-
-              {/* Opções */}
-              <div className="pt-2 border-t">
-                <Label className="text-xs font-semibold mb-2 block">Opções</Label>
-                <div className="space-y-2">
-                  {tipoGrafico !== 'pie' && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs cursor-pointer">
-                          Mostrar Rótulos
-                        </Label>
-                        <Switch
-                          checked={mostrarRotulos}
-                          onCheckedChange={setMostrarRotulos}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs cursor-pointer">
-                          Mostrar Grid
-                        </Label>
-                        <Switch
-                          checked={mostrarGrid}
-                          onCheckedChange={setMostrarGrid}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs cursor-pointer">
-                          Múltiplas Séries
-                        </Label>
-                        <Switch
-                          checked={usarLegenda}
-                          onCheckedChange={setUsarLegenda}
-                        />
-                      </div>
-                      {usarLegenda && (tipoGrafico === 'bar' || tipoGrafico === 'area') && (
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs cursor-pointer">
-                            Empilhado
-                          </Label>
-                          <Switch
-                            checked={empilhado}
-                            onCheckedChange={setEmpilhado}
-                          />
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+              <div>
+                <Label className="text-xs mb-1 block">Eixo Y</Label>
+                <Select value={campoY} onValueChange={setCampoY}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {camposDisponiveis
+                      .filter(c => c.tipo === 'numerico')
+                      .map(campo => (
+                        <SelectItem key={campo.value} value={campo.value}>
+                          {campo.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
-
-              {/* Altura do Gráfico */}
-              {tipoGrafico !== 'pie' && (
-                <div className="pt-2 border-t">
-                  <Label className="text-xs font-semibold">
-                    Altura do Gráfico: {alturaGrafico}px
-                  </Label>
-                  <input
-                    type="range"
-                    min="300"
-                    max="800"
-                    step="50"
-                    value={alturaGrafico}
-                    onChange={(e) => setAlturaGrafico(parseInt(e.target.value))}
-                    className="w-full mt-2"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>300px</span>
-                    <span>800px</span>
-                  </div>
+              {campoY === 'value' && (
+                <div>
+                  <Label className="text-xs mb-1 block">Agregação</Label>
+                  <Select value={agrupamento} onValueChange={setAgrupamento}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sum">Soma</SelectItem>
+                      <SelectItem value="avg">Média</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
+            </div>
 
-              {/* Config Múltiplas Séries */}
+            {/* Linha 2: Opções e Config Avançada */}
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Switches */}
+              {tipoGrafico !== 'pie' && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={mostrarRotulos}
+                      onCheckedChange={setMostrarRotulos}
+                    />
+                    <Label className="text-xs">Rótulos</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={mostrarGrid}
+                      onCheckedChange={setMostrarGrid}
+                    />
+                    <Label className="text-xs">Grid</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={usarLegenda}
+                      onCheckedChange={setUsarLegenda}
+                    />
+                    <Label className="text-xs">Múltiplas Séries</Label>
+                  </div>
+                  {usarLegenda && (tipoGrafico === 'bar' || tipoGrafico === 'area') && (
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={empilhado}
+                        onCheckedChange={setEmpilhado}
+                      />
+                      <Label className="text-xs">Empilhado</Label>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Config Múltiplas Séries Inline */}
               {usarLegenda && tipoGrafico !== 'pie' && (
-                <div className="pt-2 border-t space-y-3">
-                  <Label className="text-xs font-semibold block">Múltiplas Séries</Label>
-                  <div>
-                    <Label htmlFor="campo_legenda" className="text-xs">Comparar por</Label>
+                <>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Comparar:</Label>
                     <Select value={campoLegenda} onValueChange={setCampoLegenda}>
-                      <SelectTrigger id="campo_legenda">
+                      <SelectTrigger className="h-8 w-[180px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -910,14 +862,13 @@ export default function TestePage() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <div>
-                    <Label htmlFor="limite_legenda" className="text-xs">Limite</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Limite:</Label>
                     <Select 
                       value={limiteItensLegenda.toString()} 
                       onValueChange={(value) => setLimiteItensLegenda(parseInt(value))}
                     >
-                      <SelectTrigger id="limite_legenda">
+                      <SelectTrigger className="h-8 w-[100px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -928,23 +879,41 @@ export default function TestePage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </>
+              )}
+
+              {/* Altura */}
+              {tipoGrafico !== 'pie' && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs">Altura:</Label>
+                  <input
+                    type="range"
+                    min="300"
+                    max="800"
+                    step="50"
+                    value={alturaGrafico}
+                    onChange={(e) => setAlturaGrafico(parseInt(e.target.value))}
+                    className="w-24"
+                  />
+                  <span className="text-xs text-muted-foreground">{alturaGrafico}px</span>
                 </div>
               )}
 
               {/* Botão Atualizar */}
-              <Button onClick={fetchData} className="w-full">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Atualizar Gráfico
+              <Button onClick={fetchData} size="sm" className="ml-auto">
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Atualizar
               </Button>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Coluna do Gráfico */}
-        <div className="lg:col-span-8 xl:col-span-9 space-y-4">
+      {/* Gráfico Abaixo */}
+      <div className="space-y-3">
 
-          {/* Gráfico */}
-          <Card>
+        {/* Gráfico */}
+        <Card>
         <CardHeader>
           <CardTitle>
             {tipoGrafico === 'bar' && 'Gráfico de Barras'}
@@ -973,43 +942,39 @@ export default function TestePage() {
         </CardContent>
       </Card>
 
-          {/* Resumo dos Dados */}
-          {!loading && rawData.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Resumo dos Dados</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total de Registros</p>
-                    <p className="text-2xl font-bold">{rawData.length.toLocaleString('pt-BR')}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Valor Total</p>
-                    <p className="text-2xl font-bold">
-                      {formatCurrency(rawData.reduce((sum, op) => sum + op.value, 0))}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Valor Médio</p>
-                    <p className="text-2xl font-bold">
-                      {formatCurrency(rawData.reduce((sum, op) => sum + op.value, 0) / rawData.length)}
-                    </p>
-                  </div>
-                  {usarLegenda && tipoGrafico !== 'pie' && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Séries no Gráfico</p>
-                      <p className="text-2xl font-bold">
-                        {(dadosProcessadosComLegenda as { data: any[]; legendas: string[] }).legendas.length}
-                      </p>
-                    </div>
-                  )}
+        {/* Resumo dos Dados */}
+        {!loading && rawData.length > 0 && (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total de Registros</p>
+                  <p className="text-xl font-bold">{rawData.length.toLocaleString('pt-BR')}</p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Valor Total</p>
+                  <p className="text-xl font-bold">
+                    {formatCurrency(rawData.reduce((sum, op) => sum + op.value, 0))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Valor Médio</p>
+                  <p className="text-xl font-bold">
+                    {formatCurrency(rawData.reduce((sum, op) => sum + op.value, 0) / rawData.length)}
+                  </p>
+                </div>
+                {usarLegenda && tipoGrafico !== 'pie' && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Séries no Gráfico</p>
+                    <p className="text-xl font-bold">
+                      {(dadosProcessadosComLegenda as { data: any[]; legendas: string[] }).legendas.length}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
