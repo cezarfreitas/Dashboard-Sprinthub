@@ -63,9 +63,29 @@ Após configurar as variáveis:
 
 ## 🛠️ Troubleshooting
 
-### Erro: "Invalid login"
-- Verifique se a senha de app está correta
+### Erro: "Application-specific password required" ou "Invalid login"
+
+Este erro ocorre quando:
+- A conta Gmail tem verificação em duas etapas ativada
+- Você está usando a senha normal da conta ao invés de uma senha de app
+
+**Solução:**
+1. Acesse: https://myaccount.google.com/apppasswords
+2. Selecione "Mail" e "Other (Custom name)"
+3. Digite um nome (ex: "Dashboard Sistema")
+4. Clique em "Generate"
+5. Copie a senha gerada (16 caracteres, sem espaços)
+6. Use essa senha no `GMAIL_PASSWORD` (não a senha normal da conta)
+
+**Importante:**
+- ⚠️ Use a **senha de app** (16 caracteres), não a senha normal
+- ⚠️ A verificação em duas etapas **deve estar ativada** para gerar senhas de app
+- ⚠️ Se a conta não tem verificação em duas etapas, ative primeiro em: https://myaccount.google.com/security
+
+### Erro: "Invalid login" (sem mensagem de senha de app)
+- Verifique se a senha de app está correta (copie exatamente, sem espaços)
 - Certifique-se de que a verificação em duas etapas está ativada
+- Tente gerar uma nova senha de app
 - Tente gerar uma nova senha de app
 
 ### Erro: "Connection timeout"
@@ -76,6 +96,16 @@ Após configurar as variáveis:
 - Verifique a pasta de Spam
 - Verifique se o email de destino está correto
 - Verifique os logs do servidor para erros
+
+### Logotipo não aparece no email
+- ⚠️ **Muitos clientes de email bloqueiam imagens externas por padrão** (Gmail, Outlook, etc.)
+- O usuário precisa clicar em "Mostrar imagens" ou "Permitir imagens" no email
+- Verifique se a URL do logotipo está acessível publicamente:
+  - Acesse a URL diretamente no navegador
+  - Deve retornar a imagem, não erro 404
+- Verifique os logs do servidor para ver a URL gerada
+- A URL deve ser absoluta (começar com `http://` ou `https://`)
+- Certifique-se de que `NEXT_PUBLIC_APP_URL` está configurado corretamente no servidor
 
 ## 📝 Notas Importantes
 

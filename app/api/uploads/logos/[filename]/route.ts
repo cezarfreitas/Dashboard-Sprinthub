@@ -54,7 +54,11 @@ export async function GET(
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',
-        'Content-Length': fileBuffer.length.toString()
+        'Content-Length': fileBuffer.length.toString(),
+        // Headers CORS para permitir carregamento em emails
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': 'Content-Type'
       }
     })
 

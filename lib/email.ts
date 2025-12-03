@@ -60,12 +60,29 @@ async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
     const info = await transporter.sendMail(mailOptions)
     return { success: true, data: info }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    
+    // Detectar erro específico de senha de app
+    let friendlyError = errorMessage
+    if (errorMessage.includes('Application-specific password required') || 
+        errorMessage.includes('InvalidSecondFactor')) {
+      friendlyError = 'Senha de app do Gmail necessária. A conta tem verificação em duas etapas ativada. Você precisa gerar uma senha de app em: https://myaccount.google.com/apppasswords'
+    } else if (errorMessage.includes('Invalid login') || errorMessage.includes('EAUTH')) {
+      friendlyError = 'Credenciais do Gmail inválidas. Verifique se está usando uma senha de app (não a senha normal da conta) e se a verificação em duas etapas está ativada.'
+    }
+    
     console.error('Erro ao enviar email via Gmail:', {
-      error: error instanceof Error ? error.message : error,
+      error: errorMessage,
+      friendlyError,
       gmailUser: process.env.GMAIL_USER || 'Não configurado',
-      hasPassword: !!process.env.GMAIL_PASSWORD
+      hasPassword: !!process.env.GMAIL_PASSWORD,
+      helpUrl: 'https://support.google.com/mail/?p=InvalidSecondFactor'
     })
-    return { success: false, error }
+    
+    return { 
+      success: false, 
+      error: new Error(friendlyError)
+    }
   }
 }
 
@@ -86,12 +103,40 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
 
 export async function getPasswordResetEmailTemplate(resetLink: string, userName: string) {
   const empresaConfig = await getEmpresaEmailConfig()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-  const logotipoUrl = empresaConfig.logotipo 
-    ? (empresaConfig.logotipo.startsWith('http') 
+  
+  // Obter URL base - priorizar variáveis de ambiente de produção
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                 process.env.NEXT_PUBLIC_BASE_URL || 
+                 process.env.APP_URL ||
+                 'http://localhost:3000'
+  
+  // Construir URL completa do logotipo
+  let logotipoUrl = ''
+  if (empresaConfig.logotipo) {
+    if (empresaConfig.logotipo.startsWith('http://') || empresaConfig.logotipo.startsWith('https://')) {
+      // Já é uma URL completa
+      logotipoUrl = empresaConfig.logotipo
+    } else {
+      // É um caminho relativo - construir URL completa
+      // Garantir que começa com /
+      const logoPath = empresaConfig.logotipo.startsWith('/') 
         ? empresaConfig.logotipo 
-        : `${appUrl}${empresaConfig.logotipo}`)
-    : ''
+        : `/${empresaConfig.logotipo}`
+      
+      // Remover barra dupla se houver
+      const cleanAppUrl = appUrl.replace(/\/$/, '')
+      logotipoUrl = `${cleanAppUrl}${logoPath}`
+    }
+  }
+  
+  // Log para debug (sempre logar para ajudar no diagnóstico)
+  console.log('Email template - Logo URL:', {
+    logotipo: empresaConfig.logotipo,
+    appUrl,
+    logotipoUrl,
+    hasLogo: !!logotipoUrl,
+    isAbsolute: logotipoUrl ? (logotipoUrl.startsWith('http://') || logotipoUrl.startsWith('https://')) : false
+  })
 
   return `
     <!DOCTYPE html>
@@ -104,7 +149,12 @@ export async function getPasswordResetEmailTemplate(resetLink: string, userName:
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: ${empresaConfig.corPrincipal}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
         ${logotipoUrl ? `
-          <img src="${logotipoUrl}" alt="${empresaConfig.nome}" style="max-height: 60px; max-width: 200px; margin-bottom: 15px;" />
+          <img src="${logotipoUrl}" 
+               alt="${empresaConfig.nome}" 
+               style="max-height: 60px; max-width: 200px; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto; border: 0; outline: none; text-decoration: none;" 
+               width="200" 
+               height="60" 
+               border="0" />
         ` : ''}
         <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Recuperação de Senha</h1>
       </div>

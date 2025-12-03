@@ -75,11 +75,24 @@ export async function POST(request: NextRequest) {
     const { getEmpresaEmailConfig } = await import('@/lib/get-empresa-email-config')
     const empresaConfig = await getEmpresaEmailConfig()
 
+    // Gerar template do email
+    const emailHtml = await getPasswordResetEmailTemplate(resetLink, usuario.nome)
+    
+    // Log para debug (apenas em desenvolvimento)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Email de recuperação de senha:', {
+        to: usuario.email,
+        empresaNome: empresaConfig.nome,
+        logotipo: empresaConfig.logotipo,
+        resetLink
+      })
+    }
+
     // Enviar email
     const emailResult = await sendEmail({
       to: usuario.email,
       subject: `Recuperação de Senha - ${empresaConfig.nome}`,
-      html: await getPasswordResetEmailTemplate(resetLink, usuario.nome)
+      html: emailHtml
     })
 
     if (!emailResult.success) {
