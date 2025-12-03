@@ -83,11 +83,23 @@ export async function POST(request: NextRequest) {
     })
 
     if (!emailResult.success) {
-      console.error('Erro ao enviar email:', emailResult.error)
-      return NextResponse.json(
-        { success: false, message: 'Erro ao enviar email. Tente novamente mais tarde.' },
-        { status: 500 }
-      )
+      const errorMessage = emailResult.error instanceof Error 
+        ? emailResult.error.message 
+        : 'Erro desconhecido ao enviar email'
+      
+      console.error('Erro ao enviar email:', {
+        error: emailResult.error,
+        message: errorMessage,
+        gmailUser: process.env.GMAIL_USER ? 'Configurado' : 'Não configurado',
+        gmailPassword: process.env.GMAIL_PASSWORD ? 'Configurado' : 'Não configurado'
+      })
+      
+      // Por segurança, retornar sucesso mesmo se houver erro no envio
+      // Mas logar o erro para debug
+      return NextResponse.json({
+        success: true,
+        message: 'Se o email estiver cadastrado, você receberá instruções para recuperar sua senha.'
+      })
     }
 
     return NextResponse.json({

@@ -19,11 +19,20 @@ function getEmailProvider() {
 // Enviar email via Gmail SMTP
 async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
   try {
+    // Validar configuração do Gmail
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_PASSWORD) {
+      throw new Error('Gmail não está configurado. Configure GMAIL_USER e GMAIL_PASSWORD nas variáveis de ambiente.')
+    }
+    
     // Importação dinâmica do nodemailer
     const nodemailer = await import('nodemailer')
     
     // Remover espaços da senha (Gmail gera senha de app com espaços)
-    const gmailPassword = process.env.GMAIL_PASSWORD?.replace(/\s/g, '') || ''
+    const gmailPassword = process.env.GMAIL_PASSWORD.replace(/\s/g, '')
+    
+    if (!gmailPassword) {
+      throw new Error('GMAIL_PASSWORD está vazio ou inválido.')
+    }
     
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -33,10 +42,13 @@ async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
       }
     })
 
+    // Verificar conexão antes de enviar
+    await transporter.verify()
+
     // Usar EMAIL_FROM se configurado, senão usar GMAIL_USER
     // Formato: "Nome <email@domain.com>" ou apenas "email@domain.com"
     const fromEmail = process.env.EMAIL_FROM || 
-                     (process.env.GMAIL_USER ? `Sistema <${process.env.GMAIL_USER}>` : process.env.GMAIL_USER || '')
+                     `Sistema <${process.env.GMAIL_USER}>`
     
     const mailOptions = {
       from: fromEmail,
@@ -48,7 +60,11 @@ async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
     const info = await transporter.sendMail(mailOptions)
     return { success: true, data: info }
   } catch (error) {
-    console.error('Erro ao enviar email via Gmail:', error)
+    console.error('Erro ao enviar email via Gmail:', {
+      error: error instanceof Error ? error.message : error,
+      gmailUser: process.env.GMAIL_USER || 'Não configurado',
+      hasPassword: !!process.env.GMAIL_PASSWORD
+    })
     return { success: false, error }
   }
 }
