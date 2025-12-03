@@ -8,13 +8,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Lock, User, Eye, EyeOff, Heart as HeartOutline } from 'lucide-react'
-import { APP_TITLE } from '@/lib/app-config'
+import { useEmpresaConfig } from '@/hooks/use-empresa-config'
 
 interface LoginFormProps {
   onSuccess?: () => void
 }
 
 export function LoginForm({ onSuccess }: LoginFormProps) {
+  const { config: empresaConfig } = useEmpresaConfig()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -73,7 +74,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               Bem-vindo
             </CardTitle>
             <CardDescription className="text-center font-body">
-              Faça login para acessar o {APP_TITLE || 'DASHBOARD SG'}
+              {empresaConfig?.nome ? `Faça login para acessar o ${empresaConfig.nome}` : 'Faça login para acessar o sistema'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -84,6 +85,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="username"
+                    name="username"
                     type="text"
                     placeholder="Digite seu usuário"
                     value={username}
@@ -91,6 +93,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
                     className="pl-10"
                     required
                     disabled={loading}
+                    autoComplete="username"
                   />
                 </div>
               </div>
@@ -101,6 +104,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Digite sua senha"
                     value={password}
@@ -108,6 +112,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
                     className="pl-10 pr-10"
                     required
                     disabled={loading}
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"

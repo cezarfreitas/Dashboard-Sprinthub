@@ -15,7 +15,7 @@ export interface Usuario {
 export interface UsuarioForm {
   nome: string
   email: string
-  whatsapp: string
+  whatsapp: string | null
   senha: string
   permissoes: string[]
   ativo: boolean

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { HeaderGestor } from '@/components/header_gestor'
 import { useFilaLeads } from '@/hooks/fila/useFilaLeads'
 import type { FilaLeads, VendedorFila } from '@/hooks/fila/useFilaLeads'
@@ -11,14 +12,44 @@ import { GestorFilaGrid } from './components/GestorFilaGrid'
 import { GestorFilaLoading } from './components/GestorFilaLoading'
 import { GestorFilaDialogs } from './components/GestorFilaDialogs'
 import { AppFooter } from '@/components/app-footer'
+import { RefreshCw } from 'lucide-react'
 
 export default function GestorFilaPage() {
+  const router = useRouter()
+  const [authLoading, setAuthLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
   const {
     filas,
     loading,
     error,
     updateFilaVendedores
   } = useFilaLeads()
+
+  useEffect(() => {
+    const checkAuth = () => {
+      try {
+        const savedGestor = localStorage.getItem('gestor')
+        if (savedGestor) {
+          const gestor = JSON.parse(savedGestor)
+          if (gestor && gestor.id) {
+            setIsAuthenticated(true)
+            setAuthLoading(false)
+            return
+          }
+        }
+        setIsAuthenticated(false)
+        setAuthLoading(false)
+        router.replace('/gestor')
+      } catch (error) {
+        setIsAuthenticated(false)
+        setAuthLoading(false)
+        router.replace('/gestor')
+      }
+    }
+
+    checkAuth()
+  }, [router])
 
   const [editingFila, setEditingFila] = useState<FilaLeads | null>(null)
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
@@ -45,6 +76,28 @@ export default function GestorFilaPage() {
     setLogsFila(fila)
     setLogsDialogOpen(true)
   }, [])
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Verificando autenticação...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Redirecionando para login...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (loading && filas.length === 0) {
     return (

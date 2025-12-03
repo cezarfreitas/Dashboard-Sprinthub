@@ -2,9 +2,11 @@
 
 import { useEffect } from 'react'
 import { useTheme } from '@/hooks/use-theme'
+import { useEmpresaConfig } from '@/hooks/use-empresa-config'
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, isLoading } = useTheme()
+  const { config: empresaConfig } = useEmpresaConfig()
 
   useEffect(() => {
     // Aplicar tema no HTML root
@@ -26,7 +28,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted"></div>
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent absolute top-0 left-0"></div>
           </div>
-          <p className="text-muted-foreground">Carregando tema...</p>
+          <p className="text-muted-foreground">Carregando dados...</p>
         </div>
       </div>
     )

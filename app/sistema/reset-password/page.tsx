@@ -146,7 +146,9 @@ export default function ResetPasswordPage() {
                 <div className="relative">
                   <Input
                     id="newPassword"
+                    name="newPassword"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     placeholder="Digite sua nova senha"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -173,6 +175,7 @@ export default function ResetPasswordPage() {
                 <div className="relative">
                   <Input
                     id="confirmPassword"
+                    name="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Digite novamente a senha"
                     value={confirmPassword}
@@ -180,6 +183,7 @@ export default function ResetPasswordPage() {
                     required
                     disabled={loading}
                     minLength={6}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"

@@ -14,8 +14,62 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Shield, Eye, EyeOff } from 'lucide-react'
+import { Shield, Eye, EyeOff, Phone } from 'lucide-react'
 import { Usuario, UsuarioForm } from '@/hooks/use-usuarios-sistema'
+
+interface Country {
+  code: string
+  name: string
+  flag: string
+  dialCode: string
+  format: (value: string) => string
+  maxLength: number
+}
+
+const countries: Country[] = [
+  {
+    code: 'BR',
+    name: 'Brasil',
+    flag: '🇧🇷',
+    dialCode: '55',
+    format: (value: string) => {
+      const formatted = value.length > 13 ? value.slice(0, 13) : value
+      
+      if (formatted.length <= 2) {
+        return formatted ? `+${formatted}` : ''
+      } else if (formatted.length <= 4) {
+        return `+${formatted.slice(0, 2)} (${formatted.slice(2)}`
+      } else if (formatted.length <= 5) {
+        return `+${formatted.slice(0, 2)} (${formatted.slice(2, 4)}) ${formatted.slice(4)}`
+      } else if (formatted.length <= 9) {
+        return `+${formatted.slice(0, 2)} (${formatted.slice(2, 4)}) ${formatted.slice(4)}`
+      } else {
+        return `+${formatted.slice(0, 2)} (${formatted.slice(2, 4)}) ${formatted.slice(4, 9)}-${formatted.slice(9)}`
+      }
+    },
+    maxLength: 18
+  }
+]
+
+// Função para formatar WhatsApp com código do país
+const formatWhatsApp = (value: string, country: Country = countries[0]): string => {
+  if (!value) return ''
+  
+  const numbers = value.replace(/\D/g, '')
+  if (!numbers) return ''
+  
+  let formattedNumbers = numbers
+  if (!formattedNumbers.startsWith(country.dialCode)) {
+    formattedNumbers = country.dialCode + formattedNumbers
+  }
+  
+  return country.format(formattedNumbers)
+}
+
+// Função para remover máscara (apenas números)
+const unformatWhatsApp = (value: string): string => {
+  return value.replace(/\D/g, '')
+}
 
 interface UsuarioFormDialogProps {
   open: boolean
@@ -49,10 +103,11 @@ export function UsuarioFormDialog({ open, onOpenChange, usuario, onSubmit }: Usu
 
   useEffect(() => {
     if (usuario) {
+      const whatsappValue = usuario.whatsapp || ''
       setFormData({
         nome: usuario.nome,
         email: usuario.email,
-        whatsapp: usuario.whatsapp || '',
+        whatsapp: whatsappValue ? formatWhatsApp(whatsappValue) : '',
         senha: '',
         permissoes: usuario.permissoes || [],
         ativo: usuario.ativo
@@ -82,7 +137,12 @@ export function UsuarioFormDialog({ open, onOpenChange, usuario, onSubmit }: Usu
     }
 
     setSubmitting(true)
-    const success = await onSubmit(formData)
+    // Remove a máscara do WhatsApp antes de enviar
+    const dataToSubmit = {
+      ...formData,
+      whatsapp: formData.whatsapp ? unformatWhatsApp(formData.whatsapp) : null
+    }
+    const success = await onSubmit(dataToSubmit)
     setSubmitting(false)
 
     if (success) {
@@ -141,13 +201,25 @@ export function UsuarioFormDialog({ open, onOpenChange, usuario, onSubmit }: Usu
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp</Label>
-              <Input
-                id="whatsapp"
-                value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                placeholder="(00) 00000-0000"
-              />
+              <Label htmlFor="whatsapp">WhatsApp (opcional)</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="whatsapp"
+                  type="tel"
+                  placeholder="+55 (11) 98988-2867"
+                  value={formData.whatsapp || ''}
+                  onChange={(e) => {
+                    const formatted = formatWhatsApp(e.target.value)    
+                    setFormData({ ...formData, whatsapp: formatted })
+                  }}
+                  maxLength={20}
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Formato: +55 (DDD) 9XXXX-XXXX (9 é obrigatório para celular)
+              </p>
             </div>
 
             <div className="space-y-2">

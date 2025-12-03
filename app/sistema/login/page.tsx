@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Building2, Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import { APP_TITLE } from '@/lib/app-config'
+import { useEmpresaConfig } from '@/hooks/use-empresa-config'
+import Image from 'next/image'
 
 export default function LoginSistemaPage() {
   const router = useRouter()
+  const { config: empresaConfig } = useEmpresaConfig()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -68,14 +70,22 @@ export default function LoginSistemaPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-              <Building2 className="w-8 h-8 text-primary-foreground" />
-            </div>
+            {empresaConfig?.logotipo ? (
+              <Image
+                src={empresaConfig.logotipo}
+                alt={empresaConfig.nome || 'Logo'}
+                width={0}
+                height={0}
+                className="h-16 w-auto object-contain"
+                unoptimized
+              />
+            ) : (
+              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
+                <Building2 className="w-8 h-8 text-primary-foreground" />
+              </div>
+            )}
           </div>
           <div className="text-center">
-            <CardTitle className="text-2xl">
-              {APP_TITLE || 'Dashboard SG'}
-            </CardTitle>
             <CardDescription>
               Entre com suas credenciais de acesso
             </CardDescription>
@@ -96,6 +106,7 @@ export default function LoginSistemaPage() {
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="seu@email.com"
                   value={email}
@@ -113,6 +124,7 @@ export default function LoginSistemaPage() {
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="senha"
+                  name="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={senha}

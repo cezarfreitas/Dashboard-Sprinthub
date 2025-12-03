@@ -27,7 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useAuthSistema } from "@/hooks/use-auth-sistema"
-import { APP_TITLE } from "@/lib/app-config"
+import { useEmpresaConfig } from "@/hooks/use-empresa-config"
+import Image from "next/image"
 
 interface HeaderGestorProps {
   className?: string
@@ -59,6 +60,7 @@ export function HeaderGestor({
   unidadeSelecionada,
   setUnidadeSelecionada
 }: HeaderGestorProps) {
+  const { config: empresaConfig } = useEmpresaConfig()
   const [gestor, setGestor] = useState<GestorData | null>(null)
   const [loading, setLoading] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -138,10 +140,6 @@ export function HeaderGestor({
         className
       )}>
         <div className="container flex h-14 items-center">
-          <div className="mr-4 flex">
-            <Building2 className="h-6 w-6 mr-2" />
-            <span className="font-bold">{APP_TITLE}</span>
-          </div>
           <div className="flex-1 flex justify-center">
             <span className="text-sm text-muted-foreground">Carregando...</span>
           </div>
@@ -163,12 +161,19 @@ export function HeaderGestor({
     )}>
       <div className="container flex h-14 items-center">
         {/* Logo */}
-        <div className="mr-4 flex">
-          <Link href="/gestor/dashboard" className="flex items-center space-x-2 text-white hover:text-gray-300">
-            <Building2 className="h-6 w-6" />
-            <span className="font-bold">{APP_TITLE}</span>
+        {empresaConfig?.logotipo && (
+          <Link href="/gestor/dashboard" className="mr-4 flex items-center text-white hover:text-gray-300">
+            <Image
+              src={empresaConfig.logotipo}
+              alt={empresaConfig.nome || 'Logo'}
+              width={0}
+              height={0}
+              className="h-auto max-h-10 w-auto object-contain"
+              priority
+              unoptimized
+            />
           </Link>
-        </div>
+        )}
 
         {/* Unidade Selector e Fila de Atendimento */}
         {gestor && (

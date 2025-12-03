@@ -30,7 +30,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { APP_TITLE } from "@/lib/app-config"
+import { useEmpresaConfig } from "@/hooks/use-empresa-config"
+import Image from "next/image"
 
 interface SidebarProps {
   className?: string
@@ -105,6 +106,10 @@ const menuItems = [
     hasSubmenu: true,
     submenu: [
       {
+        title: "Meu Perfil",
+        href: "/configuracoes/perfil"
+      },
+      {
         title: "Usuários do Sistema",
         href: "/configuracoes/usuarios-sistema"
       },
@@ -122,6 +127,7 @@ const menuItems = [
 
 export function Sidebar({ className }: SidebarProps) {
   const { user, logout, loading } = useAuth()
+  const { config: empresaConfig } = useEmpresaConfig()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [openSubmenus, setOpenSubmenus] = useState<string[]>([])
   const pathname = usePathname()
@@ -214,18 +220,43 @@ export function Sidebar({ className }: SidebarProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-sidebar-foreground hover:text-primary" />
+                    {empresaConfig?.logotipo ? (
+                      <Image
+                        src={empresaConfig.logotipo}
+                        alt={empresaConfig.nome || 'Logo'}
+                        width={0}
+                        height={0}
+                        className="h-8 w-auto object-contain"
+                        unoptimized
+                      />
+                    ) : (
+                      <Building2 className="h-6 w-6 text-sidebar-foreground hover:text-primary" />
+                    )}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="ml-2">
-                  <p>{APP_TITLE || 'DASHBOARD SG'}</p>
+                  <p>{empresaConfig?.nome || ''}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
-            <h2 className="text-xl font-display text-sidebar-foreground">
-              {APP_TITLE || 'DASHBOARD SG'}
-            </h2>
+            <div className="flex items-center gap-2 min-w-0">
+              {empresaConfig?.logotipo && (
+                <Image
+                  src={empresaConfig.logotipo}
+                  alt={empresaConfig.nome || 'Logo'}
+                  width={0}
+                  height={0}
+                  className="h-8 w-auto object-contain"
+                  unoptimized
+                />
+              )}
+              {empresaConfig?.nome && (
+                <h2 className="text-xl font-display text-sidebar-foreground truncate">
+                  {empresaConfig.nome}
+                </h2>
+              )}
+            </div>
           )}
           <Button
             variant="ghost"

@@ -21,3 +21,6 @@ SELECT COUNT(*) as total_logs FROM fila_leads_log WHERE unidade_id = 92;
 
 
 
+
+
+

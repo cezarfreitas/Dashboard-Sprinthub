@@ -9,9 +9,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { APP_TITLE } from '@/lib/app-config'
+import { useEmpresaConfig } from '@/hooks/use-empresa-config'
 
 export const AppFooter = memo(function AppFooter() {
+  const { config: empresaConfig } = useEmpresaConfig()
   const version = getAppVersion()
   
   const buildDate = new Date(version.buildDate).toLocaleString('pt-BR', {
@@ -23,10 +24,10 @@ export const AppFooter = memo(function AppFooter() {
   })
 
   return (
-    <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <footer className="border-t bg-primary text-primary-foreground">
       <div className="container flex h-14 items-center justify-between px-4 md:px-6">
         {/* Informações da Versão */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 text-xs text-primary-foreground/80">
           <TooltipProvider delayDuration={200}>
             {/* Versão */}
             <Tooltip>
@@ -74,10 +75,12 @@ export const AppFooter = memo(function AppFooter() {
         </div>
 
         {/* Copyright */}
-        <div className="text-xs text-muted-foreground">
-          <span className="hidden sm:inline">© {new Date().getFullYear()} </span>
-          <span className="font-medium">{APP_TITLE || 'Dashboard'}</span>
-        </div>
+        {empresaConfig?.nome && (
+          <div className="text-xs text-primary-foreground">
+            <span className="hidden sm:inline">© {new Date().getFullYear()} </span>
+            <span className="font-medium">{empresaConfig.nome}</span>
+          </div>
+        )}
       </div>
     </footer>
   )

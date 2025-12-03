@@ -28,7 +28,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { APP_TITLE } from "@/lib/app-config"
+import { useEmpresaConfig } from "@/hooks/use-empresa-config"
+import Image from "next/image"
 
 interface HeaderProps {
   className?: string
@@ -102,30 +103,35 @@ const menuItems = [
     icon: Users,
     href: "/vendedores"
   },
-  {
-    title: "Configurações",
-    icon: Settings,
-    href: "/configuracoes",
-    hasSubmenu: true,
-    submenu: [
       {
-        title: "Usuários do Sistema",
-        href: "/configuracoes/usuarios-sistema"
-      },
-      {
-        title: "Geral",
-        href: "/configuracoes"
-      },
-      {
-        title: "API",
-        href: "/configuracoes/api"
+        title: "Configurações",
+        icon: Settings,
+        href: "/configuracoes",
+        hasSubmenu: true,
+        submenu: [
+          {
+            title: "Meu Perfil",
+            href: "/configuracoes/perfil"
+          },
+          {
+            title: "Usuários do Sistema",
+            href: "/configuracoes/usuarios-sistema"
+          },
+          {
+            title: "Geral",
+            href: "/configuracoes"
+          },
+          {
+            title: "API",
+            href: "/configuracoes/api"
+          }
+        ]
       }
-    ]
-  }
 ]
 
 export function Header({ className, hideOnScroll = false }: HeaderProps) {
   const { user, loading, hasPermission } = useAuthSistema()
+  const { config: empresaConfig } = useEmpresaConfig()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [lastScrollY, setLastScrollY] = useState(0)
@@ -222,10 +228,6 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
         className
       )}>
         <div className="container flex h-14 items-center">
-          <div className="mr-4 flex">
-            <Building2 className="h-6 w-6 mr-2 text-white" />
-            <span className="font-bold text-white">{APP_TITLE || 'DASHBOARD SG'}</span>
-          </div>
           <div className="flex-1 flex justify-center">
             <span className="text-sm text-gray-400">Carregando...</span>
           </div>
@@ -242,12 +244,19 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
     )}>
       <div className="container flex h-14 items-center">
         {/* Logo */}
-        <div className="mr-4 flex">
-          <Link href="/painel" className="flex items-center space-x-2 text-white hover:text-gray-300">
-            <Building2 className="h-6 w-6" />
-            <span className="font-bold">{APP_TITLE || 'DASHBOARD SG'}</span>
+        {empresaConfig?.logotipo && (
+          <Link href="/painel" className="mr-4 flex items-center text-white hover:text-gray-300">
+            <Image
+              src={empresaConfig.logotipo}
+              alt={empresaConfig.nome || 'Logo'}
+              width={0}
+              height={0}
+              className="h-auto max-h-10 w-auto object-contain"
+              priority
+              unoptimized
+            />
           </Link>
-        </div>
+        )}
 
         {/* Desktop Navigation */}
         {user && (
@@ -342,6 +351,10 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                 </div>
                 <div className="border-t border-gray-800 my-2"></div>
                 <div className="space-y-1">
+                  <Link href="/configuracoes/perfil" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Meu Perfil</span>
+                  </Link>
                   {hasPermission('configuracoes') && (
                     <Link href="/configuracoes" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />

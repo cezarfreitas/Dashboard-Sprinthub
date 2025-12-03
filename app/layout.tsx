@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { AuthLayout } from '@/components/auth-layout'
 import { ThemeProvider } from '@/components/theme-provider'
+import { getEmpresaMetadata } from '@/lib/get-empresa-metadata'
 
 // Fonte principal - Inter (suave e moderna)
 const inter = Inter({ 
@@ -28,9 +29,13 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap'
 })
 
-export const metadata: Metadata = {
-  title: process.env.NEXT_PUBLIC_APP_TITLE || 'DASHBOARD SG',
-  description: 'Dashboard com sidebar usando shadcn/ui',
+export async function generateMetadata(): Promise<Metadata> {
+  const metadata = await getEmpresaMetadata()
+  
+  return {
+    title: metadata.title || undefined,
+    description: metadata.description || undefined,
+  }
 }
 
 export default function RootLayout({
