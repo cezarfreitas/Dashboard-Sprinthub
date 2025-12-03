@@ -1,4 +1,3 @@
-import { Resend } from 'resend'
 import { getEmpresaEmailConfig, type EmpresaEmailConfig } from './get-empresa-email-config'
 
 interface SendEmailParams {
@@ -13,8 +12,8 @@ function getEmailProvider() {
   if (process.env.GMAIL_USER && process.env.GMAIL_PASSWORD) {
     return 'gmail'
   }
-  // Caso contrário, usar Resend
-  return 'resend'
+  // Gmail é obrigatório agora - não usar Resend
+  return null
 }
 
 // Enviar email via Gmail SMTP
@@ -34,8 +33,13 @@ async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
       }
     })
 
+    // Usar EMAIL_FROM se configurado, senão usar GMAIL_USER
+    // Formato: "Nome <email@domain.com>" ou apenas "email@domain.com"
+    const fromEmail = process.env.EMAIL_FROM || 
+                     (process.env.GMAIL_USER ? `Sistema <${process.env.GMAIL_USER}>` : process.env.GMAIL_USER || '')
+    
     const mailOptions = {
-      from: process.env.EMAIL_FROM || process.env.GMAIL_USER,
+      from: fromEmail,
       to,
       subject,
       html
@@ -49,23 +53,6 @@ async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
   }
 }
 
-// Enviar email via Resend
-async function sendEmailViaResend({ to, subject, html }: SendEmailParams) {
-  try {
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    const data = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Sistema <onboarding@resend.dev>',
-      to,
-      subject,
-      html
-    })
-    
-    return { success: true, data }
-  } catch (error) {
-    console.error('Erro ao enviar email via Resend:', error)
-    return { success: false, error }
-  }
-}
 
 export async function sendEmail({ to, subject, html }: SendEmailParams) {
   const provider = getEmailProvider()
@@ -73,7 +60,11 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
   if (provider === 'gmail') {
     return await sendEmailViaGmail({ to, subject, html })
   } else {
-    return await sendEmailViaResend({ to, subject, html })
+    // Gmail é obrigatório - retornar erro se não estiver configurado
+    return {
+      success: false,
+      error: new Error('Gmail não está configurado. Configure as variáveis de ambiente GMAIL_USER e GMAIL_PASSWORD.')
+    }
   }
 }
 

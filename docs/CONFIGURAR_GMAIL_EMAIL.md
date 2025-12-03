@@ -57,20 +57,9 @@ Após configurar as variáveis:
 2. Digite um email cadastrado
 3. Verifique se o email foi recebido
 
-## 🔄 Alternativa: Usar Resend
+## ⚠️ Importante
 
-Se preferir usar Resend ao invés de Gmail:
-
-1. Remova as variáveis `GMAIL_USER` e `GMAIL_PASSWORD`
-2. Adicione:
-   ```env
-   RESEND_API_KEY=sua-chave-resend
-   EMAIL_FROM=Sistema <onboarding@resend.dev>
-   ```
-
-O sistema detecta automaticamente qual método usar:
-- Se `GMAIL_USER` e `GMAIL_PASSWORD` existirem → usa Gmail
-- Caso contrário → usa Resend
+**Apenas Gmail é suportado agora.** O sistema requer que `GMAIL_USER` e `GMAIL_PASSWORD` estejam configurados. Se não estiverem configurados, o envio de emails falhará com uma mensagem de erro clara.
 
 ## 🛠️ Troubleshooting
 
