@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
     const { getEmpresaEmailConfig } = await import('@/lib/get-empresa-email-config')
     const empresaConfig = await getEmpresaEmailConfig()
 
-    // Gerar template do email
-    const emailHtml = await getPasswordResetEmailTemplate(resetLink, usuario.nome)
+    // Gerar template do email (passar baseUrl para garantir que o logotipo use a URL correta)
+    const emailHtml = await getPasswordResetEmailTemplate(resetLink, usuario.nome, baseUrl)
     
     // Log para debug (apenas em desenvolvimento)
     if (process.env.NODE_ENV !== 'production') {

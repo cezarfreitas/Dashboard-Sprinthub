@@ -101,14 +101,25 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
   }
 }
 
-export async function getPasswordResetEmailTemplate(resetLink: string, userName: string) {
+export async function getPasswordResetEmailTemplate(resetLink: string, userName: string, requestUrl?: string) {
   const empresaConfig = await getEmpresaEmailConfig()
   
-  // Obter URL base - priorizar variáveis de ambiente de produção
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                 process.env.NEXT_PUBLIC_BASE_URL || 
-                 process.env.APP_URL ||
-                 'http://localhost:3000'
+  // Obter URL base - usar a URL do resetLink se disponível (já foi construída corretamente)
+  // ou priorizar variáveis de ambiente de produção
+  let appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+               process.env.NEXT_PUBLIC_BASE_URL || 
+               process.env.APP_URL ||
+               'http://localhost:3000'
+  
+  // Se resetLink foi fornecido, extrair a URL base dele (mais confiável)
+  if (resetLink) {
+    try {
+      const url = new URL(resetLink)
+      appUrl = `${url.protocol}//${url.host}`
+    } catch (e) {
+      // Se não conseguir parsear, usar o appUrl padrão
+    }
+  }
   
   // Construir URL completa do logotipo
   let logotipoUrl = ''
