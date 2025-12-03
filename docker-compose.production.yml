@@ -54,6 +54,10 @@ services:
       mysql:
         condition: service_healthy
     
+    volumes:
+      # Volume persistente para uploads (logotipos, etc)
+      - ./public/uploads:/app/public/uploads
+    
     networks:
       - dash-network
     

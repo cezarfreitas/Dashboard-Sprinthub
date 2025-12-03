@@ -140,6 +140,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./
 
+# Criar diretório de uploads com permissões corretas (antes de mudar para usuário nextjs)
+RUN mkdir -p /app/public/uploads/logos && \
+    chown -R nextjs:nodejs /app/public/uploads && \
+    chmod -R 755 /app/public/uploads
+
 # Health check otimizado
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=2 \
   CMD curl -f http://localhost:3000/api/health || exit 1
