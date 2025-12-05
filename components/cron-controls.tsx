@@ -111,7 +111,9 @@ export default function CronControls({ className, filterJobs, onSyncComplete }: 
   const getScheduleDescription = (schedule: string) => {
     // Descrições personalizadas
     const descriptions: { [key: string]: string } = {
+      '0 * * * *': 'A cada hora',
       '0 8,14,20 * * *': 'Diariamente às 8h, 14h e 20h',
+      '0 9,15,21 * * *': 'Diariamente às 9h, 15h e 21h',
       '40 11 * * *': 'Diariamente às 11h40',
       '0 8 * * *': 'Diariamente às 8h',
       '0 12 * * *': 'Diariamente ao meio-dia',
@@ -159,6 +161,11 @@ export default function CronControls({ className, filterJobs, onSyncComplete }: 
         if (hour.startsWith('*/')) {
           const interval = hour.replace('*/', '')
           return `A cada ${interval} horas`
+        }
+        
+        // Se hora é * (qualquer hora) e minuto é 0, significa a cada hora
+        if (hour === '*' && minute === '0') {
+          return 'A cada hora'
         }
       }
       

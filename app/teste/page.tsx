@@ -1,13 +1,16 @@
 "use client"
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { RefreshCw } from 'lucide-react'
+import DynamicFilters, { Filter } from '@/components/DynamicFilters'
 import {
   BarChart,
   Bar,
@@ -51,9 +54,17 @@ interface OportunidadeRaw {
   mes_numero: string | null
   dia_criacao: number | null
   dia_semana: string | null
+  // Campos extraídos do dataLead
+  lead_nome: string | null
+  lead_email: string | null
+  lead_telefone: string | null
+  lead_cidade: string | null
+  lead_estado: string | null
+  lead_origem: string | null
+  lead_interesse: string | null
 }
 
-type TipoGrafico = 'bar' | 'line' | 'pie' | 'area'
+type TipoGrafico = 'bar' | 'line' | 'pie' | 'area' | 'card'
 
 const COLORS = [
   '#3b82f6', // blue-500
@@ -75,21 +86,33 @@ const COLORS = [
 
 // Opções de campos disponíveis
 const camposDisponiveis = [
-  { value: 'vendedor', label: 'Vendedor (Nome Completo)', tipo: 'categoria' },
-  { value: 'vendedor_nome', label: 'Vendedor (Nome)', tipo: 'categoria' },
-  { value: 'vendedor_username', label: 'Vendedor (Username)', tipo: 'categoria' },
-  { value: 'status_pt', label: 'Status (PT)', tipo: 'categoria' },
-  { value: 'status', label: 'Status (EN)', tipo: 'categoria' },
-  { value: 'sale_channel', label: 'Canal de Vendas', tipo: 'categoria' },
-  { value: 'campaign', label: 'Campanha', tipo: 'categoria' },
-  { value: 'crm_column', label: 'Coluna do Funil', tipo: 'categoria' },
-  { value: 'mes_criacao', label: 'Mês de Criação', tipo: 'categoria' },
-  { value: 'ano_criacao', label: 'Ano de Criação', tipo: 'categoria' },
-  { value: 'dia_semana', label: 'Dia da Semana', tipo: 'categoria' },
-  { value: 'loss_reason', label: 'Motivo de Perda', tipo: 'categoria' },
-  { value: 'gain_reason', label: 'Motivo de Ganho', tipo: 'categoria' },
-  { value: 'value', label: 'Valor', tipo: 'numerico' },
-  { value: 'count', label: 'Quantidade', tipo: 'numerico' }
+  // Campos básicos
+  { value: 'vendedor', label: 'Vendedor (Nome Completo)', tipo: 'categoria' as const },
+  { value: 'vendedor_nome', label: 'Vendedor (Nome)', tipo: 'categoria' as const },
+  { value: 'vendedor_username', label: 'Vendedor (Username)', tipo: 'categoria' as const },
+  { value: 'status_pt', label: 'Status (PT)', tipo: 'categoria' as const },
+  { value: 'status', label: 'Status (EN)', tipo: 'categoria' as const },
+  { value: 'sale_channel', label: 'Canal de Vendas', tipo: 'categoria' as const },
+  { value: 'campaign', label: 'Campanha', tipo: 'categoria' as const },
+  { value: 'crm_column', label: 'Coluna do Funil', tipo: 'categoria' as const },
+  { value: 'mes_criacao', label: 'Mês de Criação', tipo: 'categoria' as const },
+  { value: 'ano_criacao', label: 'Ano de Criação', tipo: 'categoria' as const },
+  { value: 'dia_semana', label: 'Dia da Semana', tipo: 'categoria' as const },
+  { value: 'loss_reason', label: 'Motivo de Perda', tipo: 'categoria' as const },
+  { value: 'gain_reason', label: 'Motivo de Ganho', tipo: 'categoria' as const },
+  
+  // Campos do Lead (dataLead)
+  { value: 'lead_nome', label: '📋 Lead - Nome', tipo: 'categoria' as const },
+  { value: 'lead_email', label: '📧 Lead - Email', tipo: 'categoria' as const },
+  { value: 'lead_telefone', label: '📱 Lead - Telefone', tipo: 'categoria' as const },
+  { value: 'lead_cidade', label: '🏙️ Lead - Cidade', tipo: 'categoria' as const },
+  { value: 'lead_estado', label: '📍 Lead - Estado', tipo: 'categoria' as const },
+  { value: 'lead_origem', label: '🎯 Lead - Origem', tipo: 'categoria' as const },
+  { value: 'lead_interesse', label: '💡 Lead - Interesse', tipo: 'categoria' as const },
+  
+  // Valores numéricos
+  { value: 'value', label: 'Valor', tipo: 'numerico' as const },
+  { value: 'count', label: 'Quantidade', tipo: 'numerico' as const }
 ]
 
 export default function TestePage() {
@@ -112,6 +135,10 @@ export default function TestePage() {
   const [mostrarRotulos, setMostrarRotulos] = useState<boolean>(false)
   const [mostrarGrid, setMostrarGrid] = useState<boolean>(true)
   const [alturaGrafico, setAlturaGrafico] = useState<number>(500)
+  
+  // Filtros dinâmicos
+  const [filters, setFilters] = useState<Filter[]>([])
+
 
   const fetchData = async () => {
     try {
@@ -138,14 +165,52 @@ export default function TestePage() {
     fetchData()
   }, [])
 
+  // Aplicar filtros dinâmicos aos dados
+  const dadosFiltrados = useMemo(() => {
+    if (!rawData || rawData.length === 0) return []
+    if (filters.length === 0) return rawData
+
+    return rawData.filter(op => {
+      return filters.every(filter => {
+        if (!filter.campo || !filter.operador || filter.valor === '') return true
+
+        const valorCampo = op[filter.campo as keyof OportunidadeRaw]
+        const valorFiltro = filter.valor
+        const valorCampoStr = String(valorCampo || '').toLowerCase()
+        const valorFiltroStr = String(valorFiltro).toLowerCase()
+
+        switch (filter.operador) {
+          case 'igual':
+            return valorCampoStr === valorFiltroStr
+          case 'diferente':
+            return valorCampoStr !== valorFiltroStr
+          case 'contem':
+            return valorCampoStr.includes(valorFiltroStr)
+          case 'nao_contem':
+            return !valorCampoStr.includes(valorFiltroStr)
+          case 'maior':
+            return Number(valorCampo) > Number(valorFiltro)
+          case 'menor':
+            return Number(valorCampo) < Number(valorFiltro)
+          case 'maior_igual':
+            return Number(valorCampo) >= Number(valorFiltro)
+          case 'menor_igual':
+            return Number(valorCampo) <= Number(valorFiltro)
+          default:
+            return true
+        }
+      })
+    })
+  }, [rawData, filters])
+
   // Processar dados para o gráfico COM agrupamento por legenda
   const dadosProcessadosComLegenda = useMemo(() => {
-    if (!rawData || rawData.length === 0) return []
+    if (!dadosFiltrados || dadosFiltrados.length === 0) return []
 
     // Estrutura: Map<eixoX, Map<legenda, {y, count, total}>>
     const agrupado = new Map<string, Map<string, { y: number; count: number; total: number }>>()
 
-    rawData.forEach(op => {
+    dadosFiltrados.forEach(op => {
       const xValue = op[campoX as keyof OportunidadeRaw]?.toString() || 'Não informado'
       const legendaValue = op[campoLegenda as keyof OportunidadeRaw]?.toString() || 'Não informado'
 
@@ -210,11 +275,11 @@ export default function TestePage() {
 
   // Processar dados SEM agrupamento por legenda (modo simples)
   const dadosProcessadosSimples = useMemo(() => {
-    if (!rawData || rawData.length === 0) return []
+    if (!dadosFiltrados || dadosFiltrados.length === 0) return []
 
     const agrupado = new Map<string, { x: string; y: number; count: number; total: number }>()
 
-    rawData.forEach(op => {
+    dadosFiltrados.forEach(op => {
       const xValue = op[campoX as keyof OportunidadeRaw]?.toString() || 'Não informado'
       
       if (!agrupado.has(xValue)) {
@@ -254,7 +319,7 @@ export default function TestePage() {
     })
 
     return resultado.sort((a, b) => b.value - a.value)
-  }, [rawData, campoX, campoY, agrupamento])
+  }, [dadosFiltrados, campoX, campoY, agrupamento])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -549,6 +614,118 @@ export default function TestePage() {
     }
   }
 
+  // Renderizar Card único com métrica
+  const renderCards = () => {
+    if (!rawData || rawData.length === 0) {
+      return (
+        <div className="text-center text-muted-foreground py-8">
+          Nenhum dado disponível
+        </div>
+      )
+    }
+
+    // Calcular métricas baseadas no campoY
+    let valorPrincipal: number
+    let labelMetrica: string
+    let descricaoMetrica: string
+    let icone: string
+    let corGradiente: string
+
+    if (campoY === 'count') {
+      valorPrincipal = rawData.length
+      labelMetrica = 'Total de Registros'
+      descricaoMetrica = `${rawData.length} ${rawData.length === 1 ? 'registro encontrado' : 'registros encontrados'}`
+      icone = '📊'
+      corGradiente = 'from-blue-500 to-blue-600'
+    } else if (campoY === 'value') {
+      if (agrupamento === 'sum') {
+        valorPrincipal = rawData.reduce((sum, item) => sum + item.value, 0)
+        labelMetrica = 'Valor Total'
+        descricaoMetrica = `Soma de ${rawData.length} ${rawData.length === 1 ? 'oportunidade' : 'oportunidades'}`
+        icone = '💰'
+        corGradiente = 'from-green-500 to-green-600'
+      } else if (agrupamento === 'avg') {
+        valorPrincipal = rawData.reduce((sum, item) => sum + item.value, 0) / rawData.length
+        labelMetrica = 'Valor Médio'
+        descricaoMetrica = `Média de ${rawData.length} ${rawData.length === 1 ? 'oportunidade' : 'oportunidades'}`
+        icone = '📈'
+        corGradiente = 'from-purple-500 to-purple-600'
+      } else {
+        valorPrincipal = rawData.reduce((sum, item) => sum + item.value, 0)
+        labelMetrica = 'Valor Total'
+        descricaoMetrica = `Total acumulado`
+        icone = '💵'
+        corGradiente = 'from-emerald-500 to-emerald-600'
+      }
+    } else {
+      valorPrincipal = rawData.length
+      labelMetrica = 'Total'
+      descricaoMetrica = 'Registros encontrados'
+      icone = '📋'
+      corGradiente = 'from-gray-500 to-gray-600'
+    }
+
+    // Calcular estatísticas adicionais
+    const valorMinimo = Math.min(...rawData.map(item => item.value))
+    const valorMaximo = Math.max(...rawData.map(item => item.value))
+    const valorMedio = rawData.reduce((sum, item) => sum + item.value, 0) / rawData.length
+
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card className={`w-full max-w-2xl shadow-2xl border-0 bg-gradient-to-br ${corGradiente} text-white`}>
+          <CardContent className="pt-12 pb-12">
+            <div className="text-center space-y-6">
+              {/* Ícone */}
+              <div className="text-8xl">{icone}</div>
+              
+              {/* Label */}
+              <h3 className="text-2xl font-bold opacity-90">{labelMetrica}</h3>
+              
+              {/* Valor Principal */}
+              <div className="text-7xl font-black tracking-tight">
+                {campoY === 'value' 
+                  ? formatCurrency(valorPrincipal)
+                  : valorPrincipal.toLocaleString('pt-BR')
+                }
+              </div>
+              
+              {/* Descrição */}
+              <p className="text-lg opacity-80">{descricaoMetrica}</p>
+
+              {/* Estatísticas Adicionais (apenas para valores monetários) */}
+              {campoY === 'value' && (
+                <div className="grid grid-cols-3 gap-6 mt-8 pt-8 border-t border-white/20">
+                  <div>
+                    <p className="text-sm opacity-70 mb-2">Mínimo</p>
+                    <p className="text-2xl font-bold">{formatCurrency(valorMinimo)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm opacity-70 mb-2">Médio</p>
+                    <p className="text-2xl font-bold">{formatCurrency(valorMedio)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm opacity-70 mb-2">Máximo</p>
+                    <p className="text-2xl font-bold">{formatCurrency(valorMaximo)}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Período (se filtrado) */}
+              {dataInicio && dataFim && (
+                <div className="mt-6 pt-6 border-t border-white/20">
+                  <p className="text-sm opacity-70">Período</p>
+                  <p className="text-lg font-semibold mt-1">
+                    {new Date(dataInicio + 'T00:00:00').toLocaleDateString('pt-BR')} até {new Date(dataFim + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   const renderGraficoSimples = () => {
     if (dadosProcessadosSimples.length === 0) {
       return (
@@ -708,12 +885,12 @@ export default function TestePage() {
     }
   }
 
+
   return (
-    <div className="p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display">Criador de Gráficos</h1>
-        </div>
+    <div className="p-4 space-y-4">
+      <div className="mb-4">
+        <h1 className="text-2xl font-display">Criador de Gráficos</h1>
+        <p className="text-sm text-muted-foreground">Crie e visualize gráficos personalizados</p>
       </div>
 
       {/* Configurações Compactas em Uma Linha */}
@@ -751,28 +928,31 @@ export default function TestePage() {
                     <SelectItem value="line">📈 Linhas</SelectItem>
                     <SelectItem value="area">📉 Área</SelectItem>
                     <SelectItem value="pie">🥧 Pizza</SelectItem>
+                    <SelectItem value="card">🎴 Card Métrica</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {tipoGrafico !== 'card' && (
+                <div>
+                  <Label className="text-xs mb-1 block">Eixo X</Label>
+                  <Select value={campoX} onValueChange={setCampoX}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {camposDisponiveis
+                        .filter(c => c.tipo === 'categoria')
+                        .map(campo => (
+                          <SelectItem key={campo.value} value={campo.value}>
+                            {campo.label}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
-                <Label className="text-xs mb-1 block">Eixo X</Label>
-                <Select value={campoX} onValueChange={setCampoX}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {camposDisponiveis
-                      .filter(c => c.tipo === 'categoria')
-                      .map(campo => (
-                        <SelectItem key={campo.value} value={campo.value}>
-                          {campo.label}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs mb-1 block">Eixo Y</Label>
+                <Label className="text-xs mb-1 block">{tipoGrafico === 'card' ? 'Métrica' : 'Eixo Y'}</Label>
                 <Select value={campoY} onValueChange={setCampoY}>
                   <SelectTrigger className="h-9">
                     <SelectValue />
@@ -905,6 +1085,15 @@ export default function TestePage() {
                 Atualizar
               </Button>
             </div>
+
+            {/* Filtros Dinâmicos */}
+            <div className="pt-3 border-t">
+              <DynamicFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                camposDisponiveis={camposDisponiveis}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -936,6 +1125,8 @@ export default function TestePage() {
             <div className="flex items-center justify-center h-64">
               <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : tipoGrafico === 'card' ? (
+            renderCards()
           ) : (
             usarLegenda && tipoGrafico !== 'pie' ? renderGraficoComLegenda() : renderGraficoSimples()
           )}

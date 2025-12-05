@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Building2, Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useEmpresaConfig } from '@/hooks/use-empresa-config'
-import Image from 'next/image'
+import { EmpresaLogo } from '@/components/empresa-logo'
 
 export default function LoginSistemaPage() {
   const router = useRouter()
@@ -66,108 +66,112 @@ export default function LoginSistemaPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4">
-          <div className="flex justify-center">
-            {empresaConfig?.logotipo ? (
-              <Image
-                src={empresaConfig.logotipo}
-                alt={empresaConfig.nome || 'Logo'}
-                width={0}
-                height={0}
-                className="h-16 w-auto object-contain"
-                unoptimized
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-100 p-4">
+      <div className="w-full max-w-md">
+        {/* Card do formulário com cores claras */}
+        <Card className="shadow-2xl bg-white border border-gray-200 overflow-hidden">
+          <CardHeader className="space-y-3 pb-4 pt-6 bg-gradient-to-br from-gray-50 to-white">
+            {/* Logo dentro do card */}
+            <div className="flex justify-center">
+              <EmpresaLogo
+                src={empresaConfig?.logotipo}
+                empresaNome={empresaConfig?.nome}
+                className="h-12 w-auto object-contain"
+                showFallbackIcon={true}
               />
-            ) : (
-              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-                <Building2 className="w-8 h-8 text-primary-foreground" />
-              </div>
-            )}
-          </div>
-          <div className="text-center">
-            <CardDescription>
-              Entre com suas credenciais de acesso
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-center gap-2 text-red-800 dark:text-red-200">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                  autoComplete="email"
-                />
-              </div>
             </div>
+            <div className="space-y-1">
+              <CardTitle className="text-xl font-bold text-center text-gray-900">Bem-vindo</CardTitle>
+              <CardDescription className="text-gray-600 text-center text-sm">
+                Entre com suas credenciais de acesso
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2 pb-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2 text-red-700">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-xs font-medium">{error}</span>
+                </div>
+              )}
 
-            <div className="space-y-2">
-              <Label htmlFor="senha">Senha</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="senha"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  className="pl-10 pr-10"
-                  required
-                  autoComplete="current-password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPassword(!showPassword)}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-700 font-medium text-xs">Email</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 transition-colors group-focus-within:text-primary" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Digite seu email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 h-10 bg-gray-50 text-gray-900 text-sm border-2 border-gray-200 focus:border-primary focus:bg-white focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 rounded-lg font-medium transition-all"
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="senha" className="text-gray-700 font-medium text-xs">Senha</Label>
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 transition-colors group-focus-within:text-primary" />
+                  <Input
+                    id="senha"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Digite sua senha"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    className="pl-10 pr-10 h-10 bg-gray-50 text-gray-900 text-sm border-2 border-gray-200 focus:border-primary focus:bg-white focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400 rounded-lg font-medium transition-all"
+                    required
+                    autoComplete="current-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Link 
+                  href="/sistema/forgot-password" 
+                  className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
+                  Esqueceu a senha?
+                </Link>
               </div>
-            </div>
 
-            <div className="flex justify-end">
-              <Link 
-                href="/sistema/forgot-password" 
-                className="text-sm text-primary hover:underline"
+              <Button 
+                type="submit" 
+                className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.01] font-semibold text-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200" 
+                disabled={loading}
               >
-                Esqueceu a senha?
-              </Link>
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={loading}
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-3.5 w-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Entrando...
+                  </div>
+                ) : (
+                  'Entrar'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

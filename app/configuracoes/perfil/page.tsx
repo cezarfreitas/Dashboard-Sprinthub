@@ -392,7 +392,7 @@ export default function PerfilPage() {
           <CardHeader>
             <div className="flex items-center space-x-4">
               <Avatar className="h-16 w-16">
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                <AvatarFallback className="bg-black text-white text-2xl">
                   {userInitials}
                 </AvatarFallback>
               </Avatar>

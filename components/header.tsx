@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/popover"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useEmpresaConfig } from "@/hooks/use-empresa-config"
-import Image from "next/image"
+import { EmpresaLogo } from "@/components/empresa-logo"
 
 interface HeaderProps {
   className?: string
@@ -238,25 +238,20 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-50 w-full border-b border-gray-800 bg-black transition-transform duration-300 ease-in-out",
+      "sticky top-0 z-50 w-full border-b border-primary/20 bg-primary transition-transform duration-300 ease-in-out",
       hideOnScroll && !isVisible && "-translate-y-full",
       className
     )}>
       <div className="container flex h-14 items-center">
         {/* Logo */}
-        {empresaConfig?.logotipo && (
-          <Link href="/painel" className="mr-4 flex items-center text-white hover:text-gray-300">
-            <Image
-              src={empresaConfig.logotipo}
-              alt={empresaConfig.nome || 'Logo'}
-              width={0}
-              height={0}
-              className="h-auto max-h-10 w-auto object-contain"
-              priority
-              unoptimized
-            />
-          </Link>
-        )}
+        <Link href="/painel" className="mr-4 flex items-center text-primary-foreground hover:text-primary-foreground/80">
+          <EmpresaLogo
+            src={empresaConfig?.logotipo}
+            empresaNome={empresaConfig?.nome}
+            className="h-auto max-h-10 w-auto object-contain"
+            priority
+          />
+        </Link>
 
         {/* Desktop Navigation */}
         {user && (
@@ -270,8 +265,8 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                       <Button
                         variant="ghost"
                         className={cn(
-                          "h-10 px-4 py-2 text-sm font-medium transition-colors text-white hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white focus:outline-none",
-                          isSubmenuActive(item) && "bg-white/10 text-white"
+                          "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none",
+                          isSubmenuActive(item) && "bg-primary-foreground/10 text-primary-foreground"
                         )}
                       >
                         <item.icon className="h-4 w-4 mr-2" />
@@ -279,15 +274,15 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                         <ChevronDown className="h-4 w-4 ml-2" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-48 p-1 bg-black border-gray-800">
+                    <PopoverContent className="w-48 p-1 bg-primary border-primary-foreground/20">
                       <div className="space-y-1">
                         {item.submenu?.map((subItem: any) => (
                           <Link
                             key={subItem.title}
                             href={subItem.href}
                             className={cn(
-                              "flex items-center px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white cursor-pointer",
-                              isExactRoute(subItem.href) && "bg-white/10 text-white"
+                              "flex items-center px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground cursor-pointer",
+                              isExactRoute(subItem.href) && "bg-primary-foreground/10 text-primary-foreground"
                             )}
                           >
                             {subItem.title}
@@ -301,8 +296,8 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                     <Button
                       variant="ghost"
                       className={cn(
-                        "h-10 px-4 py-2 text-sm font-medium transition-colors text-white hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white focus:outline-none",
-                        isActiveRoute(item.href) && "bg-white/10 text-white"
+                        "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none",
+                        isActiveRoute(item.href) && "bg-primary-foreground/10 text-primary-foreground"
                       )}
                     >
                       <item.icon className="h-4 w-4 mr-2" />
@@ -322,46 +317,46 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
           {user && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full text-white hover:bg-white/10 hover:text-white">
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
+                    <AvatarFallback className="bg-black text-white">
                       {(user.nome || 'U').charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-64 p-2 bg-black border-gray-800" align="end">
+              <PopoverContent className="w-64 p-2 bg-primary border-primary-foreground/20" align="end">
                 <div className="flex items-center gap-3 p-3 mb-2">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                    <AvatarFallback className="bg-black text-white text-lg">
                       {(user.nome || 'U').charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium text-sm text-white">{user.nome}</p>
+                    <p className="font-medium text-sm text-primary-foreground">{user.nome}</p>
                     {user.email && (
-                      <p className="text-xs text-gray-400 truncate max-w-[180px]">
+                      <p className="text-xs text-primary-foreground/70 truncate max-w-[180px]">
                         {user.email}
                       </p>
                     )}
-                    <p className="text-xs text-gray-400 capitalize">
+                    <p className="text-xs text-primary-foreground/70 capitalize">
                       {user.role || 'Usuário'}
                     </p>
                   </div>
                 </div>
-                <div className="border-t border-gray-800 my-2"></div>
+                <div className="border-t border-primary-foreground/20 my-2"></div>
                 <div className="space-y-1">
-                  <Link href="/configuracoes/perfil" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white cursor-pointer">
+                  <Link href="/configuracoes/perfil" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     <span>Meu Perfil</span>
                   </Link>
                   {hasPermission('configuracoes') && (
-                    <Link href="/configuracoes" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white cursor-pointer">
+                    <Link href="/configuracoes" className="flex items-center px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Configurações</span>
                     </Link>
                   )}
-                  <button onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors text-red-400 hover:bg-red-500/10 hover:text-red-300 cursor-pointer">
+                  <button onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors text-red-300 hover:bg-red-500/20 hover:text-red-200 cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Sair</span>
                   </button>
@@ -375,7 +370,7 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden h-8 w-8 p-0 text-white hover:bg-white/10 hover:text-white"
+              className="md:hidden h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? (
@@ -391,14 +386,14 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && user && (
-        <div className="md:hidden border-t border-gray-800 bg-black">
+        <div className="md:hidden border-t border-primary-foreground/20 bg-primary">
           <div className="container py-4">
             <nav className="flex flex-col space-y-2">
               {menuItems.filter(shouldShowMenuItem).map((item) => (
                 <div key={item.title}>
                   {item.hasSubmenu ? (
                     <div className="space-y-2">
-                      <div className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white">
+                      <div className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-primary-foreground">
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </div>
@@ -408,8 +403,8 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                             key={subItem.title}
                             href={subItem.href}
                             className={cn(
-                              "block px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white",
-                              isExactRoute(subItem.href) && "bg-white/10 text-white"
+                              "block px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                              isExactRoute(subItem.href) && "bg-primary-foreground/10 text-primary-foreground"
                             )}
                             onClick={() => setIsMobileMenuOpen(false)}
                           >
@@ -424,8 +419,8 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                       target={(item as any).openInNewWindow ? "_blank" : undefined}
                       rel={(item as any).openInNewWindow ? "noopener noreferrer" : undefined}
                       className={cn(
-                        "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white",
-                        isActiveRoute(item.href) && "bg-white/10 text-white"
+                        "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                        isActiveRoute(item.href) && "bg-primary-foreground/10 text-primary-foreground"
                       )}
                       onClick={() => setIsMobileMenuOpen(false)}
                     >

@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select"
 import { useAuthSistema } from "@/hooks/use-auth-sistema"
 import { useEmpresaConfig } from "@/hooks/use-empresa-config"
-import Image from "next/image"
+import { EmpresaLogo } from "@/components/empresa-logo"
 
 interface HeaderGestorProps {
   className?: string
@@ -155,25 +155,20 @@ export function HeaderGestor({
 
   return (
     <header className={cn(
-      "sticky top-0 z-50 w-full border-b border-gray-800 bg-black transition-transform duration-300 ease-in-out",
+      "sticky top-0 z-50 w-full border-b border-primary/20 bg-primary transition-transform duration-300 ease-in-out",
       hideOnScroll && !isVisible && "-translate-y-full",
       className
     )}>
       <div className="container flex h-14 items-center">
         {/* Logo */}
-        {empresaConfig?.logotipo && (
-          <Link href="/gestor/dashboard" className="mr-4 flex items-center text-white hover:text-gray-300">
-            <Image
-              src={empresaConfig.logotipo}
-              alt={empresaConfig.nome || 'Logo'}
-              width={0}
-              height={0}
-              className="h-auto max-h-10 w-auto object-contain"
-              priority
-              unoptimized
-            />
-          </Link>
-        )}
+        <Link href="/gestor/dashboard" className="mr-4 flex items-center text-primary-foreground hover:text-primary-foreground/80">
+          <EmpresaLogo
+            src={empresaConfig?.logotipo}
+            empresaNome={empresaConfig?.nome}
+            className="h-auto max-h-10 w-auto object-contain"
+            priority
+          />
+        </Link>
 
         {/* Unidade Selector e Fila de Atendimento */}
         {gestor && (
@@ -184,7 +179,7 @@ export function HeaderGestor({
                   value={unidadeSelecionada?.toString() || ''}
                   onValueChange={(value) => setUnidadeSelecionada(parseInt(value))}
                 >
-                  <SelectTrigger className="h-8 w-[200px] bg-white/5 border-white/20 text-white hover:bg-white/10">
+                  <SelectTrigger className="h-8 w-[200px] bg-primary-foreground/5 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
                     <SelectValue placeholder="Selecione a unidade" />
                   </SelectTrigger>
                   <SelectContent className="z-[100]">
@@ -201,8 +196,8 @@ export function HeaderGestor({
               <Button
                 variant="ghost"
                 className={cn(
-                  "h-10 px-4 py-2 text-sm font-medium transition-colors text-white hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white focus:outline-none",
-                  pathname === '/gestor/fila' && "bg-white/10 text-white"
+                  "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none",
+                  pathname === '/gestor/fila' && "bg-primary-foreground/10 text-primary-foreground"
                 )}
               >
                 <Users className="h-4 w-4 mr-2" />
@@ -218,9 +213,9 @@ export function HeaderGestor({
           {gestor && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full text-white hover:bg-white/10 hover:text-white">
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
+                    <AvatarFallback className="bg-black text-white">
                       {gestorInitials}
                     </AvatarFallback>
                   </Avatar>
@@ -229,7 +224,7 @@ export function HeaderGestor({
               <PopoverContent className="w-64 p-2" align="end">
                 <div className="flex items-center gap-3 p-3 mb-2">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                    <AvatarFallback className="bg-black text-white text-lg">
                       {gestorInitials}
                     </AvatarFallback>
                   </Avatar>
@@ -261,7 +256,7 @@ export function HeaderGestor({
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden h-8 w-8 p-0 text-white hover:bg-white/10 hover:text-white"
+              className="md:hidden h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? (
@@ -277,7 +272,7 @@ export function HeaderGestor({
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && gestor && (
-        <div className="md:hidden border-t border-gray-800 bg-black">
+        <div className="md:hidden border-t border-primary-foreground/20 bg-primary">
           <div className="container py-4">
             {/* Unidade Selector Mobile */}
             {gestor.unidades.length > 1 && unidadeSelecionada !== undefined && setUnidadeSelecionada && (
@@ -286,7 +281,7 @@ export function HeaderGestor({
                   value={unidadeSelecionada?.toString() || ''}
                   onValueChange={(value) => setUnidadeSelecionada(parseInt(value))}
                 >
-                  <SelectTrigger className="w-full bg-white/5 border-white/20 text-white">
+                  <SelectTrigger className="w-full bg-primary-foreground/5 border-primary-foreground/20 text-primary-foreground">
                     <SelectValue placeholder="Selecione a unidade" />
                   </SelectTrigger>
                   <SelectContent className="z-[100]">
@@ -303,8 +298,8 @@ export function HeaderGestor({
               <Link
                 href="/gestor/fila"
                 className={cn(
-                  "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-white hover:bg-white/10 hover:text-white",
-                  pathname === '/gestor/fila' && "bg-white/10 text-white"
+                  "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                  pathname === '/gestor/fila' && "bg-primary-foreground/10 text-primary-foreground"
                 )}
                 onClick={() => setIsMobileMenuOpen(false)}
               >

@@ -1,5 +1,44 @@
 import { executeQuery } from './database'
 
+// Rate Limiter: 50 requisições por minuto
+class RateLimiter {
+  private requests: number[] = []
+  private maxRequests: number
+  private windowMs: number
+
+  constructor(maxRequests: number = 50, windowMs: number = 60000) {
+    this.maxRequests = maxRequests
+    this.windowMs = windowMs
+  }
+
+  async waitIfNeeded(): Promise<void> {
+    const now = Date.now()
+    
+    // Remove requisições antigas (fora da janela de 1 minuto)
+    this.requests = this.requests.filter(timestamp => now - timestamp < this.windowMs)
+    
+    // Se atingiu o limite, esperar até que uma requisição saia da janela
+    if (this.requests.length >= this.maxRequests) {
+      const oldestRequest = this.requests[0]
+      const waitTime = this.windowMs - (now - oldestRequest) + 100 // +100ms de margem
+      
+      if (waitTime > 0) {
+        console.log(`⏳ Rate limit atingido (${this.maxRequests} req/min). Aguardando ${Math.ceil(waitTime / 1000)}s...`)
+        await new Promise(resolve => setTimeout(resolve, waitTime))
+        // Limpar novamente após esperar
+        const newNow = Date.now()
+        this.requests = this.requests.filter(timestamp => newNow - timestamp < this.windowMs)
+      }
+    }
+    
+    // Registrar nova requisição
+    this.requests.push(Date.now())
+  }
+}
+
+// Instância global do rate limiter (50 req/min)
+const rateLimiter = new RateLimiter(50, 60000)
+
 // Helper para converter data ISO para formato MySQL
 function convertToMySQLDateTime(isoDate: string | null | undefined): string | null {
   if (!isoDate) return null
@@ -146,6 +185,9 @@ export async function syncOportunidades(): Promise<{
               console.log(`    📄 Página ${page + 1}...`)
               console.log(`    🌐 URL: ${sprintHubUrl.replace(apiToken, '***')}`)
               console.log(`    📦 Payload:`, JSON.stringify(payload))
+
+              // Rate limiting: aguardar se necessário (50 req/min)
+              await rateLimiter.waitIfNeeded()
 
               const response = await fetch(sprintHubUrl, {
                 method: 'POST',

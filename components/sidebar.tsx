@@ -31,7 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useEmpresaConfig } from "@/hooks/use-empresa-config"
-import Image from "next/image"
+import { EmpresaLogo } from "@/components/empresa-logo"
 
 interface SidebarProps {
   className?: string
@@ -220,18 +220,12 @@ export function Sidebar({ className }: SidebarProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center justify-center">
-                    {empresaConfig?.logotipo ? (
-                      <Image
-                        src={empresaConfig.logotipo}
-                        alt={empresaConfig.nome || 'Logo'}
-                        width={0}
-                        height={0}
-                        className="h-8 w-auto object-contain"
-                        unoptimized
-                      />
-                    ) : (
-                      <Building2 className="h-6 w-6 text-sidebar-foreground hover:text-primary" />
-                    )}
+                    <EmpresaLogo
+                      src={empresaConfig?.logotipo}
+                      empresaNome={empresaConfig?.nome}
+                      className="h-8 w-auto object-contain"
+                      showFallbackIcon={true}
+                    />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="ml-2">
@@ -241,21 +235,12 @@ export function Sidebar({ className }: SidebarProps) {
             </TooltipProvider>
           ) : (
             <div className="flex items-center gap-2 min-w-0">
-              {empresaConfig?.logotipo && (
-                <Image
-                  src={empresaConfig.logotipo}
-                  alt={empresaConfig.nome || 'Logo'}
-                  width={0}
-                  height={0}
-                  className="h-8 w-auto object-contain"
-                  unoptimized
-                />
-              )}
-              {empresaConfig?.nome && (
-                <h2 className="text-xl font-display text-sidebar-foreground truncate">
-                  {empresaConfig.nome}
-                </h2>
-              )}
+              <EmpresaLogo
+                src={empresaConfig?.logotipo}
+                empresaNome={empresaConfig?.nome}
+                className="h-8 w-auto object-contain"
+                showFallbackIcon={false}
+              />
             </div>
           )}
           <Button

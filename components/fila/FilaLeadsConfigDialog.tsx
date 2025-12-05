@@ -213,7 +213,7 @@ export const FilaLeadsConfigDialog = memo(function FilaLeadsConfigDialog({
                         className="flex items-center gap-2 p-2 rounded-lg border bg-card"
                       >
                         {/* Posição */}
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-xs font-bold flex-shrink-0">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-black text-white text-xs font-bold flex-shrink-0">
                           {index + 1}
                         </div>
 

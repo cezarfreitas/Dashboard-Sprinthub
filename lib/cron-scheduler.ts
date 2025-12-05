@@ -67,7 +67,7 @@ class CronScheduler {
   private initializeDefaultJobs() {
     const timezone = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
     const defaultSchedule = '0 8,14,20 * * *'
-    const oportunidadesSchedule = '0 9,15,21 * * *'
+    const oportunidadesSchedule = '0 * * * *' // A cada hora
 
     // ⚡ OTIMIZADO: Criar jobs usando configuração centralizada
     Object.entries(SYNC_JOBS_CONFIG).forEach(([jobName, config]) => {
