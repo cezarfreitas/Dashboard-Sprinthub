@@ -1,5 +1,4 @@
 import cron from 'node-cron'
-import parser from 'cron-parser'
 import { syncVendedoresFromSprintHub } from './vendedores-sync'
 import { syncUnidadesFromSprintHub } from './unidades-sync'
 import { syncFunis } from './funis-sync'
@@ -61,23 +60,35 @@ class CronScheduler {
   private executionLocks: Map<string, boolean> = new Map() // ⚡ Mutex para prevenir concorrência
 
   constructor() {
-    this.initializeDefaultJobs()
+    try {
+      this.initializeDefaultJobs()
+    } catch (error) {
+      console.error('Erro ao inicializar jobs do cron:', error)
+    }
   }
 
   private initializeDefaultJobs() {
-    const timezone = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
-    const defaultSchedule = '0 8,14,20 * * *'
-    const oportunidadesSchedule = '0 * * * *' // A cada hora
+    try {
+      const timezone = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
+      const defaultSchedule = '0 8,14,20 * * *'
+      const oportunidadesSchedule = '0 * * * *' // A cada hora
 
-    // ⚡ OTIMIZADO: Criar jobs usando configuração centralizada
-    Object.entries(SYNC_JOBS_CONFIG).forEach(([jobName, config]) => {
-      const schedule = process.env[config.envVar] || 
-        (jobName === 'oportunidades-sync' ? oportunidadesSchedule : defaultSchedule)
-      
-      this.addJob(jobName, schedule, async () => {
-        await this.executeSync(jobName, config.fn, config.requiresType ? 'scheduled' : undefined)
+      // ⚡ OTIMIZADO: Criar jobs usando configuração centralizada
+      Object.entries(SYNC_JOBS_CONFIG).forEach(([jobName, config]) => {
+        try {
+          const schedule = process.env[config.envVar] || 
+            (jobName === 'oportunidades-sync' ? oportunidadesSchedule : defaultSchedule)
+          
+          this.addJob(jobName, schedule, async () => {
+            await this.executeSync(jobName, config.fn, config.requiresType ? 'scheduled' : undefined)
+          })
+        } catch (error) {
+          console.error(`Erro ao criar job ${jobName}:`, error)
+        }
       })
-    })
+    } catch (error) {
+      console.error('Erro ao inicializar jobs padrão:', error)
+    }
   }
 
   // ⚡ NOVO: Função centralizada de execução com mutex
@@ -200,15 +211,52 @@ class CronScheduler {
     }))
   }
 
-  // ⚡ OTIMIZADO: Usar cron-parser para cálculo correto
+  // Calcular próximo horário de execução baseado no schedule
   private getNextRunTime(schedule: string): Date | null {
     try {
-      const cronParser = parser as any
-      const interval = cronParser.parseExpression(schedule, {
-        tz: process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
-      })
-      return interval.next().toDate()
-    } catch {
+      const parts = schedule.split(' ')
+      if (parts.length !== 5) return null
+      
+      const [minute, hour, day, month, weekday] = parts
+      const now = new Date()
+      const tz = process.env.CRON_TIMEZONE || 'America/Sao_Paulo'
+      
+      // Converter para o timezone correto (simplificado)
+      // Para schedules simples como "0 * * * *" (a cada hora)
+      if (minute !== '*' && hour === '*' && day === '*' && month === '*' && weekday === '*') {
+        // A cada hora no minuto especificado
+        const next = new Date(now)
+        next.setMinutes(parseInt(minute) || 0, 0, 0)
+        if (next <= now) {
+          next.setHours(next.getHours() + 1)
+        }
+        return next
+      }
+      
+      // Para schedules como "0 9,15,21 * * *" (horários específicos)
+      if (minute !== '*' && hour.includes(',') && day === '*' && month === '*' && weekday === '*') {
+        const hours = hour.split(',').map(h => parseInt(h)).filter(h => !isNaN(h))
+        const min = parseInt(minute) || 0
+        const next = new Date(now)
+        next.setMinutes(min, 0, 0)
+        
+        // Encontrar próximo horário válido
+        for (const h of hours.sort((a, b) => a - b)) {
+          next.setHours(h)
+          if (next > now) {
+            return next
+          }
+        }
+        // Se não encontrou hoje, usar o primeiro horário de amanhã
+        next.setDate(next.getDate() + 1)
+        next.setHours(hours[0], min, 0, 0)
+        return next
+      }
+      
+      // Fallback: retornar null e deixar o cron calcular
+      return null
+    } catch (error) {
+      console.error('Erro ao calcular próximo horário de execução:', error)
       return null
     }
   }

@@ -5,7 +5,19 @@ import { executeQuery } from '@/lib/database'
 // GET - Listar status dos jobs
 export async function GET() {
   try {
-    const jobs = cronScheduler.getAllJobs()
+    let jobs
+    try {
+      jobs = cronScheduler.getAllJobs()
+    } catch (error) {
+      console.error('Erro ao obter jobs do cronScheduler:', error)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Erro ao obter jobs: ' + (error instanceof Error ? error.message : 'Erro desconhecido')
+        },
+        { status: 500 }
+      )
+    }
     
     // ⚡ OTIMIZADO: 1 query ao invés de N queries (uma por job)
     const jobNames = jobs.map(j => j.name)
