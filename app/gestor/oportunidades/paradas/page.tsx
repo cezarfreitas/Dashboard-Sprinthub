@@ -5,7 +5,7 @@ import { HeaderGestor } from "@/components/header_gestor"
 import { AppFooter } from "@/components/app-footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, TrendingUp, AlertTriangle } from "lucide-react"
+import { Clock, TrendingUp, AlertTriangle, User } from "lucide-react"
 
 interface DistribuicaoFaixa {
   faixa: string
@@ -14,10 +14,18 @@ interface DistribuicaoFaixa {
   percentual: number
 }
 
+interface AlertaVendedor {
+  vendedor: string
+  total_paradas: number
+  valor_em_risco: number
+  media_dias_parados: number
+  pior_caso_dias: number
+}
 
 export default function GestorOportunidadesParadasPage() {
   const [loading, setLoading] = useState(true)
   const [distribuicao, setDistribuicao] = useState<DistribuicaoFaixa[]>([])
+  const [alertasVendedor, setAlertasVendedor] = useState<AlertaVendedor[]>([])
   const [resumo, setResumo] = useState<{
     total_oportunidades: number
     valor_total: number
@@ -63,6 +71,7 @@ export default function GestorOportunidadesParadasPage() {
       
       if (data.success) {
         setDistribuicao(data.distribuicao || [])
+        setAlertasVendedor(data.alertas_vendedor || [])
         setResumo(data.resumo)
       }
     } catch (error) {
@@ -178,6 +187,63 @@ export default function GestorOportunidadesParadasPage() {
                   </CardContent>
                 </Card>
               </div>
+            )}
+
+            {/* Cards de Distribuição por Vendedor */}
+            {alertasVendedor.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Distribuição por Vendedor</CardTitle>
+                  <CardDescription>
+                    Vendedores com 3 ou mais oportunidades paradas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {alertasVendedor.map((alerta, index) => (
+                      <Card key={index} className="border-l-4 border-l-orange-500">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base font-semibold truncate">
+                            {alerta.vendedor}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Oportunidades:</span>
+                            <Badge variant="destructive" className="font-bold">
+                              {alerta.total_paradas}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Valor em Risco:</span>
+                            <span className="text-sm font-semibold text-red-600">
+                              R$ {alerta.valor_em_risco.toLocaleString('pt-BR', { 
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0 
+                              })}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Média Parado:</span>
+                            <span className="text-sm font-semibold">
+                              {Math.round(alerta.media_dias_parados)} dias
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Pior Caso:</span>
+                            <Badge variant="outline" className="font-semibold">
+                              {alerta.pior_caso_dias} dias
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             {/* Card de Distribuição por Faixas */}
