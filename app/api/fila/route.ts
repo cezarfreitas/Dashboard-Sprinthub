@@ -27,11 +27,15 @@ export async function GET(request: NextRequest) {
     const params: any[] = []
 
     // Filtrar apenas unidades do gestor logado
+    // user_gestao agora é JSON array, usar JSON_CONTAINS
     if (gestorId) {
       const gestorIdNum = parseInt(gestorId, 10)
       if (!isNaN(gestorIdNum)) {
-        query += ` AND u.user_gestao = ?`
-        params.push(gestorIdNum)
+        query += ` AND (
+          JSON_CONTAINS(u.user_gestao, CAST(? AS JSON), '$')
+          OR u.user_gestao = ?
+        )`
+        params.push(gestorIdNum, gestorIdNum)
       }
     }
 
@@ -147,7 +151,7 @@ export async function GET(request: NextRequest) {
         distribuicoesMap.set(key, Number(d.total_distribuicoes || 0))
       })
 
-      // Buscar estatísticas por unidade (total e última distribuição com detalhes)
+      // Buscar estatísticas por unidade (total e última distribuição)
       const statsQuery = `
         SELECT 
           unidade_id,
@@ -169,7 +173,6 @@ export async function GET(request: NextRequest) {
           ultima_distribuicao: s.ultima_distribuicao || null
         })
       })
-
 
       // Buscar ausências ativas (onde a data atual está entre data_inicio e data_fim)
       const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
@@ -250,9 +253,6 @@ export async function GET(request: NextRequest) {
         total_vendedores: vendedoresCountMap.get(unidade.id) || 0,
         vendedores_fila: vendedoresFila,
         ultima_distribuicao: stats.ultima_distribuicao,
-        ultima_distribuicao_vendedor: null,
-        ultima_distribuicao_lead_id: null,
-        ultima_distribuicao_total_fila: null,
         total_leads_distribuidos: stats.total,
         ativo: Boolean(unidade.ativo),
         created_at: unidade.created_at,

@@ -320,12 +320,29 @@ export async function GET(request: NextRequest) {
           .sort((a, b) => a.sequencia - b.sequencia)
       }
 
-      // Nome do gestor
+      // Nome do gestor (user_gestao agora é JSON array)
       let nomeGestor = null
-      let userGestaoFinal = unidade.user_gestao
+      let userGestaoArray: number[] = []
+      
+      // Parsear user_gestao (pode ser JSON string ou já parseado)
+      try {
+        const parsed = typeof unidade.user_gestao === 'string' 
+          ? JSON.parse(unidade.user_gestao) 
+          : unidade.user_gestao
+        if (Array.isArray(parsed)) {
+          userGestaoArray = parsed
+            .map((id: any) => typeof id === 'object' ? id.id : id)
+            .filter((id: any) => typeof id === 'number')
+        } else if (parsed && typeof parsed === 'number') {
+          // Fallback: se ainda for número único, converter para array
+          userGestaoArray = [parsed]
+        }
+      } catch (e) {
+        // Ignorar erro de parsing
+      }
       
       // Se não tem user_gestao mas tem dpto_gestao, buscar o user_gestao da unidade de gestão
-      if (!userGestaoFinal && unidade.dpto_gestao) {
+      if (userGestaoArray.length === 0 && unidade.dpto_gestao) {
         const unidadeGestao = await executeQuery(`
           SELECT user_gestao, users FROM unidades WHERE id = ?
         `, [unidade.dpto_gestao]) as any[]
@@ -334,14 +351,28 @@ export async function GET(request: NextRequest) {
           const gestao = unidadeGestao[0]
           // Se a unidade de gestão tem user_gestao, usar ele
           if (gestao.user_gestao) {
-            userGestaoFinal = gestao.user_gestao
+            try {
+              const parsed = typeof gestao.user_gestao === 'string' 
+                ? JSON.parse(gestao.user_gestao) 
+                : gestao.user_gestao
+              if (Array.isArray(parsed)) {
+                userGestaoArray = parsed
+                  .map((id: any) => typeof id === 'object' ? id.id : id)
+                  .filter((id: any) => typeof id === 'number')
+              } else if (parsed && typeof parsed === 'number') {
+                userGestaoArray = [parsed]
+              }
+            } catch (e) {
+              // Ignorar erro
+            }
           } else if (gestao.users) {
-            // Se não tem user_gestao mas tem users, pegar o primeiro
+            // Se não tem user_gestao mas tem users, pegar todos
             try {
               const usersArray = typeof gestao.users === 'string' ? JSON.parse(gestao.users) : gestao.users
               if (Array.isArray(usersArray) && usersArray.length > 0) {
-                const primeiroUser = usersArray[0]
-                userGestaoFinal = typeof primeiroUser === 'object' ? primeiroUser.id : primeiroUser
+                userGestaoArray = usersArray
+                  .map((u: any) => typeof u === 'object' ? u.id : u)
+                  .filter((id: any) => typeof id === 'number')
               }
             } catch (e) {
               // Ignorar erro de parsing
@@ -350,25 +381,24 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      if (userGestaoFinal) {
-        const gestor = vendedoresMap.get(userGestaoFinal)
-        if (gestor) {
-          nomeGestor = gestor.lastName 
-            ? `${gestor.name} ${gestor.lastName}`.trim() 
-            : gestor.name
-        } else {
-          // Se o gestor não foi encontrado no Map, tentar buscar diretamente
-          const gestorDireto = await executeQuery(`
-            SELECT id, name, lastName FROM vendedores WHERE id = ?
-          `, [userGestaoFinal]) as any[]
-          if (gestorDireto && gestorDireto.length > 0) {
-            const gestorEncontrado = gestorDireto[0]
-            nomeGestor = gestorEncontrado.lastName 
-              ? `${gestorEncontrado.name} ${gestorEncontrado.lastName}`.trim() 
-              : gestorEncontrado.name
-            // Adicionar ao Map para próximas consultas
-            vendedoresMap.set(userGestaoFinal, gestorEncontrado)
-          }
+      // Buscar nomes de todos os gestores
+      if (userGestaoArray.length > 0) {
+        const nomesGestores = userGestaoArray
+          .map((userId: number) => {
+            const gestor = vendedoresMap.get(userId)
+            if (gestor) {
+              return gestor.lastName 
+                ? `${gestor.name} ${gestor.lastName}`.trim() 
+                : gestor.name
+            } else {
+              // Se o gestor não foi encontrado no Map, tentar buscar diretamente
+              return null
+            }
+          })
+          .filter((nome: string | null) => nome !== null)
+        
+        if (nomesGestores.length > 0) {
+          nomeGestor = nomesGestores.join(', ')
         }
       }
 

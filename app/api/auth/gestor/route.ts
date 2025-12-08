@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
     const vendedor = vendedores[0]
 
     // Verificar se este vendedor é gestor de alguma unidade
+    // user_gestao agora é JSON array, usar JSON_CONTAINS para verificar
     const unidades = await executeQuery(`
       SELECT 
         u.id,
@@ -54,12 +55,16 @@ export async function POST(request: NextRequest) {
         u.dpto_gestao,
         u.user_gestao
       FROM unidades u
-      WHERE u.user_gestao = ?
-    `, [vendedor.id]) as Array<{
+      WHERE u.ativo = 1
+        AND (
+          JSON_CONTAINS(u.user_gestao, CAST(? AS JSON), '$')
+          OR u.user_gestao = ?
+        )
+    `, [vendedor.id, vendedor.id]) as Array<{
       id: number
       nome: string
       dpto_gestao: number | null
-      user_gestao: number
+      user_gestao: number | string
     }>
 
     if (unidades.length === 0) {

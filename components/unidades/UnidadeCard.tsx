@@ -156,17 +156,37 @@ export const UnidadeCard = memo(function UnidadeCard({
 
         {/* Gestor */}
         <div className="py-1.5 border-b border-gray-100">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <UserCircle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
             <span className="text-xs text-muted-foreground flex-shrink-0">
-              Gestor
+              {unidade.user_gestao_ids && unidade.user_gestao_ids.length > 1 ? 'Gestores' : 'Gestor'}
             </span>
-            <Badge 
-              variant={unidade.nome_user_gestao || unidade.user_gestao ? "default" : "outline"}
-              className="text-xs h-6 px-2"
-            >
-              {unidade.nome_user_gestao || (unidade.user_gestao ? `ID: ${unidade.user_gestao}` : "Não definido")}
-            </Badge>
+            {unidade.nome_user_gestao ? (
+              <Badge 
+                variant="default"
+                className="text-xs h-6 px-2"
+                title={unidade.nome_user_gestao}
+              >
+                {unidade.nome_user_gestao}
+              </Badge>
+            ) : unidade.user_gestao_ids && unidade.user_gestao_ids.length > 0 ? (
+              unidade.user_gestao_ids.map((id: number, index: number) => (
+                <Badge 
+                  key={index}
+                  variant="outline"
+                  className="text-xs h-6 px-2"
+                >
+                  ID: {id}
+                </Badge>
+              ))
+            ) : (
+              <Badge 
+                variant="outline"
+                className="text-xs h-6 px-2"
+              >
+                Não definido
+              </Badge>
+            )}
           </div>
         </div>
 

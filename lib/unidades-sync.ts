@@ -145,7 +145,7 @@ export async function syncUnidadesFromSprintHub(type: 'manual' | 'scheduled' = '
 
       // Identificar sub-departamento de gestão
       let dptoGestao: number | null = null
-      let userGestao: number | null = null
+      let userGestaoIds: number[] = []
       
       if (Array.isArray(unidade.subs) && unidade.subs.length > 0) {
         const subGestao = unidade.subs.find((sub: any) => 
@@ -154,11 +154,11 @@ export async function syncUnidadesFromSprintHub(type: 'manual' | 'scheduled' = '
         
         if (subGestao) {
           dptoGestao = subGestao.id || null
-          // Pegar o primeiro usuário do sub de gestão
+          // Pegar todos os usuários do sub de gestão
           if (Array.isArray(subGestao.users) && subGestao.users.length > 0) {
-            userGestao = subGestao.users[0]
+            userGestaoIds = subGestao.users.filter((userId: any) => userId != null)
           }
-          console.log(`   ✓ Gestão encontrada: ${subGestao.name} (ID: ${dptoGestao}, User: ${userGestao})`)
+          console.log(`   ✓ Gestão encontrada: ${subGestao.name} (ID: ${dptoGestao}, Users: [${userGestaoIds.join(', ')}])`)
         }
       }
 
@@ -174,6 +174,9 @@ export async function syncUnidadesFromSprintHub(type: 'manual' | 'scheduled' = '
       const googleBusinessMessagesJson = unidade.google_business_messages 
         ? JSON.stringify(unidade.google_business_messages) 
         : null
+      
+      // user_gestao deve ser JSON (array com todos os IDs dos usuários de gestão)
+      const userGestaoJson = userGestaoIds.length > 0 ? JSON.stringify(userGestaoIds) : null
 
       // Apenas salvar os dados JSON - não criar tabela de relacionamento
 
@@ -219,7 +222,7 @@ export async function syncUnidadesFromSprintHub(type: 'manual' | 'scheduled' = '
         accsJson,
         googleBusinessMessagesJson,
         dptoGestao,
-        userGestao
+        userGestaoJson
       ]) as any
 
       if (result.affectedRows === 1) {

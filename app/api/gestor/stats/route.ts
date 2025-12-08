@@ -18,13 +18,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar se o gestor é realmente gestor da unidade
+    // user_gestao agora é JSON array, usar JSON_CONTAINS
     const verificacao = await executeQuery(`
       SELECT id
       FROM unidades
       WHERE id = ?
-        AND user_gestao = ?
         AND ativo = TRUE
-    `, [unidadeId, gestorId]) as any[]
+        AND (
+          JSON_CONTAINS(user_gestao, CAST(? AS JSON), '$')
+          OR user_gestao = ?
+        )
+    `, [unidadeId, gestorId, gestorId]) as any[]
 
     if (verificacao.length === 0) {
       return NextResponse.json(

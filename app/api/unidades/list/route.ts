@@ -116,6 +116,12 @@ export async function GET(request: NextRequest) {
         .map((u: any) => typeof u === 'object' ? u.id : u)
         .filter((id: any) => typeof id === 'number')
 
+      // Parsear user_gestao para verificar se é gestor
+      const userGestaoArray = parseJSON(unidade.user_gestao)
+      const userGestaoIds = userGestaoArray
+        .map((id: any) => typeof id === 'object' ? id.id : id)
+        .filter((id: any) => typeof id === 'number')
+      
       const vendedoresUnidade = userIds
         .map((id: number) => {
           const vendedor = vendedoresMap.get(id)
@@ -125,7 +131,7 @@ export async function GET(request: NextRequest) {
             name: vendedor.name,
             lastName: vendedor.lastName || '',
             sequencia: 0,
-            isGestor: unidade.user_gestao === vendedor.id
+            isGestor: userGestaoIds.includes(vendedor.id)
           }
         })
         .filter(v => v !== null)
@@ -165,11 +171,30 @@ export async function GET(request: NextRequest) {
         vendedores: userIds.map(String),
         vendedores_detalhes: vendedoresUnidade,
         user_gestao: unidade.user_gestao || null,
-        nome_user_gestao: unidade.user_gestao 
-          ? (vendedoresMap.get(unidade.user_gestao) 
-              ? `${vendedoresMap.get(unidade.user_gestao)!.name} ${vendedoresMap.get(unidade.user_gestao)!.lastName || ''}`.trim()
-              : null)
-          : null,
+        nome_user_gestao: (() => {
+          // user_gestao agora é um JSON array
+          const userGestaoArray = parseJSON(unidade.user_gestao)
+          if (userGestaoArray.length === 0) return null
+          
+          // Buscar nomes de todos os gestores
+          const nomesGestores = userGestaoArray
+            .map((id: any) => {
+              const userId = typeof id === 'object' ? id.id : id
+              const vendedor = vendedoresMap.get(userId)
+              if (!vendedor) return null
+              return `${vendedor.name} ${vendedor.lastName || ''}`.trim()
+            })
+            .filter((nome: string | null) => nome !== null)
+          
+          return nomesGestores.length > 0 ? nomesGestores.join(', ') : null
+        })(),
+        user_gestao_ids: (() => {
+          // Retornar array de IDs para uso no componente
+          const userGestaoArray = parseJSON(unidade.user_gestao)
+          return userGestaoArray
+            .map((id: any) => typeof id === 'object' ? id.id : id)
+            .filter((id: any) => typeof id === 'number')
+        })(),
         dpto_gestao: unidade.dpto_gestao || null,
         accs: parseJSON(unidade.accs),
         branches: parseJSON(unidade.branches),

@@ -30,8 +30,9 @@ export interface Unidade {
   total_vendedores: number
   vendedores: string[]
   vendedores_detalhes: Vendedor[]
-  user_gestao: number | null
+  user_gestao: number | null | number[] // Pode ser número único (legado) ou array JSON
   nome_user_gestao: string | null
+  user_gestao_ids?: number[] // Array de IDs dos gestores
   dpto_gestao: number | null
   accs: any[]
   branches: any[]
