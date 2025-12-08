@@ -44,6 +44,9 @@ export default function GestorOportunidadesParadasPage() {
     media_dias_parados: number
   } | null>(null)
 
+  // Gestor logado
+  const [gestorUnidadeId, setGestorUnidadeId] = useState<number | null>(null)
+
   // Filtros
   const [diasMinimo, setDiasMinimo] = useState('7')
   const [unidadeSelecionada, setUnidadeSelecionada] = useState<string>('all')
@@ -56,12 +59,28 @@ export default function GestorOportunidadesParadasPage() {
   const [funis, setFunis] = useState<Funil[]>([])
 
   useEffect(() => {
+    // Carregar dados do gestor do localStorage
+    const gestorData = localStorage.getItem('gestor')
+    if (gestorData) {
+      try {
+        const gestor = JSON.parse(gestorData)
+        const unidadeId = gestor.unidade_principal?.id
+        if (unidadeId) {
+          setGestorUnidadeId(unidadeId)
+          setUnidadeSelecionada(unidadeId.toString())
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados do gestor:', error)
+      }
+    }
     loadFilters()
   }, [])
 
   useEffect(() => {
-    loadData()
-  }, [diasMinimo, unidadeSelecionada, vendedorSelecionado, funilSelecionado])
+    if (gestorUnidadeId !== null) {
+      loadData()
+    }
+  }, [diasMinimo, unidadeSelecionada, vendedorSelecionado, funilSelecionado, gestorUnidadeId])
 
   const loadFilters = async () => {
     try {
@@ -176,7 +195,7 @@ export default function GestorOportunidadesParadasPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Dias Mínimo */}
               <div className="space-y-2">
                 <Label htmlFor="dias">Dias Parado (mínimo)</Label>
@@ -190,24 +209,6 @@ export default function GestorOportunidadesParadasPage() {
                     <SelectItem value="7">7+ dias</SelectItem>
                     <SelectItem value="15">15+ dias</SelectItem>
                     <SelectItem value="30">30+ dias</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Unidade */}
-              <div className="space-y-2">
-                <Label htmlFor="unidade">Unidade</Label>
-                <Select value={unidadeSelecionada} onValueChange={setUnidadeSelecionada}>
-                  <SelectTrigger id="unidade">
-                    <SelectValue placeholder="Todas as unidades" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {unidades.map((unidade) => (
-                      <SelectItem key={unidade.id} value={unidade.id.toString()}>
-                        {unidade.nome}
-                      </SelectItem>
-                    ))}
                   </SelectContent>
                 </Select>
               </div>
