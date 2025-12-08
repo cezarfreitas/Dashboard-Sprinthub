@@ -77,15 +77,18 @@ export async function GET(request: NextRequest) {
       `DATEDIFF(NOW(), o.updateDate) >= ${diasMinimo}`
     ]
 
-    if (unidadeId) {
+    // Validar e adicionar filtro de unidade (apenas se for um número válido)
+    if (unidadeId && !isNaN(parseInt(unidadeId))) {
       whereConditions.push(`v.unidade_id = ${parseInt(unidadeId)}`)
     }
 
-    if (vendedorNome) {
+    // Validar e adicionar filtro de vendedor (apenas se não for 'all')
+    if (vendedorNome && vendedorNome !== 'all') {
       whereConditions.push(`o.user LIKE '%${vendedorNome}%'`)
     }
 
-    if (funilId) {
+    // Validar e adicionar filtro de funil (apenas se for um número válido)
+    if (funilId && !isNaN(parseInt(funilId))) {
       whereConditions.push(`cf.id_funil = ${parseInt(funilId)}`)
     }
 

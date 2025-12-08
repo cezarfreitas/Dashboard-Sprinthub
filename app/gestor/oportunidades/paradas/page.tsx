@@ -46,9 +46,9 @@ export default function GestorOportunidadesParadasPage() {
 
   // Filtros
   const [diasMinimo, setDiasMinimo] = useState('7')
-  const [unidadeSelecionada, setUnidadeSelecionada] = useState<string>('')
-  const [vendedorSelecionado, setVendedorSelecionado] = useState<string>('')
-  const [funilSelecionado, setFunilSelecionado] = useState<string>('')
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState<string>('all')
+  const [vendedorSelecionado, setVendedorSelecionado] = useState<string>('all')
+  const [funilSelecionado, setFunilSelecionado] = useState<string>('all')
 
   // Listas para os selects
   const [unidades, setUnidades] = useState<Unidade[]>([])
@@ -91,9 +91,9 @@ export default function GestorOportunidadesParadasPage() {
       
       const params = new URLSearchParams()
       params.append('dias', diasMinimo)
-      if (unidadeSelecionada) params.append('unidade_id', unidadeSelecionada)
-      if (vendedorSelecionado) params.append('vendedor', vendedorSelecionado)
-      if (funilSelecionado) params.append('funil_id', funilSelecionado)
+      if (unidadeSelecionada && unidadeSelecionada !== 'all') params.append('unidade_id', unidadeSelecionada)
+      if (vendedorSelecionado && vendedorSelecionado !== 'all') params.append('vendedor', vendedorSelecionado)
+      if (funilSelecionado && funilSelecionado !== 'all') params.append('funil_id', funilSelecionado)
 
       const response = await fetch(`/api/oportunidades-paradas?${params.toString()}`)
       const data = await response.json()
@@ -111,9 +111,9 @@ export default function GestorOportunidadesParadasPage() {
 
   const limparFiltros = () => {
     setDiasMinimo('7')
-    setUnidadeSelecionada('')
-    setVendedorSelecionado('')
-    setFunilSelecionado('')
+    setUnidadeSelecionada('all')
+    setVendedorSelecionado('all')
+    setFunilSelecionado('all')
   }
 
   const getFaixaColor = (faixa: string) => {
@@ -202,7 +202,7 @@ export default function GestorOportunidadesParadasPage() {
                     <SelectValue placeholder="Todas as unidades" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                     {unidades.map((unidade) => (
                       <SelectItem key={unidade.id} value={unidade.id.toString()}>
                         {unidade.nome}
@@ -220,7 +220,7 @@ export default function GestorOportunidadesParadasPage() {
                     <SelectValue placeholder="Todos os vendedores" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     {vendedores.map((vendedor) => (
                       <SelectItem 
                         key={vendedor.id} 
@@ -241,7 +241,7 @@ export default function GestorOportunidadesParadasPage() {
                     <SelectValue placeholder="Todos os funis" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     {funis.map((funil) => (
                       <SelectItem key={funil.id} value={funil.id.toString()}>
                         {funil.funil_nome}
