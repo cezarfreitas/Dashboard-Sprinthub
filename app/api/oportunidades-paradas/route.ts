@@ -72,17 +72,17 @@ export async function GET(request: NextRequest) {
     const vendedorNome = searchParams.get('vendedor')
     const funilId = searchParams.get('funil_id')
 
-    // Se tiver unidade_id, buscar os vendedores da unidade primeiro
-    let vendedoresDaUnidade: string[] = []
+    // Se tiver unidade_id, buscar os IDs dos vendedores da unidade primeiro
+    let vendedoresIdsDaUnidade: number[] = []
     if (unidadeId && !isNaN(parseInt(unidadeId))) {
       const vendedoresResult = await executeQuery(`
-        SELECT CONCAT(name, ' ', lastName) as nome_completo
+        SELECT id
         FROM vendedores
         WHERE unidade_id = ? AND ativo = 1
-      `, [parseInt(unidadeId)]) as Array<{ nome_completo: string }>
+      `, [parseInt(unidadeId)]) as Array<{ id: number }>
       
-      vendedoresDaUnidade = vendedoresResult.map(v => v.nome_completo)
-      console.log(`🔍 Vendedores da unidade ${unidadeId}:`, vendedoresDaUnidade)
+      vendedoresIdsDaUnidade = vendedoresResult.map(v => v.id)
+      console.log(`🔍 IDs dos Vendedores da unidade ${unidadeId}:`, vendedoresIdsDaUnidade)
     }
 
     // Query base para oportunidades paradas (status 'open' e sem atualização há X dias)
@@ -92,10 +92,10 @@ export async function GET(request: NextRequest) {
       `DATEDIFF(NOW(), o.updateDate) >= ${diasMinimo}`
     ]
 
-    // Filtrar por vendedores da unidade (usando IN)
-    if (vendedoresDaUnidade.length > 0) {
-      const nomesEscapados = vendedoresDaUnidade.map(nome => `'${nome.replace(/'/g, "''")}'`).join(',')
-      whereConditions.push(`o.user IN (${nomesEscapados})`)
+    // Filtrar por vendedores da unidade (usando IN com IDs)
+    if (vendedoresIdsDaUnidade.length > 0) {
+      const idsString = vendedoresIdsDaUnidade.join(',')
+      whereConditions.push(`CAST(o.user AS UNSIGNED) IN (${idsString})`)
     }
 
     // Validar e adicionar filtro de vendedor específico (apenas se não for 'all')
@@ -120,13 +120,11 @@ export async function GET(request: NextRequest) {
         o.crm_column,
         o.updateDate as ultima_atualizacao,
         DATEDIFF(NOW(), o.updateDate) as dias_parada,
-        (SELECT COALESCE(u2.nome, u2.name, 'Sem unidade')
-         FROM vendedores v2
-         LEFT JOIN unidades u2 ON v2.unidade_id = u2.id
-         WHERE CONCAT(v2.name, ' ', v2.lastName) COLLATE utf8mb4_unicode_ci = o.user COLLATE utf8mb4_unicode_ci
-         LIMIT 1) as unidade_nome
+        COALESCE(u.nome, u.name, 'Sem unidade') as unidade_nome
       FROM oportunidades o
       LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
+      LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
+      LEFT JOIN unidades u ON v.unidade_id = u.id
       WHERE ${whereClause}
       ORDER BY dias_parada DESC
       LIMIT 100
@@ -197,7 +195,7 @@ export async function GET(request: NextRequest) {
     // 4. ALERTAS POR VENDEDOR
     const alertasVendedorRaw = await executeQuery(`
       SELECT 
-        o.user as vendedor_completo,
+        o.user as vendedor_id,
         v.name as nome,
         v.lastName as sobrenome,
         COALESCE(u.nome, u.name, 'Sem unidade') as unidade,
@@ -207,7 +205,7 @@ export async function GET(request: NextRequest) {
         MAX(DATEDIFF(NOW(), o.updateDate)) as pior_caso_dias
       FROM oportunidades o
       LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
-      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName) COLLATE utf8mb4_unicode_ci
+      LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
       LEFT JOIN unidades u ON v.unidade_id = u.id
       WHERE ${whereClause}
       GROUP BY o.user, v.name, v.lastName, u.nome, u.name
@@ -215,7 +213,7 @@ export async function GET(request: NextRequest) {
       ORDER BY total_paradas DESC, valor_em_risco DESC
       LIMIT 20
     `) as Array<{
-      vendedor_completo: string
+      vendedor_id: string
       nome: string
       sobrenome: string
       unidade: string
@@ -225,11 +223,11 @@ export async function GET(request: NextRequest) {
       pior_caso_dias: number
     }>
 
-    console.log('📊 Alertas Vendedor Raw:', JSON.stringify(alertasVendedorRaw, null, 2))
-
     const alertasVendedor: AlertaVendedor[] = alertasVendedorRaw.map(item => ({
-      vendedor: item.vendedor_completo || 'Sem vendedor',
-      nome: item.nome || item.vendedor_completo?.split(' ')[0] || 'Sem nome',
+      vendedor: item.nome && item.sobrenome 
+        ? `${item.nome} ${item.sobrenome}`
+        : `Vendedor ${item.vendedor_id}`,
+      nome: item.nome || `Vendedor ${item.vendedor_id}`,
       unidade: item.unidade || 'Sem unidade',
       total_paradas: item.total_paradas,
       valor_em_risco: parseFloat(item.valor_em_risco?.toString() || '0'),
