@@ -5,11 +5,7 @@ import { HeaderGestor } from "@/components/header_gestor"
 import { AppFooter } from "@/components/app-footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Clock, TrendingUp, AlertTriangle, Filter, X } from "lucide-react"
+import { Clock, TrendingUp, AlertTriangle } from "lucide-react"
 
 interface DistribuicaoFaixa {
   faixa: string
@@ -18,21 +14,6 @@ interface DistribuicaoFaixa {
   percentual: number
 }
 
-interface Unidade {
-  id: number
-  nome: string
-}
-
-interface Vendedor {
-  id: number
-  name: string
-  lastName: string
-}
-
-interface Funil {
-  id: number
-  funil_nome: string
-}
 
 export default function GestorOportunidadesParadasPage() {
   const [loading, setLoading] = useState(true)
@@ -45,17 +26,7 @@ export default function GestorOportunidadesParadasPage() {
   } | null>(null)
 
   // Gestor logado
-  const [gestorUnidades, setGestorUnidades] = useState<Unidade[]>([])
-
-  // Filtros
-  const [diasMinimo, setDiasMinimo] = useState('7')
-  const [unidadeSelecionada, setUnidadeSelecionada] = useState<string>('')
-  const [vendedorSelecionado, setVendedorSelecionado] = useState<string>('all')
-  const [funilSelecionado, setFunilSelecionado] = useState<string>('all')
-
-  // Listas para os selects
-  const [vendedoresFiltrados, setVendedoresFiltrados] = useState<Vendedor[]>([])
-  const [funis, setFunis] = useState<Funil[]>([])
+  const [gestorUnidadeId, setGestorUnidadeId] = useState<number | null>(null)
 
   useEffect(() => {
     // Carregar dados do gestor do localStorage
@@ -63,71 +34,29 @@ export default function GestorOportunidadesParadasPage() {
     if (gestorData) {
       try {
         const gestor = JSON.parse(gestorData)
-        const unidadesGestor = gestor.unidades || []
-        
-        if (unidadesGestor.length > 0) {
-          setGestorUnidades(unidadesGestor)
-          // Selecionar a primeira unidade por padrão
-          setUnidadeSelecionada(unidadesGestor[0].id.toString())
+        const unidadeId = gestor.unidade_principal?.id
+        if (unidadeId) {
+          setGestorUnidadeId(unidadeId)
         }
       } catch (error) {
         console.error('Erro ao carregar dados do gestor:', error)
       }
     }
-    loadFilters()
   }, [])
 
-  // Carregar vendedores quando a unidade mudar
   useEffect(() => {
-    if (unidadeSelecionada && unidadeSelecionada !== 'all') {
-      loadVendedoresPorUnidade(parseInt(unidadeSelecionada))
-    } else {
-      setVendedoresFiltrados([])
-    }
-    // Resetar vendedor selecionado quando mudar a unidade
-    setVendedorSelecionado('all')
-  }, [unidadeSelecionada])
-
-  useEffect(() => {
-    if (unidadeSelecionada) {
+    if (gestorUnidadeId !== null) {
       loadData()
     }
-  }, [diasMinimo, unidadeSelecionada, vendedorSelecionado, funilSelecionado])
-
-  const loadFilters = async () => {
-    try {
-      const funisRes = await fetch('/api/funis')
-      const funisData = await funisRes.json()
-      
-      if (funisData.success) setFunis(funisData.funis || [])
-    } catch (error) {
-      console.error('Erro ao carregar filtros:', error)
-    }
-  }
-
-  const loadVendedoresPorUnidade = async (unidadeId: number) => {
-    try {
-      const response = await fetch(`/api/vendedores?unidade_id=${unidadeId}`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setVendedoresFiltrados(data.vendedores || [])
-      }
-    } catch (error) {
-      console.error('Erro ao carregar vendedores:', error)
-      setVendedoresFiltrados([])
-    }
-  }
+  }, [gestorUnidadeId])
 
   const loadData = async () => {
     try {
       setLoading(true)
       
       const params = new URLSearchParams()
-      params.append('dias', diasMinimo)
-      if (unidadeSelecionada && unidadeSelecionada !== 'all') params.append('unidade_id', unidadeSelecionada)
-      if (vendedorSelecionado && vendedorSelecionado !== 'all') params.append('vendedor', vendedorSelecionado)
-      if (funilSelecionado && funilSelecionado !== 'all') params.append('funil_id', funilSelecionado)
+      params.append('dias', '7')
+      if (gestorUnidadeId) params.append('unidade_id', gestorUnidadeId.toString())
 
       const response = await fetch(`/api/oportunidades-paradas?${params.toString()}`)
       const data = await response.json()
@@ -141,16 +70,6 @@ export default function GestorOportunidadesParadasPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const limparFiltros = () => {
-    setDiasMinimo('7')
-    // Voltar para a primeira unidade do gestor
-    if (gestorUnidades.length > 0) {
-      setUnidadeSelecionada(gestorUnidades[0].id.toString())
-    }
-    setVendedorSelecionado('all')
-    setFunilSelecionado('all')
   }
 
   const getFaixaColor = (faixa: string) => {
@@ -192,111 +111,6 @@ export default function GestorOportunidadesParadasPage() {
             Análise de oportunidades sem atualização nos últimos dias
           </p>
         </div>
-
-        {/* Filtros */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                <CardTitle>Filtros</CardTitle>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={limparFiltros}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Limpar Filtros
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Unidade */}
-              <div className="space-y-2">
-                <Label htmlFor="unidade">Unidade</Label>
-                <Select value={unidadeSelecionada} onValueChange={setUnidadeSelecionada}>
-                  <SelectTrigger id="unidade">
-                    <SelectValue placeholder="Selecione a unidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {gestorUnidades.map((unidade) => (
-                      <SelectItem key={unidade.id} value={unidade.id.toString()}>
-                        {unidade.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Dias Mínimo */}
-              <div className="space-y-2">
-                <Label htmlFor="dias">Dias Parado (mínimo)</Label>
-                <Select value={diasMinimo} onValueChange={setDiasMinimo}>
-                  <SelectTrigger id="dias">
-                    <SelectValue placeholder="Selecione os dias" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1+ dias</SelectItem>
-                    <SelectItem value="3">3+ dias</SelectItem>
-                    <SelectItem value="7">7+ dias</SelectItem>
-                    <SelectItem value="15">15+ dias</SelectItem>
-                    <SelectItem value="30">30+ dias</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Vendedor */}
-              <div className="space-y-2">
-                <Label htmlFor="vendedor">Vendedor</Label>
-                <Select 
-                  value={vendedorSelecionado} 
-                  onValueChange={setVendedorSelecionado}
-                  disabled={vendedoresFiltrados.length === 0}
-                >
-                  <SelectTrigger id="vendedor">
-                    <SelectValue placeholder={
-                      vendedoresFiltrados.length === 0 
-                        ? "Selecione uma unidade primeiro" 
-                        : "Todos os vendedores"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {vendedoresFiltrados.map((vendedor) => (
-                      <SelectItem 
-                        key={vendedor.id} 
-                        value={`${vendedor.name} ${vendedor.lastName}`}
-                      >
-                        {vendedor.name} {vendedor.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Funil */}
-              <div className="space-y-2">
-                <Label htmlFor="funil">Funil</Label>
-                <Select value={funilSelecionado} onValueChange={setFunilSelecionado}>
-                  <SelectTrigger id="funil">
-                    <SelectValue placeholder="Todos os funis" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {funis.map((funil) => (
-                      <SelectItem key={funil.id} value={funil.id.toString()}>
-                        {funil.funil_nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
