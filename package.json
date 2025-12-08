@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/generate-version.js && next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0",
     "lint": "next lint",
     "setup-db": "tsx scripts/setup-database.ts",
     "setup-usuarios": "tsx scripts/setup-usuarios-sistema.ts",
