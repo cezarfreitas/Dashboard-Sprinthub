@@ -15,6 +15,13 @@ interface Vendedor {
   unidade_nome: string | null
   ativo: boolean
   status: string
+  birthDate: string | null
+  branch: string | null
+  position_company: string | null
+  state: string | null
+  city: string | null
+  last_login: string | null
+  last_action: string | null
 }
 
 export async function GET(request: NextRequest) {
@@ -25,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     console.log('📋 Lista Vendedores - Parâmetros:', { unidadeId, ativo })
 
-    // 1. BUSCAR VENDEDORES
+    // 1. BUSCAR VENDEDORES (seguindo schema do banco.sql)
     let queryVendedores = `
       SELECT 
         v.id,
@@ -38,7 +45,14 @@ export async function GET(request: NextRequest) {
         v.unidade_id,
         COALESCE(u.nome, u.name) as unidade_nome,
         v.ativo,
-        v.status
+        v.status,
+        v.birthDate,
+        v.branch,
+        v.position_company,
+        v.state,
+        v.city,
+        v.last_login,
+        v.last_action
       FROM vendedores v
       LEFT JOIN unidades u ON v.unidade_id = u.id
       WHERE 1=1
@@ -67,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ ${vendedores.length} vendedores encontrados`)
 
-    // 2. BUSCAR UNIDADES COM VENDEDORES
+    // 2. BUSCAR UNIDADES COM VENDEDORES (seguindo schema do banco.sql)
     const unidadeIds = [...new Set(vendedores.map(v => v.unidade_id).filter(id => id !== null))]
     
     let unidades: any[] = []
@@ -77,14 +91,18 @@ export async function GET(request: NextRequest) {
           u.id,
           COALESCE(u.nome, u.name) as nome,
           u.responsavel,
-          u.ativo,
+          u.name as name,
           u.grupo_id,
-          COUNT(v.id) as total_vendedores,
+          u.department_id,
+          u.ativo,
+          u.dpto_gestao,
+          u.user_gestao,
+          COUNT(DISTINCT v.id) as total_vendedores,
           SUM(CASE WHEN v.ativo = 1 THEN 1 ELSE 0 END) as vendedores_ativos
         FROM unidades u
-        LEFT JOIN vendedores v ON v.unidade_id = u.id
+        LEFT JOIN vendedores v ON v.unidade_id = u.id AND v.ativo = 1
         WHERE u.id IN (${unidadeIds.join(',')})
-        GROUP BY u.id, u.nome, u.name, u.responsavel, u.ativo, u.grupo_id
+        GROUP BY u.id, u.nome, u.name, u.responsavel, u.ativo, u.grupo_id, u.department_id, u.dpto_gestao, u.user_gestao
         ORDER BY COALESCE(u.nome, u.name)
       `
       
