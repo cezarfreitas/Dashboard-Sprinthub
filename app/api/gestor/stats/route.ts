@@ -100,16 +100,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Estatísticas gerais da equipe
-    // Contar criadas (baseado em createDate)
+    // Contar criadas (baseado em createDate) - GMT-3
     const criadas = await executeQuery(`
       SELECT COUNT(*) as total
       FROM oportunidades o
       WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
-        AND DATE(o.createDate) >= DATE(?)
-        AND DATE(o.createDate) <= DATE(?)
+        AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) >= DATE(?)
+        AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) <= DATE(?)
     `, [primeiraDataMes, ultimaDataMes]) as any[]
     
-    // Contar ganhas (baseado em gain_date)
+    // Contar ganhas (baseado em gain_date) - GMT-3
     const ganhas = await executeQuery(`
       SELECT 
         COUNT(*) as total,
@@ -117,28 +117,28 @@ export async function GET(request: NextRequest) {
       FROM oportunidades o
       WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
         AND o.status = 'gain'
-        AND DATE(o.gain_date) >= DATE(?)
-        AND DATE(o.gain_date) <= DATE(?)
+        AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) >= DATE(?)
+        AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) <= DATE(?)
     `, [primeiraDataMes, ultimaDataMes]) as any[]
     
-    // Contar perdidas (baseado em lost_date)
+    // Contar perdidas (baseado em lost_date) - GMT-3
     const perdidas = await executeQuery(`
       SELECT COUNT(*) as total
       FROM oportunidades o
       WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
         AND o.status = 'lost'
-        AND DATE(o.lost_date) >= DATE(?)
-        AND DATE(o.lost_date) <= DATE(?)
+        AND DATE(CONVERT_TZ(o.lost_date, '+00:00', '-03:00')) >= DATE(?)
+        AND DATE(CONVERT_TZ(o.lost_date, '+00:00', '-03:00')) <= DATE(?)
     `, [primeiraDataMes, ultimaDataMes]) as any[]
     
-    // Contar abertas (criadas no período e ainda abertas)
+    // Contar abertas (criadas no período e ainda abertas) - GMT-3
     const abertas = await executeQuery(`
       SELECT COUNT(*) as total
       FROM oportunidades o
       WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
         AND o.status IN ('open', 'aberta', 'active')
-        AND DATE(o.createDate) >= DATE(?)
-        AND DATE(o.createDate) <= DATE(?)
+        AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) >= DATE(?)
+        AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) <= DATE(?)
     `, [primeiraDataMes, ultimaDataMes]) as any[]
     
     const stats = [{
@@ -152,16 +152,16 @@ export async function GET(request: NextRequest) {
     // Estatísticas por vendedor
     const vendedoresStats = await Promise.all(
       vendedores.map(async (vendedor) => {
-        // Criadas (baseado em createDate)
+        // Criadas (baseado em createDate) - GMT-3
         const criadasVendedor = await executeQuery(`
           SELECT COUNT(*) as total
           FROM oportunidades o
           WHERE o.user = ?
-            AND DATE(o.createDate) >= DATE(?)
-            AND DATE(o.createDate) <= DATE(?)
+            AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) >= DATE(?)
+            AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) <= DATE(?)
         `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
         
-        // Ganhas (baseado em gain_date)
+        // Ganhas (baseado em gain_date) - GMT-3
         const ganhasVendedor = await executeQuery(`
           SELECT 
             COUNT(*) as total,
@@ -169,28 +169,28 @@ export async function GET(request: NextRequest) {
           FROM oportunidades o
           WHERE o.user = ?
             AND o.status = 'gain'
-            AND DATE(o.gain_date) >= DATE(?)
-            AND DATE(o.gain_date) <= DATE(?)
+            AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) >= DATE(?)
+            AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) <= DATE(?)
         `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
         
-        // Perdidas (baseado em lost_date)
+        // Perdidas (baseado em lost_date) - GMT-3
         const perdidasVendedor = await executeQuery(`
           SELECT COUNT(*) as total
           FROM oportunidades o
           WHERE o.user = ?
             AND o.status = 'lost'
-            AND DATE(o.lost_date) >= DATE(?)
-            AND DATE(o.lost_date) <= DATE(?)
+            AND DATE(CONVERT_TZ(o.lost_date, '+00:00', '-03:00')) >= DATE(?)
+            AND DATE(CONVERT_TZ(o.lost_date, '+00:00', '-03:00')) <= DATE(?)
         `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
         
-        // Abertas (criadas no período e ainda abertas)
+        // Abertas (criadas no período e ainda abertas) - GMT-3
         const abertasVendedor = await executeQuery(`
           SELECT COUNT(*) as total
           FROM oportunidades o
           WHERE o.user = ?
             AND o.status IN ('open', 'aberta', 'active')
-            AND DATE(o.createDate) >= DATE(?)
-            AND DATE(o.createDate) <= DATE(?)
+            AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) >= DATE(?)
+            AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) <= DATE(?)
         `, [vendedor.id, primeiraDataMes, ultimaDataMes]) as any[]
 
         // Buscar meta do vendedor
@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
     // Buscar meta total da unidade
     const metaTotal = vendedoresStats.reduce((acc, v) => acc + v.meta, 0)
 
-    // Buscar distribuição por etapas do funil
+    // Buscar distribuição por etapas do funil - GMT-3
     const etapasFunil = await executeQuery(`
       SELECT 
         cf.id,
@@ -232,8 +232,8 @@ export async function GET(request: NextRequest) {
       FROM oportunidades o
       JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE CAST(o.user AS UNSIGNED) IN (${vendedorIds.join(',')})
-        AND DATE(o.createDate) >= DATE(?)
-        AND DATE(o.createDate) <= DATE(?)
+        AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) >= DATE(?)
+        AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) <= DATE(?)
         AND o.status IN ('open', 'aberta', 'active')
       GROUP BY cf.id, cf.nome, cf.ordem
       ORDER BY cf.ordem

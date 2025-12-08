@@ -163,12 +163,12 @@ export async function GET(request: NextRequest) {
     if (crmColumnExists.length === 0) {
       console.log('🔍 [FUNIL API] Campo crm_column não existe, usando distribuição por posição')
     } else {
-      // Debug: Verificar valores únicos de crm_column
+      // Debug: Verificar valores únicos de crm_column - GMT-3
       const crmColumns = await executeQuery(`
         SELECT DISTINCT crm_column, COUNT(*) as count 
         FROM oportunidades 
-        WHERE MONTH(createDate) = ? 
-        AND YEAR(createDate) = ?
+        WHERE MONTH(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ? 
+        AND YEAR(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ?
         GROUP BY crm_column
       `, [mes, ano]) as Array<{crm_column: string, count: number}>
       
@@ -177,15 +177,15 @@ export async function GET(request: NextRequest) {
     
     console.log('🔍 [FUNIL API] Colunas do funil:', colunas.map(c => `${c.id}: ${c.nome_coluna}`))
 
-    // DEBUG: Verificar total de oportunidades no período
+    // DEBUG: Verificar total de oportunidades no período - GMT-3
     let debugTotalQuery = `SELECT COUNT(*) as total FROM oportunidades WHERE 1=1`
     let debugTotalParams: any[] = []
     
     if (dataInicio && dataFim) {
-      debugTotalQuery += ` AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+      debugTotalQuery += ` AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) >= ? AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) <= ?`
       debugTotalParams.push(dataInicio, dataFim)
     } else {
-      debugTotalQuery += ` AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+      debugTotalQuery += ` AND MONTH(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ?`
       debugTotalParams.push(mes, ano)
     }
     
@@ -217,15 +217,15 @@ export async function GET(request: NextRequest) {
         const teste1 = await executeQuery(`SELECT COUNT(*) as total FROM oportunidades`) as any[]
         console.log(`🔍 [TESTE 1] Total de oportunidades na base (SEM FILTROS):`, teste1[0]?.total)
         
-        // === TESTE 2: Filtrar por período ===
+        // === TESTE 2: Filtrar por período - GMT-3 ===
         let queryTeste2 = `SELECT COUNT(*) as total FROM oportunidades WHERE 1=1`
         let paramsTeste2: any[] = []
         
         if (dataInicio && dataFim) {
-          queryTeste2 += ` AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+          queryTeste2 += ` AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) >= ? AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) <= ?`
           paramsTeste2.push(dataInicio, dataFim)
         } else {
-          queryTeste2 += ` AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+          queryTeste2 += ` AND MONTH(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ?`
           paramsTeste2.push(mes, ano)
         }
         
@@ -261,12 +261,12 @@ export async function GET(request: NextRequest) {
         const teste4 = await executeQuery(queryAbertas, paramsTeste2) as any[]
         console.log(`🔍 [TESTE 4] Com filtro de status (abertas):`, teste4[0]?.total)
         
-        // Resultado final
+        // Resultado final - GMT-3
         oportunidadesAbertas = await executeQuery(`
           SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor_total
           FROM oportunidades 
           WHERE status NOT IN ('gain', 'lost') 
-          ${dataInicio && dataFim ? 'AND DATE(createDate) >= ? AND DATE(createDate) <= ?' : 'AND MONTH(createDate) = ? AND YEAR(createDate) = ?'}
+          ${dataInicio && dataFim ? 'AND DATE(CONVERT_TZ(createDate, \'+00:00\', \'-03:00\')) >= ? AND DATE(CONVERT_TZ(createDate, \'+00:00\', \'-03:00\')) <= ?' : 'AND MONTH(CONVERT_TZ(createDate, \'+00:00\', \'-03:00\')) = ? AND YEAR(CONVERT_TZ(createDate, \'+00:00\', \'-03:00\')) = ?'}
           ${unidadeId ? 'AND CAST(user AS UNSIGNED) IN (SELECT v.id FROM vendedores v WHERE v.unidade_id = ?)' : ''}
         `, unidadeId ? [...paramsTeste2.slice(0, dataInicio && dataFim ? 2 : 2), unidadeId] : paramsTeste2) as Array<{count: number, valor_total: number}>
         
@@ -279,16 +279,16 @@ export async function GET(request: NextRequest) {
           oportunidadesGanhas = [{ count: 0, valor_total: 0 }]
           oportunidadesPerdidas = [{ count: 0, valor_total: 0 }]
         } else {
-          // Construir filtros para fallback
+          // Construir filtros para fallback - GMT-3
           let whereClause = `status = ?`
           let queryParams: any[] = ['open']
           
           // Usar dataInicio/dataFim se fornecidos, senão usar mês/ano
           if (dataInicio && dataFim) {
-            whereClause += ` AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+            whereClause += ` AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) >= ? AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) <= ?`
             queryParams.push(dataInicio, dataFim)
           } else {
-            whereClause += ` AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+            whereClause += ` AND MONTH(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ?`
             queryParams.push(mes, ano)
           }
           
@@ -364,18 +364,18 @@ export async function GET(request: NextRequest) {
     let totalPerdidosParams: any[] = []
     
     if (dataInicio && dataFim) {
-      totalCriadosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE DATE(createDate) >= ? AND DATE(createDate) <= ?`
+      totalCriadosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) >= ? AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) <= ?`
       totalCriadosParams = [dataInicio, dataFim]
-      totalGanhosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'gain' AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+      totalGanhosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'gain' AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) >= ? AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) <= ?`
       totalGanhosParams = [dataInicio, dataFim]
-      totalPerdidosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'lost' AND DATE(createDate) >= ? AND DATE(createDate) <= ?`
+      totalPerdidosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'lost' AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) >= ? AND DATE(CONVERT_TZ(createDate, '+00:00', '-03:00')) <= ?`
       totalPerdidosParams = [dataInicio, dataFim]
     } else {
-      totalCriadosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE MONTH(createDate) = ? AND YEAR(createDate) = ?`
+      totalCriadosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE MONTH(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ?`
       totalCriadosParams = [mes, ano]
-      totalGanhosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'gain' AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+      totalGanhosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'gain' AND MONTH(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ?`
       totalGanhosParams = [mes, ano]
-      totalPerdidosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'lost' AND MONTH(createDate) = ? AND YEAR(createDate) = ?`
+      totalPerdidosQuery = `SELECT COUNT(*) as count, COALESCE(SUM(value), 0) as valor FROM oportunidades WHERE status = 'lost' AND MONTH(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(createDate, '+00:00', '-03:00')) = ?`
       totalPerdidosParams = [mes, ano]
     }
     

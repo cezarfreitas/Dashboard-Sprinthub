@@ -536,14 +536,14 @@ export async function GET(request: NextRequest) {
     let groupByClause = ''
     let needsFunilJoin = groupBy === 'funil'
     
-    // Agrupamento opcional
+    // Agrupamento opcional - GMT-3
     if (groupBy) {
       if (groupBy === 'day') {
-        selectClause += `, DATE(o.createDate) as periodo`
-        groupByClause = 'GROUP BY DATE(o.createDate) ORDER BY periodo'
+        selectClause += `, DATE(${convertTZToSaoPaulo('o.createDate')}) as periodo`
+        groupByClause = `GROUP BY DATE(${convertTZToSaoPaulo('o.createDate')}) ORDER BY periodo`
       } else if (groupBy === 'month') {
-        selectClause += `, DATE_FORMAT(o.createDate, '%Y-%m') as periodo`
-        groupByClause = 'GROUP BY DATE_FORMAT(o.createDate, "%Y-%m") ORDER BY periodo'
+        selectClause += `, DATE_FORMAT(${convertTZToSaoPaulo('o.createDate')}, '%Y-%m') as periodo`
+        groupByClause = `GROUP BY DATE_FORMAT(${convertTZToSaoPaulo('o.createDate')}, "%Y-%m") ORDER BY periodo`
       } else if (groupBy === 'status') {
         selectClause += `, 
           CASE 
