@@ -24,6 +24,8 @@ interface DistribuicaoFaixa {
 
 interface AlertaVendedor {
   vendedor: string
+  nome: string
+  unidade: string
   total_paradas: number
   valor_em_risco: number
   media_dias_parados: number
@@ -196,6 +198,15 @@ export async function GET(request: NextRequest) {
     const alertasVendedorRaw = await executeQuery(`
       SELECT 
         o.user as vendedor,
+        (SELECT v2.name
+         FROM vendedores v2
+         WHERE CONCAT(v2.name, ' ', v2.lastName) COLLATE utf8mb4_unicode_ci = o.user COLLATE utf8mb4_unicode_ci
+         LIMIT 1) as nome,
+        (SELECT COALESCE(u2.nome, u2.name, 'Sem unidade')
+         FROM vendedores v2
+         LEFT JOIN unidades u2 ON v2.unidade_id = u2.id
+         WHERE CONCAT(v2.name, ' ', v2.lastName) COLLATE utf8mb4_unicode_ci = o.user COLLATE utf8mb4_unicode_ci
+         LIMIT 1) as unidade,
         COUNT(*) as total_paradas,
         SUM(o.value) as valor_em_risco,
         AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias_parados,
@@ -209,6 +220,8 @@ export async function GET(request: NextRequest) {
       LIMIT 20
     `) as Array<{
       vendedor: string
+      nome: string
+      unidade: string
       total_paradas: number
       valor_em_risco: number
       media_dias_parados: number
@@ -217,6 +230,8 @@ export async function GET(request: NextRequest) {
 
     const alertasVendedor: AlertaVendedor[] = alertasVendedorRaw.map(item => ({
       vendedor: item.vendedor || 'Sem vendedor',
+      nome: item.nome || item.vendedor?.split(' ')[0] || 'Sem nome',
+      unidade: item.unidade || 'Sem unidade',
       total_paradas: item.total_paradas,
       valor_em_risco: parseFloat(item.valor_em_risco?.toString() || '0'),
       media_dias_parados: Math.round(item.media_dias_parados),

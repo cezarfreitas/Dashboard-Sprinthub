@@ -16,6 +16,8 @@ interface DistribuicaoFaixa {
 
 interface AlertaVendedor {
   vendedor: string
+  nome: string
+  unidade: string
   total_paradas: number
   valor_em_risco: number
   media_dias_parados: number
@@ -203,9 +205,12 @@ export default function GestorOportunidadesParadasPage() {
                     {alertasVendedor.map((alerta, index) => (
                       <Card key={index} className="border-l-4 border-l-orange-500">
                         <CardHeader className="pb-3">
-                          <CardTitle className="text-base font-semibold truncate">
-                            {alerta.vendedor}
+                          <CardTitle className="text-base font-semibold">
+                            {alerta.nome}
                           </CardTitle>
+                          <CardDescription className="text-xs">
+                            {alerta.unidade}
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div className="flex items-center justify-between">
