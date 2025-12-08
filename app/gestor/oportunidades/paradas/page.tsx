@@ -68,6 +68,9 @@ export default function GestorOportunidadesParadasPage() {
       params.append('dias', '7')
       if (gestorUnidadeId) params.append('unidade_id', gestorUnidadeId.toString())
 
+      console.log('🚀 Enviando request com gestorUnidadeId:', gestorUnidadeId)
+      console.log('🚀 URL completa:', `/api/oportunidades-paradas?${params.toString()}`)
+
       const response = await fetch(`/api/oportunidades-paradas?${params.toString()}`)
       const data = await response.json()
       

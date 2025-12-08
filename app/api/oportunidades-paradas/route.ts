@@ -71,6 +71,13 @@ export async function GET(request: NextRequest) {
     const unidadeId = searchParams.get('unidade_id')
     const vendedorNome = searchParams.get('vendedor')
     const funilId = searchParams.get('funil_id')
+    
+    console.log('🔍 Parâmetros recebidos:', {
+      diasMinimo,
+      unidadeId,
+      vendedorNome,
+      funilId
+    })
 
     // Se tiver unidade_id, buscar os IDs dos vendedores da unidade primeiro
     let vendedoresIdsDaUnidade: number[] = []
@@ -83,6 +90,31 @@ export async function GET(request: NextRequest) {
       
       vendedoresIdsDaUnidade = vendedoresResult.map(v => v.id)
       console.log(`🔍 IDs dos Vendedores da unidade ${unidadeId}:`, vendedoresIdsDaUnidade)
+      
+      // Se não houver vendedores na unidade, retornar resultado vazio
+      if (vendedoresIdsDaUnidade.length === 0) {
+        return NextResponse.json({
+          success: true,
+          filtros: { dias_minimo: diasMinimo, unidade_id: unidadeId },
+          resumo: {
+            total_oportunidades: 0,
+            valor_total: 0,
+            valor_medio: 0,
+            media_dias_parados: 0,
+            max_dias_parados: 0
+          },
+          estatisticas: {
+            total_vendedores_com_paradas: 0,
+            total_unidades_afetadas: 0,
+            oportunidades_criticas: 0,
+            taxa_criticidade: 0
+          },
+          oportunidades: [],
+          distribuicao: [],
+          alertas_vendedor: [],
+          heatmap: []
+        })
+      }
     }
 
     // Query base para oportunidades paradas (status 'open' e sem atualização há X dias)
@@ -92,10 +124,13 @@ export async function GET(request: NextRequest) {
       `DATEDIFF(NOW(), o.updateDate) >= ${diasMinimo}`
     ]
 
-    // Filtrar por vendedores da unidade (usando IN com IDs)
+    // SEMPRE filtrar por vendedores da unidade (OBRIGATÓRIO se tiver unidade_id)
     if (vendedoresIdsDaUnidade.length > 0) {
       const idsString = vendedoresIdsDaUnidade.join(',')
       whereConditions.push(`CAST(o.user AS UNSIGNED) IN (${idsString})`)
+    } else if (unidadeId) {
+      // Se foi passado unidade_id mas não tem vendedores, não retornar nada
+      whereConditions.push('1 = 0')
     }
 
     // Validar e adicionar filtro de vendedor específico (apenas se não for 'all')
