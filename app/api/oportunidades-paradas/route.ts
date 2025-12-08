@@ -70,6 +70,19 @@ export async function GET(request: NextRequest) {
     const vendedorNome = searchParams.get('vendedor')
     const funilId = searchParams.get('funil_id')
 
+    // Se tiver unidade_id, buscar os vendedores da unidade primeiro
+    let vendedoresDaUnidade: string[] = []
+    if (unidadeId && !isNaN(parseInt(unidadeId))) {
+      const vendedoresResult = await executeQuery(`
+        SELECT CONCAT(name, ' ', lastName) as nome_completo
+        FROM vendedores
+        WHERE unidade_id = ? AND ativo = 1
+      `, [parseInt(unidadeId)]) as Array<{ nome_completo: string }>
+      
+      vendedoresDaUnidade = vendedoresResult.map(v => v.nome_completo)
+      console.log(`🔍 Vendedores da unidade ${unidadeId}:`, vendedoresDaUnidade)
+    }
+
     // Query base para oportunidades paradas (status 'open' e sem atualização há X dias)
     let whereConditions = [
       "o.status = 'open'",
@@ -77,12 +90,13 @@ export async function GET(request: NextRequest) {
       `DATEDIFF(NOW(), o.updateDate) >= ${diasMinimo}`
     ]
 
-    // Validar e adicionar filtro de unidade (apenas se for um número válido)
-    if (unidadeId && !isNaN(parseInt(unidadeId))) {
-      whereConditions.push(`v.unidade_id = ${parseInt(unidadeId)}`)
+    // Filtrar por vendedores da unidade (usando IN)
+    if (vendedoresDaUnidade.length > 0) {
+      const nomesEscapados = vendedoresDaUnidade.map(nome => `'${nome.replace(/'/g, "''")}'`).join(',')
+      whereConditions.push(`o.user IN (${nomesEscapados})`)
     }
 
-    // Validar e adicionar filtro de vendedor (apenas se não for 'all')
+    // Validar e adicionar filtro de vendedor específico (apenas se não for 'all')
     if (vendedorNome && vendedorNome !== 'all') {
       whereConditions.push(`o.user LIKE '%${vendedorNome}%'`)
     }
@@ -104,10 +118,12 @@ export async function GET(request: NextRequest) {
         o.crm_column,
         o.updateDate as ultima_atualizacao,
         DATEDIFF(NOW(), o.updateDate) as dias_parada,
-        COALESCE(u.nome, u.name, 'Sem unidade') as unidade_nome
+        (SELECT COALESCE(u2.nome, u2.name, 'Sem unidade')
+         FROM vendedores v2
+         LEFT JOIN unidades u2 ON v2.unidade_id = u2.id
+         WHERE CONCAT(v2.name, ' ', v2.lastName) COLLATE utf8mb4_unicode_ci = o.user COLLATE utf8mb4_unicode_ci
+         LIMIT 1) as unidade_nome
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
-      LEFT JOIN unidades u ON v.unidade_id = u.id
       LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
       ORDER BY dias_parada DESC
@@ -126,7 +142,6 @@ export async function GET(request: NextRequest) {
         COUNT(*) as quantidade,
         SUM(o.value) as valor_total
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
       GROUP BY faixa
@@ -159,7 +174,6 @@ export async function GET(request: NextRequest) {
         AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias_parados,
         MAX(DATEDIFF(NOW(), o.updateDate)) as max_dias_parados
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
     `) as Array<{
@@ -187,7 +201,6 @@ export async function GET(request: NextRequest) {
         AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias_parados,
         MAX(DATEDIFF(NOW(), o.updateDate)) as pior_caso_dias
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
       GROUP BY o.user
@@ -214,16 +227,18 @@ export async function GET(request: NextRequest) {
     const heatmapRaw = await executeQuery(`
       SELECT 
         o.user as vendedor,
-        COALESCE(u.nome, u.name, 'Sem unidade') as unidade,
+        (SELECT COALESCE(u2.nome, u2.name, 'Sem unidade')
+         FROM vendedores v2
+         LEFT JOIN unidades u2 ON v2.unidade_id = u2.id
+         WHERE CONCAT(v2.name, ' ', v2.lastName) COLLATE utf8mb4_unicode_ci = o.user COLLATE utf8mb4_unicode_ci
+         LIMIT 1) as unidade,
         COUNT(*) as quantidade,
         SUM(o.value) as valor,
         AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
-      LEFT JOIN unidades u ON v.unidade_id = u.id
       LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
-      GROUP BY o.user, u.id
+      GROUP BY o.user
       HAVING quantidade >= 2
       ORDER BY media_dias DESC, quantidade DESC
       LIMIT 50
