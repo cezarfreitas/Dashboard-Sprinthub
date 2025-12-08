@@ -12,6 +12,8 @@ import {
   Menu,
   X,
   Users,
+  Clock,
+  ChevronDown,
 } from "lucide-react"
 import {
   Popover,
@@ -204,6 +206,34 @@ export function HeaderGestor({
                 Fila de Atendimento
               </Button>
             </Link>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none hidden md:flex",
+                    pathname.startsWith('/gestor/oportunidades') && "bg-primary-foreground/10 text-primary-foreground"
+                  )}
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  Oportunidades
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-1 bg-primary border-primary-foreground/20">
+                <div className="space-y-1">
+                  <Link
+                    href="/gestor/oportunidades/paradas"
+                    className={cn(
+                      "flex items-center px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground cursor-pointer",
+                      pathname === '/gestor/oportunidades/paradas' && "bg-primary-foreground/10 text-primary-foreground"
+                    )}
+                  >
+                    Paradas
+                  </Link>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
 
