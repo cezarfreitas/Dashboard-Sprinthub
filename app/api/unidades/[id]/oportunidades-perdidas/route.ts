@@ -110,16 +110,40 @@ export async function GET(
       queryParams.push(parseInt(funilId))
     }
 
-    // Buscar oportunidades perdidas
+    // Buscar oportunidades perdidas - TODOS os campos incluindo JSONs
     const oportunidades = await executeQuery(`
       SELECT 
         o.id,
         o.title as nome,
         o.value as valor,
-        o.createDate as data_criacao,
+        o.crm_column,
+        o.lead_id,
+        o.sequence,
+        o.status,
+        o.loss_reason,
+        o.gain_reason,
+        o.expectedCloseDate,
+        o.sale_channel,
+        o.campaign,
+        o.user as vendedor_id,
+        o.last_column_change,
+        o.last_status_change,
+        o.gain_date,
         o.lost_date as data_perda,
-        COALESCE(mp.motivo, o.loss_reason) as motivo_perda,
-        o.user as vendedor_id
+        o.reopen_date,
+        o.await_column_approved,
+        o.await_column_approved_user,
+        o.reject_appro,
+        o.reject_appro_desc,
+        o.conf_installment,
+        o.fields,
+        o.dataLead,
+        o.createDate as data_criacao,
+        o.updateDate,
+        o.archived,
+        o.created_at,
+        o.coluna_funil_id,
+        COALESCE(mp.motivo, o.loss_reason) as motivo_perda
       FROM oportunidades o
       LEFT JOIN motivos_de_perda mp ON (
         o.loss_reason IS NOT NULL 
@@ -162,7 +186,7 @@ export async function GET(
           : 'Sem vendedor'
         
         return {
-          id: op.id,
+          ...op,
           nome: op.nome,
           valor: Number(op.valor) || 0,
           data: op.data_perda,

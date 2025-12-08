@@ -281,12 +281,11 @@ export async function GET(request: NextRequest) {
         )
     }
 
-    // Filtro de data (usando DATE() para garantir comparação apenas por data, sem hora)
-    // Usar as datas validadas e corrigidas
-    // IMPORTANTE: Usar CAST para garantir que a comparação seja feita corretamente
-    whereClauses.push(`DATE(${campoData}) >= CAST(? AS DATE)`)
+    // Filtro de data usando GMT-3 (America/Sao_Paulo)
+    // Converte a data do banco (UTC) para GMT-3 antes de comparar
+    whereClauses.push(`DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) >= CAST(? AS DATE)`)
     queryParams.push(dataInicioValida)
-    whereClauses.push(`DATE(${campoData}) <= CAST(? AS DATE)`)
+    whereClauses.push(`DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) <= CAST(? AS DATE)`)
     queryParams.push(dataFimValida)
 
     // Filtro de unidades
@@ -335,32 +334,32 @@ export async function GET(request: NextRequest) {
     // Campos adicionais baseado no tipo
     const campoValor = tipo === 'ganhas' || tipo === 'perdidas' ? ', COALESCE(SUM(o.value), 0) as valor_total' : ''
 
-    // Query para agrupar por dia
+    // Query para agrupar por dia (usando timezone GMT-3)
     const query = `
       SELECT 
-        DATE(${campoData}) as data,
-        DAY(${campoData}) as dia,
-        MONTH(${campoData}) as mes,
-        YEAR(${campoData}) as ano,
+        DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as data,
+        DAY(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as dia,
+        MONTH(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as mes,
+        YEAR(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as ano,
         COUNT(*) as total
         ${campoValor}
       FROM oportunidades o
       ${whereClause}
-      GROUP BY DATE(${campoData}), DAY(${campoData}), MONTH(${campoData}), YEAR(${campoData})
+      GROUP BY DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), DAY(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), MONTH(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), YEAR(CONVERT_TZ(${campoData}, '+00:00', '-03:00'))
       ORDER BY data ASC
     `
 
     const resultados = await executeQuery(query, queryParams) as any[]
 
-    // Query para agrupar por dia E por vendedor (apenas se all=1)
+    // Query para agrupar por dia E por vendedor (apenas se all=1) - usando timezone GMT-3
     let resultadosPorVendedor: any[] = []
     if (allParam) {
       const queryPorVendedor = `
         SELECT 
-          DATE(${campoData}) as data,
-          DAY(${campoData}) as dia,
-          MONTH(${campoData}) as mes,
-          YEAR(${campoData}) as ano,
+          DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as data,
+          DAY(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as dia,
+          MONTH(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as mes,
+          YEAR(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as ano,
           CAST(o.user AS UNSIGNED) as vendedor_id,
           COALESCE(CONCAT(v.name, ' ', v.lastName), CONCAT(v.name, ''), 'Sem vendedor') as vendedor_nome,
           COUNT(*) as total
@@ -368,7 +367,7 @@ export async function GET(request: NextRequest) {
         FROM oportunidades o
         LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
         ${whereClause}
-        GROUP BY DATE(${campoData}), DAY(${campoData}), MONTH(${campoData}), YEAR(${campoData}), CAST(o.user AS UNSIGNED), v.name, v.lastName
+        GROUP BY DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), DAY(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), MONTH(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), YEAR(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), CAST(o.user AS UNSIGNED), v.name, v.lastName
         ORDER BY data ASC, vendedor_nome ASC
       `
 

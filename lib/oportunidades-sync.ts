@@ -5,6 +5,8 @@ class RateLimiter {
   private requests: number[] = []
   private maxRequests: number
   private windowMs: number
+  private totalRequests: number = 0
+  private totalWaits: number = 0
 
   constructor(maxRequests: number = 50, windowMs: number = 60000) {
     this.maxRequests = maxRequests
@@ -23,7 +25,8 @@ class RateLimiter {
       const waitTime = this.windowMs - (now - oldestRequest) + 100 // +100ms de margem
       
       if (waitTime > 0) {
-        console.log(`⏳ Rate limit atingido (${this.maxRequests} req/min). Aguardando ${Math.ceil(waitTime / 1000)}s...`)
+        this.totalWaits++
+        console.log(`⏳ Rate limit atingido (${this.maxRequests} req/min). Aguardando ${Math.ceil(waitTime / 1000)}s... [Total de esperas: ${this.totalWaits}]`)
         await new Promise(resolve => setTimeout(resolve, waitTime))
         // Limpar novamente após esperar
         const newNow = Date.now()
@@ -33,6 +36,28 @@ class RateLimiter {
     
     // Registrar nova requisição
     this.requests.push(Date.now())
+    this.totalRequests++
+    
+    // Log a cada 10 requisições
+    if (this.totalRequests % 10 === 0) {
+      console.log(`📊 Rate limiter: ${this.totalRequests} requisições totais | ${this.requests.length} na janela atual | ${this.totalWaits} esperas`)
+    }
+  }
+  
+  getStats() {
+    return {
+      totalRequests: this.totalRequests,
+      currentWindow: this.requests.length,
+      totalWaits: this.totalWaits,
+      maxRequests: this.maxRequests,
+      windowMs: this.windowMs
+    }
+  }
+  
+  reset() {
+    this.requests = []
+    this.totalRequests = 0
+    this.totalWaits = 0
   }
 }
 
@@ -417,6 +442,8 @@ export async function syncOportunidades(): Promise<{
 
     const endTime = Date.now()
     const durationSeconds = ((endTime - startTime) / 1000).toFixed(2)
+    const rateLimiterStats = rateLimiter.getStats()
+    
     const stats = {
       totalFunis: funis.length,
       totalColunas,
@@ -427,6 +454,14 @@ export async function syncOportunidades(): Promise<{
     }
 
     console.log(`\n✅ Sincronização de oportunidades concluída em ${durationSeconds}s:`, stats)
+    console.log(`📊 Rate limiter stats:`, {
+      totalRequests: rateLimiterStats.totalRequests,
+      totalWaits: rateLimiterStats.totalWaits,
+      avgRequestsPerMinute: Math.round((rateLimiterStats.totalRequests / parseFloat(durationSeconds)) * 60)
+    })
+    
+    // Resetar contador do rate limiter para próxima execução
+    rateLimiter.reset()
 
     // Registrar histórico de sincronização
     try {

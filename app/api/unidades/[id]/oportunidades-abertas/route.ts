@@ -105,8 +105,33 @@ export async function GET(
         o.id,
         o.title as nome,
         o.value as valor,
+        o.crm_column,
+        o.lead_id,
+        o.sequence,
+        o.status,
+        o.loss_reason,
+        o.gain_reason,
+        o.expectedCloseDate,
+        o.sale_channel,
+        o.campaign,
+        o.user as vendedor_id,
+        o.last_column_change,
+        o.last_status_change,
+        o.gain_date,
+        o.lost_date,
+        o.reopen_date,
+        o.await_column_approved,
+        o.await_column_approved_user,
+        o.reject_appro,
+        o.reject_appro_desc,
+        o.conf_installment,
+        o.fields,
+        o.dataLead,
         o.createDate as data_criacao,
-        o.user as vendedor_id
+        o.updateDate,
+        o.archived,
+        o.created_at,
+        o.coluna_funil_id
       FROM oportunidades o
       ${joinFunil}
       WHERE ${filtros.join(' AND ')}
@@ -143,7 +168,7 @@ export async function GET(
           : 'Sem vendedor'
         
         return {
-          id: op.id,
+          ...op,
           nome: op.nome,
           valor: Number(op.valor) || 0,
           data: op.data_criacao,

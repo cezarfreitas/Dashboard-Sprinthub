@@ -43,7 +43,7 @@ export default function ConfiguracoesPage() {
       setError('')
       const response = await fetch('/api/configuracoes/empresa')
       const data = await response.json()
-
+      
       if (data.success) {
         setConfig(data.config)
       } else {
@@ -124,11 +124,11 @@ export default function ConfiguracoesPage() {
   if (loading) {
     return (
       <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex items-center space-x-2">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Carregando configurações...</span>
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center space-x-2">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <span>Carregando configurações...</span>
+        </div>
         </div>
       </div>
     )
@@ -185,9 +185,9 @@ export default function ConfiguracoesPage() {
                   className="pl-10"
                   required
                 />
-              </div>
             </div>
-
+            </div>
+            
             {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
@@ -202,9 +202,9 @@ export default function ConfiguracoesPage() {
                   className="pl-10"
                   required
                 />
-              </div>
             </div>
-
+            </div>
+            
             {/* Descrição */}
             <div className="space-y-2">
               <Label htmlFor="descricao">Descrição</Label>
@@ -218,12 +218,12 @@ export default function ConfiguracoesPage() {
                   className="pl-10 min-h-[100px]"
                   rows={4}
                 />
-              </div>
+            </div>
               <p className="text-xs text-muted-foreground">
                 Descrição da empresa (usada como meta description para SEO e compartilhamento)
               </p>
             </div>
-
+            
             {/* Upload Logotipo */}
             <div className="space-y-2">
               <Label htmlFor="logotipo">Logotipo</Label>
@@ -275,12 +275,12 @@ export default function ConfiguracoesPage() {
                     </Button>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                   Formatos aceitos: JPG, PNG, SVG, WEBP. Tamanho máximo: 2MB
-                </p>
-              </div>
+              </p>
             </div>
-
+            </div>
+            
             {/* Cor Principal */}
             <div className="space-y-2">
               <Label htmlFor="corPrincipal">Cor Principal</Label>
@@ -312,7 +312,7 @@ export default function ConfiguracoesPage() {
                 Selecione a cor principal da sua empresa (formato hexadecimal)
               </p>
             </div>
-
+            
             {/* Botão Salvar */}
             <div className="pt-4">
               <Button type="submit" className="w-full" disabled={saving}>

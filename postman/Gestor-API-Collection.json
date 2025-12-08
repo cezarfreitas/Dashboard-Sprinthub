@@ -1,0 +1,422 @@
+{
+  "info": {
+    "name": "Dashboard Gestor - API Collection",
+    "description": "Collection completa de todas as APIs da área do gestor do Dashboard SprintHub",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "1"
+  },
+  "item": [
+    {
+      "name": "Autenticação",
+      "item": [
+        {
+          "name": "Login Gestor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"gestor@exemplo.com\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/gestor",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "auth", "gestor"]
+            },
+            "description": "Autenticar gestor usando email. Retorna dados do gestor e suas unidades."
+          },
+          "response": []
+        },
+        {
+          "name": "Verificar Autenticação",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gestor_token}}",
+                "description": "Token de autenticação do gestor"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/auth/gestor",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "auth", "gestor"]
+            },
+            "description": "Verificar se o gestor está autenticado usando token."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints de autenticação do gestor"
+    },
+    {
+      "name": "Estatísticas",
+      "item": [
+        {
+          "name": "Obter Estatísticas da Unidade",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/gestor/stats?gestorId={{gestor_id}}&unidadeId={{unidade_id}}&dataInicio=2024-01-01&dataFim=2024-12-31",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "gestor", "stats"],
+              "query": [
+                {
+                  "key": "gestorId",
+                  "value": "{{gestor_id}}",
+                  "description": "ID do gestor (obrigatório)"
+                },
+                {
+                  "key": "unidadeId",
+                  "value": "{{unidade_id}}",
+                  "description": "ID da unidade (obrigatório)"
+                },
+                {
+                  "key": "dataInicio",
+                  "value": "2024-01-01",
+                  "description": "Data de início do período (opcional, padrão: primeiro dia do mês atual)"
+                },
+                {
+                  "key": "dataFim",
+                  "value": "2024-12-31",
+                  "description": "Data de fim do período (opcional, padrão: data atual)"
+                }
+              ]
+            },
+            "description": "Obter estatísticas completas da unidade: oportunidades criadas, ganhas, perdidas, abertas, valor ganho, estatísticas por vendedor, metas e distribuição por etapas do funil."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints de estatísticas da unidade do gestor"
+    },
+    {
+      "name": "Unidades",
+      "item": [
+        {
+          "name": "Obter Dados da Unidade",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/gestor/unidade/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "gestor", "unidade", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{unidade_id}}",
+                  "description": "ID da unidade"
+                }
+              ]
+            },
+            "description": "Buscar dados completos de uma unidade: informações básicas, vendedores na fila, vendedores fora da fila e configuração da fila/roleta."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints de gerenciamento de unidades"
+    },
+    {
+      "name": "Fila de Leads",
+      "item": [
+        {
+          "name": "Listar Filas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-gestor-id",
+                "value": "{{gestor_id}}",
+                "description": "ID do gestor para filtrar apenas suas unidades"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/fila?search=",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "fila"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Termo de busca para filtrar unidades (opcional)"
+                }
+              ]
+            },
+            "description": "Listar todas as filas de leads das unidades do gestor. Retorna informações completas de cada fila incluindo vendedores, estatísticas e logs."
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Fila de Vendedores",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendedores\": [\n    {\n      \"vendedor_id\": 123,\n      \"sequencia\": 1\n    },\n    {\n      \"vendedor_id\": 456,\n      \"sequencia\": 2\n    },\n    {\n      \"vendedor_id\": 789,\n      \"sequencia\": 3\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/fila/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "fila", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{unidade_id}}",
+                  "description": "ID da unidade"
+                }
+              ]
+            },
+            "description": "Atualizar a ordem dos vendedores na fila de leads de uma unidade. Envia array de vendedores com suas sequências."
+          },
+          "response": []
+        },
+        {
+          "name": "Alternar Status da Fila",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ativo\": true\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/fila/:id/toggle",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "fila", ":id", "toggle"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{unidade_id}}",
+                  "description": "ID da unidade"
+                }
+              ]
+            },
+            "description": "Ativar ou desativar a fila de leads de uma unidade."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints de gerenciamento de filas de leads"
+    },
+    {
+      "name": "Ausências",
+      "item": [
+        {
+          "name": "Listar Ausências da Unidade",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/fila/:id/ausencias",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "fila", ":id", "ausencias"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{unidade_id}}",
+                  "description": "ID da unidade"
+                }
+              ]
+            },
+            "description": "Listar todas as ausências de vendedores de uma unidade específica, ordenadas por data de início."
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Ausência",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendedor_id\": 123,\n  \"data_inicio\": \"2024-12-15T08:00:00\",\n  \"data_fim\": \"2024-12-20T18:00:00\",\n  \"motivo\": \"Férias programadas\",\n  \"created_by\": 1\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/fila/:id/ausencias",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "fila", ":id", "ausencias"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{unidade_id}}",
+                  "description": "ID da unidade"
+                }
+              ]
+            },
+            "description": "Criar um novo registro de ausência para um vendedor. Durante o período de ausência, o vendedor não receberá leads na fila rotativa."
+          },
+          "response": []
+        },
+        {
+          "name": "Remover Ausência",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/fila/:id/ausencias/:ausenciaId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "fila", ":id", "ausencias", ":ausenciaId"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{unidade_id}}",
+                  "description": "ID da unidade"
+                },
+                {
+                  "key": "ausenciaId",
+                  "value": "{{ausencia_id}}",
+                  "description": "ID da ausência"
+                }
+              ]
+            },
+            "description": "Remover um registro de ausência. O vendedor volta a receber leads normalmente na fila."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints de gerenciamento de ausências de vendedores"
+    },
+    {
+      "name": "Logs de Distribuição",
+      "item": [
+        {
+          "name": "Obter Logs de Distribuição",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/fila/:id/logs?page=1&limit=50&dataInicio=&dataFim=",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "fila", ":id", "logs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Número da página (padrão: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Registros por página (padrão: 50, máx: 100)"
+                },
+                {
+                  "key": "dataInicio",
+                  "value": "",
+                  "description": "Data de início do filtro (formato: YYYY-MM-DD)"
+                },
+                {
+                  "key": "dataFim",
+                  "value": "",
+                  "description": "Data de fim do filtro (formato: YYYY-MM-DD)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{unidade_id}}",
+                  "description": "ID da unidade"
+                }
+              ]
+            },
+            "description": "Obter histórico de distribuição de leads de uma unidade. Retorna logs detalhados com informações do vendedor que recebeu, posição na fila, lead distribuído, etc."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints de logs de distribuição de leads"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "gestor_id",
+      "value": "254",
+      "type": "string",
+      "description": "ID do gestor autenticado"
+    },
+    {
+      "key": "unidade_id",
+      "value": "92",
+      "type": "string",
+      "description": "ID da unidade"
+    },
+    {
+      "key": "gestor_token",
+      "value": "",
+      "type": "string",
+      "description": "Token de autenticação do gestor (se houver)"
+    },
+    {
+      "key": "ausencia_id",
+      "value": "",
+      "type": "string",
+      "description": "ID da ausência"
+    }
+  ]
+}
+

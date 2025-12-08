@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { ExportToExcelButton } from '@/components/ExportToExcelButton'
 import type { PainelFiltros } from '@/types/painel.types'
 
 interface Oportunidade {
@@ -527,9 +528,9 @@ export const PainelUnidadeDialog = memo(function PainelUnidadeDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Campo de Busca */}
-        <div className="mt-4 mb-4">
-          <div className="relative">
+        {/* Campo de Busca e Botão Exportar */}
+        <div className="mt-4 mb-4 flex gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               type="text"
@@ -545,6 +546,14 @@ export const PainelUnidadeDialog = memo(function PainelUnidadeDialog({
               className="pl-10 bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
             />
           </div>
+          <ExportToExcelButton
+            data={oportunidadesFiltradasEOrdenadas}
+            filename={`oportunidades_${status}_${unidadeNome.replace(/\s+/g, '_')}`}
+            sheetName={`${statusInfo.title}`}
+            disabled={loading || oportunidadesFiltradasEOrdenadas.length === 0}
+            variant="outline"
+            className="shrink-0"
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto">
