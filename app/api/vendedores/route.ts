@@ -15,7 +15,47 @@ interface SprintHubUser {
 
 export async function GET(request: NextRequest) {
   try {
-    // Obter variáveis de ambiente
+    const { searchParams } = new URL(request.url)
+    const unidadeId = searchParams.get('unidade_id')
+
+    // Se tiver filtro de unidade, buscar do banco de dados local
+    if (unidadeId) {
+      const { executeQuery } = require('@/lib/database')
+      
+      const vendedores = await executeQuery(`
+        SELECT 
+          id,
+          name,
+          lastName,
+          email,
+          cpf,
+          username,
+          birthDate,
+          telephone,
+          unidade_id
+        FROM vendedores
+        WHERE unidade_id = ? AND ativo = 1
+        ORDER BY name, lastName
+      `, [parseInt(unidadeId)]) as Array<{
+        id: number
+        name: string
+        lastName: string
+        email: string
+        cpf: string | null
+        username: string
+        birthDate: string
+        telephone: string
+        unidade_id: number
+      }>
+
+      return NextResponse.json({
+        success: true,
+        vendedores,
+        message: `${vendedores.length} vendedores encontrados na unidade`
+      })
+    }
+
+    // Senão, buscar da API externa (comportamento original)
     const apiToken = process.env.APITOKEN
     const groupId = process.env.I
     const urlPatch = process.env.URLPATCH
