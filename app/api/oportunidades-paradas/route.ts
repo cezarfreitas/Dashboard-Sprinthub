@@ -1,356 +1,532 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery } from '@/lib/database'
-import { jwtVerify } from 'jose'
 
 export const dynamic = 'force-dynamic'
 
-interface OportunidadeParada {
-  id: number
-  title: string
-  value: number
-  user: string
-  crm_column: string
-  dias_parada: number
-  ultima_atualizacao: string
-  unidade_nome: string
-}
-
-interface DistribuicaoFaixa {
-  faixa: string
-  quantidade: number
-  valor_total: number
-  percentual: number
-}
-
-interface AlertaVendedor {
-  vendedor: string
-  nome: string
-  unidade: string
-  total_paradas: number
-  valor_em_risco: number
-  media_dias_parados: number
-  pior_caso_dias: number
-}
-
-interface HeatmapItem {
-  vendedor: string
-  unidade: string
-  quantidade: number
-  valor: number
-  media_dias: number
-  nivel_alerta: 'baixo' | 'medio' | 'alto' | 'critico'
-}
-
 export async function GET(request: NextRequest) {
   try {
-    // TODO: REMOVER EM PRODUÇÃO - Autenticação desabilitada para testes
-    // Verificar autenticação via JWT
-    // const token = request.cookies.get('auth-token')?.value
-    
-    // if (!token) {
-    //   return NextResponse.json(
-    //     { success: false, message: 'Não autenticado - Token não fornecido' },
-    //     { status: 401 }
-    //   )
-    // }
-
-    // Verificar se o token é válido
-    // try {
-    //   const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-    //   await jwtVerify(token, secret)
-    // } catch (error) {
-    //   return NextResponse.json(
-    //     { success: false, message: 'Token inválido ou expirado' },
-    //     { status: 401 }
-    //   )
-    // }
+    // Função helper para parsear campos JSON
+    const parseJsonField = (value: any): any => {
+      if (value === null || value === undefined) return null
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value)
+        } catch {
+          return value
+        }
+      }
+      return value
+    }
 
     // Obter parâmetros
     const { searchParams } = new URL(request.url)
-    const diasMinimo = parseInt(searchParams.get('dias') || '7')
     const unidadeId = searchParams.get('unidade_id')
-    const vendedorNome = searchParams.get('vendedor')
-    const funilId = searchParams.get('funil_id')
+    const unidadesParam = searchParams.get('unidades')
     
-    console.log('🔍 Parâmetros recebidos:', {
-      diasMinimo,
-      unidadeId,
-      vendedorNome,
-      funilId
-    })
-
-    // Se tiver unidade_id, buscar os IDs dos vendedores da unidade primeiro
-    let vendedoresIdsDaUnidade: number[] = []
-    if (unidadeId && !isNaN(parseInt(unidadeId))) {
-      const vendedoresResult = await executeQuery(`
-        SELECT id
-        FROM vendedores
-        WHERE unidade_id = ? AND ativo = 1
-      `, [parseInt(unidadeId)]) as Array<{ id: number }>
-      
-      vendedoresIdsDaUnidade = vendedoresResult.map(v => v.id)
-      console.log(`🔍 IDs dos Vendedores da unidade ${unidadeId}:`, vendedoresIdsDaUnidade)
-      
-      // Se não houver vendedores na unidade, retornar resultado vazio
-      if (vendedoresIdsDaUnidade.length === 0) {
-        return NextResponse.json({
-          success: true,
-          filtros: { dias_minimo: diasMinimo, unidade_id: unidadeId },
-          resumo: {
-            total_oportunidades: 0,
-            valor_total: 0,
-            valor_medio: 0,
-            media_dias_parados: 0,
-            max_dias_parados: 0
-          },
-          estatisticas: {
-            total_vendedores_com_paradas: 0,
-            total_unidades_afetadas: 0,
-            oportunidades_criticas: 0,
-            taxa_criticidade: 0
-          },
-          oportunidades: [],
-          distribuicao: [],
-          alertas_vendedor: [],
-          heatmap: []
-        })
-      }
+    // Parsear IDs das unidades (suporta múltiplas unidades)
+    const unidadesIds: number[] = []
+    
+    if (unidadesParam) {
+      unidadesParam.split(',').forEach(id => {
+        const numId = parseInt(id.trim())
+        if (!isNaN(numId) && !unidadesIds.includes(numId)) {
+          unidadesIds.push(numId)
+        }
+      })
+    } else if (unidadeId && !isNaN(parseInt(unidadeId))) {
+      unidadesIds.push(parseInt(unidadeId))
     }
 
-    // Query base para oportunidades paradas (status 'open' e sem atualização há X dias)
+    // Condições WHERE para oportunidades abertas
     let whereConditions = [
       "o.status = 'open'",
-      "o.archived = 0",
-      `DATEDIFF(NOW(), o.updateDate) >= ${diasMinimo}`
+      "o.gain_date IS NULL",
+      "o.lost_date IS NULL",
+      "o.archived = 0"
     ]
+    const queryParams: any[] = []
 
-    // SEMPRE filtrar por vendedores da unidade (OBRIGATÓRIO se tiver unidade_id)
-    if (vendedoresIdsDaUnidade.length > 0) {
-      const idsString = vendedoresIdsDaUnidade.join(',')
-      whereConditions.push(`CAST(o.user AS UNSIGNED) IN (${idsString})`)
-    } else if (unidadeId) {
-      // Se foi passado unidade_id mas não tem vendedores, não retornar nada
-      whereConditions.push('1 = 0')
-    }
-
-    // Validar e adicionar filtro de vendedor específico (apenas se não for 'all')
-    if (vendedorNome && vendedorNome !== 'all') {
-      whereConditions.push(`o.user LIKE '%${vendedorNome}%'`)
-    }
-
-    // Validar e adicionar filtro de funil (apenas se for um número válido)
-    if (funilId && !isNaN(parseInt(funilId))) {
-      whereConditions.push(`cf.id_funil = ${parseInt(funilId)}`)
+    // Se tiver unidades, buscar vendedores do campo users (JSON) das unidades
+    if (unidadesIds.length > 0) {
+      const placeholders = unidadesIds.map(() => '?').join(',')
+      const unidadesResult = await executeQuery(`
+        SELECT id, users
+        FROM unidades
+        WHERE id IN (${placeholders}) AND ativo = 1
+      `, unidadesIds) as Array<{ id: number; users: string | null }>
+      
+      // Extrair todos os IDs de vendedores do campo users das unidades
+      const vendedoresIds = new Set<number>()
+      unidadesResult.forEach(u => {
+        const users = parseJsonField(u.users)
+        if (Array.isArray(users)) {
+          users.forEach((userId: any) => {
+            const id = typeof userId === 'number' ? userId : parseInt(userId)
+            if (!isNaN(id)) {
+              vendedoresIds.add(id)
+            }
+          })
+        }
+      })
+      
+      if (vendedoresIds.size === 0) {
+        return NextResponse.json({
+          success: true,
+          filtros: { unidades_ids: unidadesIds },
+          resumo: {
+            total_oportunidades_abertas: 0,
+            oportunidades_com_valor: 0,
+            oportunidades_sem_valor: 0,
+            valor_total: 0,
+            valor_medio: 0,
+            total_vendedores: 0
+          },
+          distribuicao_por_tempo: [],
+          distribuicao_por_vendedor: []
+        })
+      }
+      
+      const vendedoresIdsArray = Array.from(vendedoresIds)
+      const placeholdersVendedores = vendedoresIdsArray.map(() => '?').join(',')
+      whereConditions.push(`CAST(o.user AS UNSIGNED) IN (${placeholdersVendedores})`)
+      queryParams.push(...vendedoresIdsArray)
     }
 
     const whereClause = whereConditions.join(' AND ')
 
-    // 1. LISTA DE OPORTUNIDADES PARADAS
-    const oportunidades = await executeQuery(`
+    // Contar oportunidades e valores
+    const result = await executeQuery(`
       SELECT 
-        o.id,
-        o.title,
-        o.value,
-        o.user,
-        o.crm_column,
-        o.updateDate as ultima_atualizacao,
-        DATEDIFF(NOW(), o.updateDate) as dias_parada,
-        COALESCE(u.nome, u.name, 'Sem unidade') as unidade_nome
+        COUNT(*) as total,
+        SUM(CASE WHEN o.value > 0 THEN 1 ELSE 0 END) as com_valor,
+        SUM(CASE WHEN o.value = 0 OR o.value IS NULL THEN 1 ELSE 0 END) as sem_valor,
+        COALESCE(SUM(o.value), 0) as valor_total,
+        COALESCE(AVG(o.value), 0) as valor_medio
       FROM oportunidades o
-      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
-      LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
-      LEFT JOIN unidades u ON v.unidade_id = u.id
       WHERE ${whereClause}
-      ORDER BY dias_parada DESC
-      LIMIT 100
-    `) as OportunidadeParada[]
+    `, queryParams) as Array<{ 
+      total: number
+      com_valor: number
+      sem_valor: number
+      valor_total: number
+      valor_medio: number
+    }>
 
-    // 2. DISTRIBUIÇÃO POR FAIXA DE DIAS
-    const distribuicaoRaw = await executeQuery(`
+    // Distribuição por faixas de tempo (10 faixas - baseado na data de criação)
+    const faixasDistribuicao = await executeQuery(`
       SELECT 
-        CASE 
-          WHEN DATEDIFF(NOW(), o.updateDate) BETWEEN ${diasMinimo} AND 7 THEN '0-7'
-          WHEN DATEDIFF(NOW(), o.updateDate) BETWEEN 8 AND 15 THEN '8-15'
-          WHEN DATEDIFF(NOW(), o.updateDate) BETWEEN 16 AND 30 THEN '16-30'
-          ELSE '30+'
-        END as faixa,
+        faixa,
         COUNT(*) as quantidade,
-        SUM(o.value) as valor_total
-      FROM oportunidades o
-      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
-      WHERE ${whereClause}
-      GROUP BY faixa
-      ORDER BY 
-        CASE faixa
-          WHEN '0-7' THEN 1
-          WHEN '8-15' THEN 2
-          WHEN '16-30' THEN 3
-          WHEN '30+' THEN 4
-        END
-    `) as Array<{ faixa: string; quantidade: number; valor_total: number }>
+        COALESCE(SUM(valor), 0) as valor_total
+      FROM (
+        SELECT 
+          CASE 
+            WHEN DATEDIFF(NOW(), o.createDate) <= 7 THEN '0-7'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 8 AND 15 THEN '8-15'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 16 AND 30 THEN '16-30'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 31 AND 45 THEN '31-45'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 46 AND 60 THEN '46-60'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 61 AND 90 THEN '61-90'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 91 AND 120 THEN '91-120'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 121 AND 180 THEN '121-180'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 181 AND 365 THEN '181-365'
+            ELSE '365+'
+          END as faixa,
+          CASE 
+            WHEN DATEDIFF(NOW(), o.createDate) <= 7 THEN 1
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 8 AND 15 THEN 2
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 16 AND 30 THEN 3
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 31 AND 45 THEN 4
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 46 AND 60 THEN 5
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 61 AND 90 THEN 6
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 91 AND 120 THEN 7
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 121 AND 180 THEN 8
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 181 AND 365 THEN 9
+            ELSE 10
+          END as ordem,
+          o.value as valor
+        FROM oportunidades o
+        WHERE ${whereClause}
+      ) as grouped
+      GROUP BY faixa, ordem
+      ORDER BY ordem
+    `, queryParams) as Array<{ 
+      faixa: string
+      quantidade: number
+      valor_total: number
+    }>
 
-    const totalOportunidades = distribuicaoRaw.reduce((sum, item) => sum + item.quantidade, 0)
-    
-    const distribuicao: DistribuicaoFaixa[] = distribuicaoRaw.map(item => ({
-      faixa: item.faixa,
-      quantidade: item.quantidade,
-      valor_total: parseFloat(item.valor_total?.toString() || '0'),
-      percentual: totalOportunidades > 0 
-        ? Math.round((item.quantidade / totalOportunidades) * 100) 
+    const totalOportunidadesAbertas = result[0]?.total || 0
+    const comValor = result[0]?.com_valor || 0
+    const semValor = result[0]?.sem_valor || 0
+    const valorTotal = parseFloat(result[0]?.valor_total?.toString() || '0')
+    const valorMedio = parseFloat(result[0]?.valor_medio?.toString() || '0')
+
+    // Formatar faixas com percentual
+    const distribuicaoPorFaixa = faixasDistribuicao.map(faixa => ({
+      faixa: faixa.faixa,
+      quantidade: faixa.quantidade,
+      valor_total: parseFloat(faixa.valor_total?.toString() || '0'),
+      percentual: totalOportunidadesAbertas > 0 
+        ? Math.round((faixa.quantidade / totalOportunidadesAbertas) * 100) 
         : 0
     }))
 
-    // 3. VALOR EM RISCO (Total de oportunidades paradas)
-    const valorEmRiscoRaw = await executeQuery(`
-      SELECT 
-        COUNT(*) as total_oportunidades,
-        SUM(o.value) as valor_total,
-        AVG(o.value) as valor_medio,
-        AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias_parados,
-        MAX(DATEDIFF(NOW(), o.updateDate)) as max_dias_parados
-      FROM oportunidades o
-      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
-      WHERE ${whereClause}
-    `) as Array<{
-      total_oportunidades: number
-      valor_total: number
-      valor_medio: number
-      media_dias_parados: number
-      max_dias_parados: number
-    }>
-
-    const valorEmRisco = {
-      total_oportunidades: valorEmRiscoRaw[0]?.total_oportunidades || 0,
-      valor_total: parseFloat(valorEmRiscoRaw[0]?.valor_total?.toString() || '0'),
-      valor_medio: parseFloat(valorEmRiscoRaw[0]?.valor_medio?.toString() || '0'),
-      media_dias_parados: Math.round(valorEmRiscoRaw[0]?.media_dias_parados || 0),
-      max_dias_parados: valorEmRiscoRaw[0]?.max_dias_parados || 0
-    }
-
-    // 4. ALERTAS POR VENDEDOR
-    const alertasVendedorRaw = await executeQuery(`
+    // Distribuição por vendedor (user)
+    const distribuicaoPorVendedor = await executeQuery(`
       SELECT 
         o.user as vendedor_id,
-        v.name as nome,
-        v.lastName as sobrenome,
-        COALESCE(u.nome, u.name, 'Sem unidade') as unidade,
-        COUNT(*) as total_paradas,
-        SUM(o.value) as valor_em_risco,
-        AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias_parados,
-        MAX(DATEDIFF(NOW(), o.updateDate)) as pior_caso_dias
+        v.name,
+        v.lastName,
+        CONCAT(v.name, ' ', v.lastName) as vendedor_nome,
+        COALESCE(u.nome, u.name) as unidade_nome,
+        COUNT(*) as total_oportunidades,
+        SUM(CASE WHEN o.value > 0 THEN 1 ELSE 0 END) as oportunidades_com_valor,
+        SUM(CASE WHEN o.value = 0 OR o.value IS NULL THEN 1 ELSE 0 END) as oportunidades_sem_valor,
+        COALESCE(SUM(o.value), 0) as valor_total,
+        COALESCE(AVG(o.value), 0) as valor_medio,
+        MIN(DATEDIFF(NOW(), o.createDate)) as dias_mais_recente,
+        MAX(DATEDIFF(NOW(), o.createDate)) as dias_mais_antiga,
+        AVG(DATEDIFF(NOW(), o.createDate)) as dias_medio
       FROM oportunidades o
-      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
       LEFT JOIN unidades u ON v.unidade_id = u.id
       WHERE ${whereClause}
       GROUP BY o.user, v.name, v.lastName, u.nome, u.name
-      HAVING total_paradas >= 3
-      ORDER BY total_paradas DESC, valor_em_risco DESC
-      LIMIT 20
-    `) as Array<{
+      ORDER BY total_oportunidades DESC, valor_total DESC
+    `, queryParams) as Array<{
       vendedor_id: string
-      nome: string
-      sobrenome: string
-      unidade: string
-      total_paradas: number
-      valor_em_risco: number
-      media_dias_parados: number
-      pior_caso_dias: number
+      name: string
+      lastName: string
+      vendedor_nome: string
+      unidade_nome: string
+      total_oportunidades: number
+      oportunidades_com_valor: number
+      oportunidades_sem_valor: number
+      valor_total: number
+      valor_medio: number
+      dias_mais_recente: number
+      dias_mais_antiga: number
+      dias_medio: number
     }>
 
-    const alertasVendedor: AlertaVendedor[] = alertasVendedorRaw.map(item => ({
-      vendedor: item.nome && item.sobrenome 
-        ? `${item.nome} ${item.sobrenome}`
-        : `Vendedor ${item.vendedor_id}`,
-      nome: item.nome || `Vendedor ${item.vendedor_id}`,
-      unidade: item.unidade || 'Sem unidade',
-      total_paradas: item.total_paradas,
-      valor_em_risco: parseFloat(item.valor_em_risco?.toString() || '0'),
-      media_dias_parados: Math.round(item.media_dias_parados),
-      pior_caso_dias: item.pior_caso_dias
-    }))
+    // Criar mapa de vendedor_id -> unidade_nome dos vendedores que estão nas unidades filtradas
+    const vendedorUnidadeMap = new Map<number, string>()
+    if (unidadesIds.length > 0) {
+      const placeholders = unidadesIds.map(() => '?').join(',')
+      const unidadesResult = await executeQuery(`
+        SELECT id, COALESCE(nome, name) as unidade_nome, users
+        FROM unidades
+        WHERE id IN (${placeholders}) AND ativo = 1
+      `, unidadesIds) as Array<{ id: number; unidade_nome: string; users: string | null }>
+      
+      unidadesResult.forEach(u => {
+        const users = parseJsonField(u.users)
+        if (Array.isArray(users)) {
+          users.forEach((userId: any) => {
+            const id = typeof userId === 'number' ? userId : parseInt(userId)
+            if (!isNaN(id) && !vendedorUnidadeMap.has(id)) {
+              vendedorUnidadeMap.set(id, u.unidade_nome || 'Sem unidade')
+            }
+          })
+        }
+      })
+    }
 
-    // 5. HEATMAP DE NEGLIGÊNCIA (vendedor x unidade)
-    const heatmapRaw = await executeQuery(`
+    // Granularidade com faixas de tempo: Vendedor → Funil → Etapa → Faixa de Tempo
+    const granularidadeComFaixas = await executeQuery(`
       SELECT 
-        o.user as vendedor,
-        (SELECT COALESCE(u2.nome, u2.name, 'Sem unidade')
-         FROM vendedores v2
-         LEFT JOIN unidades u2 ON v2.unidade_id = u2.id
-         WHERE CONCAT(v2.name, ' ', v2.lastName) COLLATE utf8mb4_unicode_ci = o.user COLLATE utf8mb4_unicode_ci
-         LIMIT 1) as unidade,
+        o.user as vendedor_id,
+        v.name,
+        v.lastName,
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(v.name, ''), ' ', COALESCE(v.lastName, ''))), ''), 'Sem nome') as vendedor_nome,
+        COALESCE(f.id, 0) as funil_id,
+        COALESCE(f.funil_nome, 'Sem funil') as funil_nome,
+        COALESCE(cf.id, 0) as coluna_id,
+        COALESCE(cf.nome_coluna, 'Sem etapa') as etapa_nome,
+        cf.sequencia as etapa_sequencia,
+        CASE 
+          WHEN DATEDIFF(NOW(), o.createDate) <= 7 THEN '0-7'
+          WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 8 AND 15 THEN '8-15'
+          WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 16 AND 30 THEN '16-30'
+          WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 31 AND 45 THEN '31-45'
+          WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 46 AND 60 THEN '46-60'
+          WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 61 AND 90 THEN '61-90'
+          WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 91 AND 120 THEN '91-120'
+          WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 121 AND 180 THEN '121-180'
+          WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 181 AND 365 THEN '181-365'
+          ELSE '365+'
+        END as faixa_tempo,
         COUNT(*) as quantidade,
-        SUM(o.value) as valor,
-        AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias
+        SUM(CASE WHEN o.value > 0 THEN 1 ELSE 0 END) as quantidade_com_valor,
+        SUM(CASE WHEN o.value = 0 OR o.value IS NULL THEN 1 ELSE 0 END) as quantidade_sem_valor,
+        COALESCE(SUM(o.value), 0) as valor_total,
+        COALESCE(AVG(o.value), 0) as valor_medio,
+        MIN(DATEDIFF(NOW(), o.createDate)) as dias_mais_recente,
+        MAX(DATEDIFF(NOW(), o.createDate)) as dias_mais_antiga,
+        AVG(DATEDIFF(NOW(), o.createDate)) as dias_medio
       FROM oportunidades o
+      LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
       LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
+      LEFT JOIN funis f ON cf.id_funil = f.id
       WHERE ${whereClause}
-      GROUP BY o.user
-      HAVING quantidade >= 2
-      ORDER BY media_dias DESC, quantidade DESC
-      LIMIT 50
-    `) as Array<{
-      vendedor: string
-      unidade: string
+      GROUP BY o.user, v.name, v.lastName, f.id, f.funil_nome, cf.id, cf.nome_coluna, cf.sequencia, faixa_tempo
+      ORDER BY o.user, f.id, cf.sequencia, faixa_tempo
+    `, queryParams) as Array<{
+      vendedor_id: string
+      name: string
+      lastName: string
+      vendedor_nome: string
+      funil_id: number
+      funil_nome: string
+      coluna_id: number
+      etapa_nome: string
+      etapa_sequencia: number
+      faixa_tempo: string
       quantidade: number
-      valor: number
-      media_dias: number
+      quantidade_com_valor: number
+      quantidade_sem_valor: number
+      valor_total: number
+      valor_medio: number
+      dias_mais_recente: number
+      dias_mais_antiga: number
+      dias_medio: number
     }>
 
-    const heatmap: HeatmapItem[] = heatmapRaw.map(item => {
-      const mediaDias = Math.round(item.media_dias)
-      let nivelAlerta: 'baixo' | 'medio' | 'alto' | 'critico' = 'baixo'
+    // Estruturar dados: Vendedor → Funil → Etapa → Faixa de Tempo
+    const vendedoresComGranularidade = new Map<number, any>()
+    
+    granularidadeComFaixas.forEach(item => {
+      const vendedorId = parseInt(item.vendedor_id)
       
-      if (mediaDias >= 30) nivelAlerta = 'critico'
-      else if (mediaDias >= 16) nivelAlerta = 'alto'
-      else if (mediaDias >= 8) nivelAlerta = 'medio'
-      
-      return {
-        vendedor: item.vendedor || 'Sem vendedor',
-        unidade: item.unidade,
-        quantidade: item.quantidade,
-        valor: parseFloat(item.valor?.toString() || '0'),
-        media_dias: mediaDias,
-        nivel_alerta: nivelAlerta
+      // Criar vendedor se não existir
+      if (!vendedoresComGranularidade.has(vendedorId)) {
+        vendedoresComGranularidade.set(vendedorId, {
+          vendedor_id: vendedorId,
+          vendedor_nome: item.vendedor_nome || `Vendedor ${item.vendedor_id}`,
+          unidade_nome: vendedorUnidadeMap.get(vendedorId) || 'Sem unidade',
+          total_oportunidades: 0,
+          oportunidades_com_valor: 0,
+          oportunidades_sem_valor: 0,
+          valor_total: 0,
+          funis: []
+        })
       }
+      
+      const vendedor = vendedoresComGranularidade.get(vendedorId)!
+      
+      // Atualizar totais do vendedor
+      vendedor.total_oportunidades += item.quantidade
+      vendedor.oportunidades_com_valor += item.quantidade_com_valor
+      vendedor.oportunidades_sem_valor += item.quantidade_sem_valor
+      vendedor.valor_total += parseFloat(item.valor_total?.toString() || '0')
+      
+      // Buscar ou criar funil
+      let funil = vendedor.funis.find((f: any) => f.funil_id === item.funil_id)
+      if (!funil) {
+        funil = {
+          funil_id: item.funil_id,
+          funil_nome: item.funil_nome,
+          total_oportunidades: 0,
+          valor_total: 0,
+          etapas: []
+        }
+        vendedor.funis.push(funil)
+      }
+      
+      // Atualizar totais do funil
+      funil.total_oportunidades += item.quantidade
+      funil.valor_total += parseFloat(item.valor_total?.toString() || '0')
+      
+      // Buscar ou criar etapa
+      let etapa = funil.etapas.find((e: any) => e.coluna_id === item.coluna_id)
+      if (!etapa) {
+        etapa = {
+          coluna_id: item.coluna_id,
+          etapa_nome: item.etapa_nome,
+          sequencia: item.etapa_sequencia || 0,
+          total_quantidade: 0,
+          total_quantidade_com_valor: 0,
+          total_quantidade_sem_valor: 0,
+          total_valor: 0,
+          valor_medio: 0,
+          dias_mais_recente: item.dias_mais_recente || 0,
+          dias_mais_antiga: item.dias_mais_antiga || 0,
+          dias_medio: 0,
+          distribuicao_tempo: []
+        }
+        funil.etapas.push(etapa)
+      }
+      
+      // Atualizar totais da etapa
+      etapa.total_quantidade += item.quantidade
+      etapa.total_quantidade_com_valor += item.quantidade_com_valor
+      etapa.total_quantidade_sem_valor += item.quantidade_sem_valor
+      etapa.total_valor += parseFloat(item.valor_total?.toString() || '0')
+      etapa.dias_mais_recente = Math.min(etapa.dias_mais_recente, item.dias_mais_recente || 0)
+      etapa.dias_mais_antiga = Math.max(etapa.dias_mais_antiga, item.dias_mais_antiga || 0)
+      
+      // Adicionar faixa de tempo à etapa
+      etapa.distribuicao_tempo.push({
+        faixa: item.faixa_tempo,
+        quantidade: item.quantidade,
+        quantidade_com_valor: item.quantidade_com_valor,
+        quantidade_sem_valor: item.quantidade_sem_valor,
+        valor_total: parseFloat(item.valor_total?.toString() || '0'),
+        valor_medio: parseFloat(item.valor_medio?.toString() || '0'),
+        dias_medio: Math.round(item.dias_medio || 0)
+      })
+    })
+    
+    // Calcular médias das etapas
+    vendedoresComGranularidade.forEach(vendedor => {
+      vendedor.funis.forEach((funil: any) => {
+        funil.etapas.forEach((etapa: any) => {
+          etapa.valor_medio = etapa.total_quantidade > 0 
+            ? etapa.total_valor / etapa.total_quantidade 
+            : 0
+          
+          // Calcular dias_medio da etapa (média ponderada)
+          const totalDias = etapa.distribuicao_tempo.reduce((sum: number, f: any) => 
+            sum + (f.dias_medio * f.quantidade), 0)
+          etapa.dias_medio = etapa.total_quantidade > 0 
+            ? Math.round(totalDias / etapa.total_quantidade) 
+            : 0
+        })
+      })
+    })
+    
+    // Converter para array e calcular percentuais
+    const granularidadeFormatada = Array.from(vendedoresComGranularidade.values()).map(v => ({
+      ...v,
+      valor_medio: v.total_oportunidades > 0 ? v.valor_total / v.total_oportunidades : 0,
+      percentual_total: totalOportunidadesAbertas > 0 
+        ? Math.round((v.total_oportunidades / totalOportunidadesAbertas) * 100) 
+        : 0,
+      funis: v.funis.map((f: any) => ({
+        ...f,
+        percentual_vendedor: v.total_oportunidades > 0
+          ? Math.round((f.total_oportunidades / v.total_oportunidades) * 100)
+          : 0,
+        etapas: f.etapas.map((e: any) => ({
+          ...e,
+          percentual_funil: f.total_oportunidades > 0
+            ? Math.round((e.quantidade / f.total_oportunidades) * 100)
+            : 0
+        }))
+      }))
+    })).sort((a, b) => b.total_oportunidades - a.total_oportunidades)
+
+    // Buscar faixas de tempo por vendedor
+    const faixasPorVendedor = await executeQuery(`
+      SELECT 
+        vendedor_id,
+        faixa,
+        COUNT(*) as quantidade,
+        COALESCE(SUM(valor), 0) as valor_total
+      FROM (
+        SELECT 
+          o.user as vendedor_id,
+          CASE 
+            WHEN DATEDIFF(NOW(), o.createDate) <= 7 THEN '0-7'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 8 AND 15 THEN '8-15'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 16 AND 30 THEN '16-30'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 31 AND 45 THEN '31-45'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 46 AND 60 THEN '46-60'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 61 AND 90 THEN '61-90'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 91 AND 120 THEN '91-120'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 121 AND 180 THEN '121-180'
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 181 AND 365 THEN '181-365'
+            ELSE '365+'
+          END as faixa,
+          CASE 
+            WHEN DATEDIFF(NOW(), o.createDate) <= 7 THEN 1
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 8 AND 15 THEN 2
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 16 AND 30 THEN 3
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 31 AND 45 THEN 4
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 46 AND 60 THEN 5
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 61 AND 90 THEN 6
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 91 AND 120 THEN 7
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 121 AND 180 THEN 8
+            WHEN DATEDIFF(NOW(), o.createDate) BETWEEN 181 AND 365 THEN 9
+            ELSE 10
+          END as ordem,
+          o.value as valor
+        FROM oportunidades o
+        WHERE ${whereClause}
+      ) as grouped
+      GROUP BY vendedor_id, faixa, ordem
+      ORDER BY vendedor_id, ordem
+    `, queryParams) as Array<{
+      vendedor_id: string
+      faixa: string
+      quantidade: number
+      valor_total: number
+    }>
+
+    // Criar mapa de faixas por vendedor
+    const faixasMapPorVendedor = new Map<number, any[]>()
+    faixasPorVendedor.forEach(f => {
+      const vendedorId = parseInt(f.vendedor_id)
+      if (!faixasMapPorVendedor.has(vendedorId)) {
+        faixasMapPorVendedor.set(vendedorId, [])
+      }
+      faixasMapPorVendedor.get(vendedorId)!.push({
+        faixa: f.faixa,
+        quantidade: f.quantidade,
+        valor_total: parseFloat(f.valor_total?.toString() || '0')
+      })
     })
 
-    // 6. ESTATÍSTICAS ADICIONAIS
-    const estatisticas = {
-      total_vendedores_com_paradas: alertasVendedor.length,
-      total_unidades_afetadas: [...new Set(heatmap.map(h => h.unidade))].length,
-      oportunidades_criticas: oportunidades.filter(o => o.dias_parada >= 30).length,
-      taxa_criticidade: valorEmRisco.total_oportunidades > 0
-        ? Math.round((oportunidades.filter(o => o.dias_parada >= 30).length / valorEmRisco.total_oportunidades) * 100)
-        : 0
+    // Sanitizar dados para evitar NaN, Infinity, etc
+    const sanitizeNumber = (value: any): number => {
+      const num = parseFloat(value?.toString() || '0')
+      return isNaN(num) || !isFinite(num) ? 0 : num
+    }
+
+    const sanitizeObject = (obj: any): any => {
+      if (obj === null || obj === undefined) return obj
+      if (Array.isArray(obj)) return obj.map(sanitizeObject)
+      if (typeof obj === 'object') {
+        const sanitized: any = {}
+        for (const key in obj) {
+          const value = obj[key]
+          if (typeof value === 'number') {
+            sanitized[key] = sanitizeNumber(value)
+          } else if (typeof value === 'object') {
+            sanitized[key] = sanitizeObject(value)
+          } else {
+            sanitized[key] = value
+          }
+        }
+        return sanitized
+      }
+      return obj
     }
 
     return NextResponse.json({
       success: true,
-      filtros: {
-        dias_minimo: diasMinimo,
-        unidade_id: unidadeId,
-        vendedor: vendedorNome
+      filtros: unidadesIds.length > 0 ? { unidades_ids: unidadesIds } : {},
+      resumo: {
+        total_oportunidades_abertas: sanitizeNumber(totalOportunidadesAbertas),
+        oportunidades_com_valor: sanitizeNumber(comValor),
+        oportunidades_sem_valor: sanitizeNumber(semValor),
+        valor_total: sanitizeNumber(valorTotal),
+        valor_medio: sanitizeNumber(valorMedio),
+        total_vendedores: granularidadeFormatada.length
       },
-      resumo: valorEmRisco,
-      estatisticas,
-      oportunidades: oportunidades.slice(0, 50), // Limitar para não sobrecarregar
-      distribuicao,
-      alertas_vendedor: alertasVendedor,
-      heatmap
+      distribuicao_por_tempo: sanitizeObject(distribuicaoPorFaixa),
+      granularidade: sanitizeObject(granularidadeFormatada)
     })
 
   } catch (error) {
-    console.error('[API] Erro ao buscar oportunidades paradas:', error)
-    
     return NextResponse.json(
-      {
-        success: false,
-        message: 'Erro ao buscar oportunidades paradas',
+      { 
+        success: false, 
+        message: 'Erro ao buscar oportunidades abertas',
         error: error instanceof Error ? error.message : 'Erro desconhecido'
       },
       { status: 500 }
     )
   }
 }
-

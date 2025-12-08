@@ -128,7 +128,7 @@ export default function RankingUnidadesPage() {
                     {unidade.unidade_nome}
                   </h4>
                   <p className="text-xs text-muted-foreground">
-                    Responsável: {unidade.unidade_responsavel}
+                    {unidade.unidade_responsavel}
                   </p>
                   <div className="space-y-1">
                     <div className="text-lg font-bold text-green-600">
@@ -136,9 +136,6 @@ export default function RankingUnidadesPage() {
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {unidade.total_oportunidades} oportunidade{unidade.total_oportunidades !== 1 ? 's' : ''}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {unidade.total_vendedores} vendedor{unidade.total_vendedores !== 1 ? 'es' : ''}
                     </div>
                   </div>
                 </div>
@@ -162,8 +159,6 @@ export default function RankingUnidadesPage() {
             <TableRow>
               <TableHead className="text-center w-16">Pos</TableHead>
               <TableHead>Unidade</TableHead>
-              <TableHead>Responsável</TableHead>
-              <TableHead className="text-center">Vendedores</TableHead>
               <TableHead className="text-right">Total Vendas</TableHead>
               <TableHead className="text-center">Oportunidades</TableHead>
             </TableRow>
@@ -186,26 +181,22 @@ export default function RankingUnidadesPage() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <FaBuilding className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-sm">
+                  <div className="space-y-1">
+                    <div className="font-medium text-sm">
                       {unidade.unidade_nome}
-                    </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {unidade.unidade_responsavel}
+                    </div>
                   </div>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm text-muted-foreground">
-                    {unidade.unidade_responsavel}
-                  </span>
-                </TableCell>
-                <TableCell className="text-center">
-                  <span className="font-semibold">{unidade.total_vendedores}</span>
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm font-bold text-green-600">
                   {formatCurrency(unidade.total_realizado)}
                 </TableCell>
                 <TableCell className="text-center">
-                  <span className="font-semibold">{unidade.total_oportunidades}</span>
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="font-semibold">{unidade.total_oportunidades}</span>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -222,10 +213,17 @@ export default function RankingUnidadesPage() {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <HiRefresh className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2">Carregando ranking...</span>
-        </div>
+        <Card>
+          <CardContent className="p-12">
+            <div className="flex flex-col items-center justify-center gap-4">
+              <HiRefresh className="h-12 w-12 animate-spin text-primary" />
+              <div className="text-center space-y-1">
+                <p className="text-lg font-semibold">Carregando ranking...</p>
+                <p className="text-sm text-muted-foreground">Aguarde enquanto buscamos os dados</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -233,13 +231,18 @@ export default function RankingUnidadesPage() {
   if (error) {
     return (
       <div className="p-6">
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-6">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-red-800 mb-2">Erro ao carregar dados</h3>
-              <p className="text-red-600 mb-4">{error}</p>
-              <Button onClick={fetchData} variant="outline">
-                <HiRefresh className="h-4 w-4 mr-2" />
+        <Card className="border-destructive">
+          <CardContent className="p-8">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold">Erro ao carregar dados</h3>
+                <p className="text-muted-foreground">{error}</p>
+              </div>
+              <Button onClick={fetchData} size="lg" className="gap-2">
+                <HiRefresh className="h-4 w-4" />
                 Tentar novamente
               </Button>
             </div>
@@ -250,118 +253,132 @@ export default function RankingUnidadesPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Ranking de Unidades</h1>
-          <p className="text-muted-foreground">
-            Rankings mensal e anual baseados em vendas concluídas (status: gain)
-          </p>
-        </div>
-        <Button onClick={fetchData} variant="outline">
-          <HiRefresh className="h-4 w-4 mr-2" />
-          Atualizar
-        </Button>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold tracking-tight">Ranking de Unidades</h1>
+              <p className="text-sm text-muted-foreground">
+                Rankings mensal e anual baseados em vendas concluídas
+              </p>
+            </div>
+            <Button onClick={fetchData} variant="outline" size="lg" className="gap-2">
+              <HiRefresh className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Rankings */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 xl:divide-x xl:divide-gray-200">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Ranking Mensal */}
         <div className="space-y-6">
           {/* Filtro Mensal */}
-          <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Filtro Mensal:</span>
-            </div>
-            
-            {/* Filtro de Mês */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-blue-700 dark:text-blue-300">Mês:</span>
-              <Select value={mesAtual.toString()} onValueChange={(value) => setMesAtual(parseInt(value))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => (
-                    <SelectItem key={mes} value={mes.toString()}>
-                      {new Date(2024, mes - 1).toLocaleString('pt-BR', { month: 'long' })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <FaCalendarAlt className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Período Mensal</span>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3 flex-1">
+                  {/* Filtro de Mês */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Mês:</span>
+                    <Select value={mesAtual.toString()} onValueChange={(value) => setMesAtual(parseInt(value))}>
+                      <SelectTrigger className="w-36">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => (
+                          <SelectItem key={mes} value={mes.toString()}>
+                            {new Date(2024, mes - 1).toLocaleString('pt-BR', { month: 'long' })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            {/* Filtro de Ano */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-blue-700 dark:text-blue-300">Ano:</span>
-              <Select value={anoAtual.toString()} onValueChange={(value) => setAnoAtual(parseInt(value))}>
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((ano) => (
-                    <SelectItem key={ano} value={ano.toString()}>
-                      {ano}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                  {/* Filtro de Ano */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Ano:</span>
+                    <Select value={anoAtual.toString()} onValueChange={(value) => setAnoAtual(parseInt(value))}>
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((ano) => (
+                          <SelectItem key={ano} value={ano.toString()}>
+                            {ano}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {rankingMensal.length > 0 ? (
             <>
-              {renderPodio(rankingMensal, `Pódio - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
-              {renderTabelaRanking(rankingMensal, `Ranking Completo - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaChartLine className="h-5 w-5 text-blue-500" />)}
+              {renderPodio(rankingMensal, `Top 3 - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' }).charAt(0).toUpperCase() + new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' }).slice(1)}/${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
+              {renderTabelaRanking(rankingMensal, `Ranking Completo`, <FaChartLine className="h-5 w-5 text-blue-500" />)}
             </>
           ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">Nenhum dado encontrado para {new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/{anoAtual}</p>
-            </div>
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-muted-foreground">Nenhum dado encontrado para {new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/{anoAtual}</p>
+              </CardContent>
+            </Card>
           )}
         </div>
 
-        {/* Separador para telas menores */}
-        <div className="xl:hidden border-t border-gray-200 my-8"></div>
-
         {/* Ranking Anual */}
-        <div className="space-y-6 xl:pl-8">
+        <div className="space-y-6">
           {/* Filtro Anual */}
-          <div className="flex items-center gap-4 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium text-green-800 dark:text-green-200">Filtro Anual:</span>
-            </div>
-            
-            {/* Filtro de Ano */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-green-700 dark:text-green-300">Ano:</span>
-              <Select value={anoAtual.toString()} onValueChange={(value) => setAnoAtual(parseInt(value))}>
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((ano) => (
-                    <SelectItem key={ano} value={ano.toString()}>
-                      {ano}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                  <FaCalendarAlt className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Período Anual</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Ano:</span>
+                  <Select value={anoAtual.toString()} onValueChange={(value) => setAnoAtual(parseInt(value))}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((ano) => (
+                        <SelectItem key={ano} value={ano.toString()}>
+                          {ano}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {rankingAnual.length > 0 ? (
             <>
-              {renderPodio(rankingAnual, `Pódio - ${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
-              {renderTabelaRanking(rankingAnual, `Ranking Completo - ${anoAtual}`, <FaCalendarAlt className="h-5 w-5 text-green-500" />)}
+              {renderPodio(rankingAnual, `Top 3 - ${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
+              {renderTabelaRanking(rankingAnual, `Ranking Completo`, <FaCalendarAlt className="h-5 w-5 text-green-500" />)}
             </>
           ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">Nenhum dado encontrado para o ano {anoAtual}</p>
-            </div>
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-muted-foreground">Nenhum dado encontrado para o ano {anoAtual}</p>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>

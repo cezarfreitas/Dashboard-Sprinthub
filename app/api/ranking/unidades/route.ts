@@ -14,11 +14,23 @@ export async function GET(request: NextRequest) {
     const unidades = await executeQuery(`
       SELECT 
         u.id,
-        u.nome,
-        u.responsavel,
+        COALESCE(NULLIF(u.nome, ''), u.name, 'Sem Nome') as nome,
+        COALESCE(
+          NULLIF(u.responsavel, ''),
+          v.name,
+          'Não informado'
+        ) as responsavel,
         u.users
       FROM unidades u
-      ORDER BY u.nome
+      LEFT JOIN vendedores v ON v.id = (
+        CASE 
+          WHEN JSON_VALID(u.user_gestao) 
+          THEN JSON_EXTRACT(u.user_gestao, '$[0]')
+          ELSE u.user_gestao
+        END
+      )
+      WHERE u.ativo = 1
+      ORDER BY COALESCE(NULLIF(u.nome, ''), u.name)
     `) as any[]
 
     // Para cada unidade, buscar as vendas dos seus vendedores

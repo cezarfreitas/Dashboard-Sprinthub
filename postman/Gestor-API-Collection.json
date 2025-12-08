@@ -107,6 +107,34 @@
       "name": "Unidades",
       "item": [
         {
+          "name": "Listar Unidades",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/vendedores/lista?unidades=90,91&ativo=1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "vendedores", "lista"],
+              "query": [
+                {
+                  "key": "unidades",
+                  "value": "90,91",
+                  "description": "IDs das unidades separados por vírgula (ex: 90,91) ou múltiplos parâmetros (ex: unidades=90&unidades=91). Opcional."
+                },
+                {
+                  "key": "ativo",
+                  "value": "1",
+                  "description": "Filtrar por status ativo (1) ou inativo (0). Opcional, padrão: 1 (apenas ativas)."
+                }
+              ]
+            },
+            "description": "Listar unidades com informações completas: dados básicos, grupo relacionado, vendedores e gestores. Retorna unidades ativas por padrão. Suporta filtro por múltiplas unidades usando parâmetro 'unidades'."
+          },
+          "response": []
+        },
+        {
           "name": "Obter Dados da Unidade",
           "request": {
             "method": "GET",
