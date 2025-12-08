@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery } from '@/lib/database'
-import { verificarAutenticacao } from '@/lib/auth'
+import { jwtVerify } from 'jose'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,11 +41,23 @@ interface HeatmapItem {
 
 export async function GET(request: NextRequest) {
   try {
-    // Verificar autenticação
-    const authResult = await verificarAutenticacao(request)
-    if (!authResult.authenticated || !authResult.usuario) {
+    // Verificar autenticação via JWT
+    const token = request.cookies.get('auth-token')?.value
+    
+    if (!token) {
       return NextResponse.json(
-        { success: false, message: 'Não autenticado' },
+        { success: false, message: 'Não autenticado - Token não fornecido' },
+        { status: 401 }
+      )
+    }
+
+    // Verificar se o token é válido
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+      await jwtVerify(token, secret)
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, message: 'Token inválido ou expirado' },
         { status: 401 }
       )
     }
