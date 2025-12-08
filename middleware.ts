@@ -115,9 +115,11 @@ export const config = {
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
+     * - _next/data (Next.js data files)
      * - favicon.ico (favicon file)
      * - uploads (uploaded files - servidos via API)
+     * - public files (.png, .jpg, .svg, .ico, .json, etc)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|uploads).*)',
+    '/((?!api|_next/static|_next/image|_next/data|favicon.ico|uploads|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg|.*\\.ico|.*\\.webp|.*\\.json|.*\\.xml|.*\\.txt).*)',
   ],
 }
