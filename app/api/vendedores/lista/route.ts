@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
 
     console.log('📋 Lista Vendedores - Parâmetros:', { unidadeId, ativo })
 
-    // Construir query base
-    let query = `
+    // 1. BUSCAR VENDEDORES
+    let queryVendedores = `
       SELECT 
         v.id,
         v.name,
@@ -48,24 +48,50 @@ export async function GET(request: NextRequest) {
 
     // Filtrar por unidade se fornecido
     if (unidadeId && !isNaN(parseInt(unidadeId))) {
-      query += ' AND v.unidade_id = ?'
+      queryVendedores += ' AND v.unidade_id = ?'
       params.push(parseInt(unidadeId))
     }
 
     // Filtrar por ativo se fornecido
     if (ativo !== null && ativo !== undefined) {
-      query += ' AND v.ativo = ?'
+      queryVendedores += ' AND v.ativo = ?'
       params.push(ativo === 'true' || ativo === '1' ? 1 : 0)
     }
 
-    query += ' ORDER BY v.name, v.lastName'
+    queryVendedores += ' ORDER BY v.name, v.lastName'
 
-    console.log('🔍 Query:', query)
+    console.log('🔍 Query Vendedores:', queryVendedores)
     console.log('📦 Params:', params)
 
-    const vendedores = await executeQuery(query, params) as Vendedor[]
+    const vendedores = await executeQuery(queryVendedores, params) as Vendedor[]
 
     console.log(`✅ ${vendedores.length} vendedores encontrados`)
+
+    // 2. BUSCAR UNIDADES COM VENDEDORES
+    const unidadeIds = [...new Set(vendedores.map(v => v.unidade_id).filter(id => id !== null))]
+    
+    let unidades: any[] = []
+    if (unidadeIds.length > 0) {
+      const queryUnidades = `
+        SELECT 
+          u.id,
+          COALESCE(u.nome, u.name) as nome,
+          u.responsavel,
+          u.ativo,
+          u.grupo_id,
+          COUNT(v.id) as total_vendedores,
+          SUM(CASE WHEN v.ativo = 1 THEN 1 ELSE 0 END) as vendedores_ativos
+        FROM unidades u
+        LEFT JOIN vendedores v ON v.unidade_id = u.id
+        WHERE u.id IN (${unidadeIds.join(',')})
+        GROUP BY u.id, u.nome, u.name, u.responsavel, u.ativo, u.grupo_id
+        ORDER BY COALESCE(u.nome, u.name)
+      `
+      
+      console.log('🔍 Query Unidades:', queryUnidades)
+      unidades = await executeQuery(queryUnidades)
+      console.log(`✅ ${unidades.length} unidades encontradas`)
+    }
 
     // Agrupar por unidade
     const porUnidade = vendedores.reduce((acc, vendedor) => {
@@ -90,9 +116,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       vendedores,
+      unidades,
       por_unidade: porUnidade,
       stats,
-      message: `${vendedores.length} vendedores encontrados`
+      message: `${vendedores.length} vendedores encontrados em ${unidades.length} unidades`
     })
 
   } catch (error) {

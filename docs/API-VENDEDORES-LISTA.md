@@ -70,6 +70,26 @@ GET /api/vendedores/lista?unidade_id=5&ativo=true
       "status": "active"
     }
   ],
+  "unidades": [
+    {
+      "id": 5,
+      "nome": "CE OUTDOOR",
+      "responsavel": "José Manager",
+      "ativo": 1,
+      "grupo_id": 2,
+      "total_vendedores": 25,
+      "vendedores_ativos": 23
+    },
+    {
+      "id": 8,
+      "nome": "SP INDOOR",
+      "responsavel": "Maria Gestora",
+      "ativo": 1,
+      "grupo_id": 2,
+      "total_vendedores": 18,
+      "vendedores_ativos": 17
+    }
+  ],
   "por_unidade": {
     "CE OUTDOOR": [
       {
@@ -96,7 +116,7 @@ GET /api/vendedores/lista?unidade_id=5&ativo=true
     "sem_unidade": 5,
     "unidades": 12
   },
-  "message": "150 vendedores encontrados"
+  "message": "150 vendedores encontrados em 12 unidades"
 }
 ```
 
@@ -136,6 +156,18 @@ O campo `stats` contém:
 - `sem_unidade`: Vendedores sem unidade
 - `unidades`: Quantidade de unidades diferentes
 
+## Campos da Unidade
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | number | ID único da unidade |
+| `nome` | string | Nome da unidade |
+| `responsavel` | string\|null | Nome do responsável pela unidade |
+| `ativo` | boolean | Se a unidade está ativa |
+| `grupo_id` | number\|null | ID do grupo da unidade |
+| `total_vendedores` | number | Total de vendedores na unidade |
+| `vendedores_ativos` | number | Quantidade de vendedores ativos |
+
 ## Agrupamento por Unidade
 
 O campo `por_unidade` agrupa os vendedores por nome da unidade:
@@ -146,6 +178,15 @@ O campo `por_unidade` agrupa os vendedores por nome da unidade:
   "Sem Unidade": [vendedores...]
 }
 ```
+
+## Campo Unidades
+
+O campo `unidades` retorna um array com informações detalhadas das unidades que possuem vendedores:
+- Nome da unidade
+- Responsável
+- Status ativo/inativo
+- Total de vendedores (ativos e inativos)
+- Quantidade de vendedores ativos
 
 ## Logs
 
