@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
         DATEDIFF(NOW(), o.updateDate) as dias_parada,
         COALESCE(u.nome, u.name, 'Sem unidade') as unidade_nome
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user = CONCAT(v.name, ' ', v.lastName)
+      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       LEFT JOIN unidades u ON v.unidade_id = u.id
       WHERE ${whereClause}
       ORDER BY dias_parada DESC
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) as quantidade,
         SUM(o.value) as valor_total
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user = CONCAT(v.name, ' ', v.lastName)
+      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       WHERE ${whereClause}
       GROUP BY faixa
       ORDER BY 
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
         AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias_parados,
         MAX(DATEDIFF(NOW(), o.updateDate)) as max_dias_parados
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user = CONCAT(v.name, ' ', v.lastName)
+      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       WHERE ${whereClause}
     `) as Array<{
       total_oportunidades: number
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
         AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias_parados,
         MAX(DATEDIFF(NOW(), o.updateDate)) as pior_caso_dias
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user = CONCAT(v.name, ' ', v.lastName)
+      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       WHERE ${whereClause}
       GROUP BY o.user
       HAVING total_paradas >= 3
@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
         SUM(o.value) as valor,
         AVG(DATEDIFF(NOW(), o.updateDate)) as media_dias
       FROM oportunidades o
-      LEFT JOIN vendedores v ON o.user = CONCAT(v.name, ' ', v.lastName)
+      LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       LEFT JOIN unidades u ON v.unidade_id = u.id
       WHERE ${whereClause}
       GROUP BY o.user, u.id
