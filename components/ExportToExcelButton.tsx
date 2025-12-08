@@ -16,6 +16,7 @@ interface ExportToExcelButtonProps {
   variant?: 'default' | 'outline' | 'ghost'
   size?: 'default' | 'sm' | 'lg' | 'icon'
   className?: string
+  colorScheme?: 'emerald' | 'blue' | 'purple' | 'default'
 }
 
 export function ExportToExcelButton({
@@ -26,7 +27,8 @@ export function ExportToExcelButton({
   disabled = false,
   variant = 'outline',
   size = 'sm',
-  className = ''
+  className = '',
+  colorScheme = 'emerald'
 }: ExportToExcelButtonProps) {
   const [isExporting, setIsExporting] = useState(false)
   const { toast } = useToast()
@@ -183,13 +185,23 @@ export function ExportToExcelButton({
     }
   }
 
+  // Define cores baseado no colorScheme
+  const colorClasses = {
+    emerald: 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:border-emerald-700',
+    blue: 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700',
+    purple: 'bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700',
+    default: '' // Usa as cores padrão do variant
+  }
+
+  const disabledClasses = 'disabled:bg-gray-700 disabled:text-gray-400 disabled:border-gray-700 disabled:cursor-not-allowed disabled:opacity-50'
+
   return (
     <Button
       onClick={handleExport}
       disabled={disabled || isExporting || !data || data.length === 0}
       variant={variant}
       size={size}
-      className={className}
+      className={`${className} ${colorScheme !== 'default' ? colorClasses[colorScheme] : ''} ${disabledClasses}`}
     >
       <FileSpreadsheet className="h-4 w-4 mr-2" />
       {isExporting ? 'Exportando...' : 'Exportar Excel'}
