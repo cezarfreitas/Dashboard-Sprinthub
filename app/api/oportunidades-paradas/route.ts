@@ -225,6 +225,8 @@ export async function GET(request: NextRequest) {
       pior_caso_dias: number
     }>
 
+    console.log('📊 Alertas Vendedor Raw:', JSON.stringify(alertasVendedorRaw, null, 2))
+
     const alertasVendedor: AlertaVendedor[] = alertasVendedorRaw.map(item => ({
       vendedor: item.vendedor_completo || 'Sem vendedor',
       nome: item.nome || item.vendedor_completo?.split(' ')[0] || 'Sem nome',
