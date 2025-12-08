@@ -19,7 +19,8 @@ import {
   ChevronUp,
   CircleDot,
   Menu,
-  X
+  X,
+  Clock
 } from "lucide-react"
 import { useAuthSistema } from "@/hooks/use-auth-sistema"
 import {
