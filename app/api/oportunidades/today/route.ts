@@ -250,48 +250,48 @@ export async function GET(request: NextRequest) {
 
     const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
-    // Query para oportunidades CRIADAS HOJE
+    // Query para oportunidades CRIADAS HOJE (usando GMT-3)
     const queryCriadasHoje = `
       SELECT 
         COUNT(*) as total,
         COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       ${whereClause}
-        AND DATE(o.createDate) = ?
+        AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) = ?
     `
     const paramsCriadasHoje = [...queryParams, hojeStr]
 
-    // Query para oportunidades GANHAS HOJE
+    // Query para oportunidades GANHAS HOJE (usando GMT-3)
     const queryGanhasHoje = `
       SELECT 
         COUNT(*) as total,
         COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       ${whereClause}
-        AND DATE(o.gain_date) = ?
+        AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
         AND o.gain_date IS NOT NULL
     `
     const paramsGanhasHoje = [...queryParams, hojeStr]
 
-    // Query para oportunidades CRIADAS ONTEM
+    // Query para oportunidades CRIADAS ONTEM (usando GMT-3)
     const queryCriadasOntem = `
       SELECT 
         COUNT(*) as total,
         COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       ${whereClause}
-        AND DATE(o.createDate) = ?
+        AND DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) = ?
     `
     const paramsCriadasOntem = [...queryParams, ontemStr]
 
-    // Query para oportunidades GANHAS ONTEM
+    // Query para oportunidades GANHAS ONTEM (usando GMT-3)
     const queryGanhasOntem = `
       SELECT 
         COUNT(*) as total,
         COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       ${whereClause}
-        AND DATE(o.gain_date) = ?
+        AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
         AND o.gain_date IS NOT NULL
     `
     const paramsGanhasOntem = [...queryParams, ontemStr]

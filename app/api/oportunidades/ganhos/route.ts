@@ -68,31 +68,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Buscar total de oportunidades ganhas no mês
+    // Buscar total de oportunidades ganhas no mês (usando GMT-3)
     const queryTotal = `
       SELECT 
         COUNT(*) as total,
         COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       WHERE o.gain_date IS NOT NULL
-        AND MONTH(o.gain_date) = ? 
-        AND YEAR(o.gain_date) = ?
+        AND MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ? 
+        AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
         ${filtroUnidade}
     `
 
     const resultTotal = await executeQuery(queryTotal, params) as any[]
 
-    // Buscar por dia (para o gráfico)
+    // Buscar por dia (para o gráfico) - usando GMT-3
     const queryDiario = `
       SELECT 
-        DAY(o.gain_date) as dia,
-        DATE(o.gain_date) as data,
+        DAY(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) as dia,
+        DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) as data,
         COUNT(*) as total_oportunidades,
         COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       WHERE o.gain_date IS NOT NULL
-        AND MONTH(o.gain_date) = ? 
-        AND YEAR(o.gain_date) = ?
+        AND MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ? 
+        AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
         ${filtroUnidade}
       GROUP BY dia, data
       ORDER BY dia

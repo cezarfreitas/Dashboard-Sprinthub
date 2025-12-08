@@ -68,15 +68,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Buscar oportunidades criadas por dia
+    // Buscar oportunidades criadas por dia (usando GMT-3)
     const query = `
       SELECT 
-        DAY(o.createDate) as dia,
-        DATE(o.createDate) as data,
+        DAY(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) as dia,
+        DATE(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) as data,
         COUNT(*) as total_criadas
       FROM oportunidades o
-      WHERE MONTH(o.createDate) = ? 
-        AND YEAR(o.createDate) = ?
+      WHERE MONTH(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) = ? 
+        AND YEAR(CONVERT_TZ(o.createDate, '+00:00', '-03:00')) = ?
         ${filtroUnidade}
       GROUP BY dia, data
       ORDER BY dia
