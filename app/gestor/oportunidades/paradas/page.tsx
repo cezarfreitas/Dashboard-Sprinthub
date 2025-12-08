@@ -5,13 +5,33 @@ import { HeaderGestor } from "@/components/header_gestor"
 import { AppFooter } from "@/components/app-footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, TrendingUp, AlertTriangle, DollarSign } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Clock, TrendingUp, AlertTriangle, Filter, X } from "lucide-react"
 
 interface DistribuicaoFaixa {
   faixa: string
   quantidade: number
   valor_total: number
   percentual: number
+}
+
+interface Unidade {
+  id: number
+  nome: string
+}
+
+interface Vendedor {
+  id: number
+  name: string
+  lastName: string
+}
+
+interface Funil {
+  id: number
+  funil_nome: string
 }
 
 export default function GestorOportunidadesParadasPage() {
@@ -24,14 +44,58 @@ export default function GestorOportunidadesParadasPage() {
     media_dias_parados: number
   } | null>(null)
 
+  // Filtros
+  const [diasMinimo, setDiasMinimo] = useState('7')
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState<string>('')
+  const [vendedorSelecionado, setVendedorSelecionado] = useState<string>('')
+  const [funilSelecionado, setFunilSelecionado] = useState<string>('')
+
+  // Listas para os selects
+  const [unidades, setUnidades] = useState<Unidade[]>([])
+  const [vendedores, setVendedores] = useState<Vendedor[]>([])
+  const [funis, setFunis] = useState<Funil[]>([])
+
+  useEffect(() => {
+    loadFilters()
+  }, [])
+
   useEffect(() => {
     loadData()
-  }, [])
+  }, [diasMinimo, unidadeSelecionada, vendedorSelecionado, funilSelecionado])
+
+  const loadFilters = async () => {
+    try {
+      const [unidadesRes, vendedoresRes, funisRes] = await Promise.all([
+        fetch('/api/unidades'),
+        fetch('/api/vendedores'),
+        fetch('/api/funis')
+      ])
+
+      const [unidadesData, vendedoresData, funisData] = await Promise.all([
+        unidadesRes.json(),
+        vendedoresRes.json(),
+        funisRes.json()
+      ])
+
+      if (unidadesData.success) setUnidades(unidadesData.unidades || [])
+      if (vendedoresData.success) setVendedores(vendedoresData.vendedores || [])
+      if (funisData.success) setFunis(funisData.funis || [])
+    } catch (error) {
+      console.error('Erro ao carregar filtros:', error)
+    }
+  }
 
   const loadData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/oportunidades-paradas?dias=7')
+      
+      const params = new URLSearchParams()
+      params.append('dias', diasMinimo)
+      if (unidadeSelecionada) params.append('unidade_id', unidadeSelecionada)
+      if (vendedorSelecionado) params.append('vendedor', vendedorSelecionado)
+      if (funilSelecionado) params.append('funil_id', funilSelecionado)
+
+      const response = await fetch(`/api/oportunidades-paradas?${params.toString()}`)
       const data = await response.json()
       
       if (data.success) {
@@ -43,6 +107,13 @@ export default function GestorOportunidadesParadasPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const limparFiltros = () => {
+    setDiasMinimo('7')
+    setUnidadeSelecionada('')
+    setVendedorSelecionado('')
+    setFunilSelecionado('')
   }
 
   const getFaixaColor = (faixa: string) => {
@@ -84,6 +155,104 @@ export default function GestorOportunidadesParadasPage() {
             Análise de oportunidades sem atualização nos últimos dias
           </p>
         </div>
+
+        {/* Filtros */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                <CardTitle>Filtros</CardTitle>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={limparFiltros}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Limpar Filtros
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Dias Mínimo */}
+              <div className="space-y-2">
+                <Label htmlFor="dias">Dias Parado (mínimo)</Label>
+                <Select value={diasMinimo} onValueChange={setDiasMinimo}>
+                  <SelectTrigger id="dias">
+                    <SelectValue placeholder="Selecione os dias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1+ dias</SelectItem>
+                    <SelectItem value="3">3+ dias</SelectItem>
+                    <SelectItem value="7">7+ dias</SelectItem>
+                    <SelectItem value="15">15+ dias</SelectItem>
+                    <SelectItem value="30">30+ dias</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Unidade */}
+              <div className="space-y-2">
+                <Label htmlFor="unidade">Unidade</Label>
+                <Select value={unidadeSelecionada} onValueChange={setUnidadeSelecionada}>
+                  <SelectTrigger id="unidade">
+                    <SelectValue placeholder="Todas as unidades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todas</SelectItem>
+                    {unidades.map((unidade) => (
+                      <SelectItem key={unidade.id} value={unidade.id.toString()}>
+                        {unidade.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Vendedor */}
+              <div className="space-y-2">
+                <Label htmlFor="vendedor">Vendedor</Label>
+                <Select value={vendedorSelecionado} onValueChange={setVendedorSelecionado}>
+                  <SelectTrigger id="vendedor">
+                    <SelectValue placeholder="Todos os vendedores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos</SelectItem>
+                    {vendedores.map((vendedor) => (
+                      <SelectItem 
+                        key={vendedor.id} 
+                        value={`${vendedor.name} ${vendedor.lastName}`}
+                      >
+                        {vendedor.name} {vendedor.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Funil */}
+              <div className="space-y-2">
+                <Label htmlFor="funil">Funil</Label>
+                <Select value={funilSelecionado} onValueChange={setFunilSelecionado}>
+                  <SelectTrigger id="funil">
+                    <SelectValue placeholder="Todos os funis" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos</SelectItem>
+                    {funis.map((funil) => (
+                      <SelectItem key={funil.id} value={funil.id.toString()}>
+                        {funil.funil_nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">

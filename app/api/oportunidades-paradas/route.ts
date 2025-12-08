@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
     const diasMinimo = parseInt(searchParams.get('dias') || '7')
     const unidadeId = searchParams.get('unidade_id')
     const vendedorNome = searchParams.get('vendedor')
+    const funilId = searchParams.get('funil_id')
 
     // Query base para oportunidades paradas (status 'open' e sem atualização há X dias)
     let whereConditions = [
@@ -82,6 +83,10 @@ export async function GET(request: NextRequest) {
 
     if (vendedorNome) {
       whereConditions.push(`o.user LIKE '%${vendedorNome}%'`)
+    }
+
+    if (funilId) {
+      whereConditions.push(`cf.id_funil = ${parseInt(funilId)}`)
     }
 
     const whereClause = whereConditions.join(' AND ')
@@ -100,6 +105,7 @@ export async function GET(request: NextRequest) {
       FROM oportunidades o
       LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       LEFT JOIN unidades u ON v.unidade_id = u.id
+      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
       ORDER BY dias_parada DESC
       LIMIT 100
@@ -118,6 +124,7 @@ export async function GET(request: NextRequest) {
         SUM(o.value) as valor_total
       FROM oportunidades o
       LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
+      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
       GROUP BY faixa
       ORDER BY 
@@ -150,6 +157,7 @@ export async function GET(request: NextRequest) {
         MAX(DATEDIFF(NOW(), o.updateDate)) as max_dias_parados
       FROM oportunidades o
       LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
+      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
     `) as Array<{
       total_oportunidades: number
@@ -177,6 +185,7 @@ export async function GET(request: NextRequest) {
         MAX(DATEDIFF(NOW(), o.updateDate)) as pior_caso_dias
       FROM oportunidades o
       LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
+      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
       GROUP BY o.user
       HAVING total_paradas >= 3
@@ -209,6 +218,7 @@ export async function GET(request: NextRequest) {
       FROM oportunidades o
       LEFT JOIN vendedores v ON o.user COLLATE utf8mb4_unicode_ci = CONCAT(v.name, ' ', v.lastName)
       LEFT JOIN unidades u ON v.unidade_id = u.id
+      LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id
       WHERE ${whereClause}
       GROUP BY o.user, u.id
       HAVING quantidade >= 2
