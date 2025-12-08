@@ -140,6 +140,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./
 
+# Copiar script de entrypoint
+COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Criar diretório de uploads com permissões corretas (antes de mudar para usuário nextjs)
 RUN mkdir -p /app/public/uploads/logos && \
     chown -R nextjs:nodejs /app/public/uploads && \
@@ -154,6 +158,7 @@ USER nextjs
 
 EXPOSE 3000
 
-# Comando para produção usando npm start
+# Comando para produção usando script de entrypoint customizado
+# O script garante que apenas uma instância rode e trata sinais corretamente
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["npm", "start"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
