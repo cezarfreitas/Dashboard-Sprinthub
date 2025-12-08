@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       config: {
-        nome: configMap['empresa_nome'] || '',
+        nome: configMap['empresa_nome'] || 'Grupo Inteli',
         logotipo: configMap['empresa_logotipo'] || '',
         corPrincipal: configMap['empresa_cor_principal'] || '#3b82f6'
       }
@@ -32,13 +32,21 @@ export async function GET(request: NextRequest) {
     return response
 
   } catch (error) {
+    console.error('[API] Erro ao buscar configurações da empresa:', error)
+    
+    // Retornar configuração padrão mesmo em caso de erro
+    // Isso garante que o site funcione mesmo sem banco de dados
     return NextResponse.json(
       { 
-        success: false, 
-        message: 'Erro ao buscar configurações',
-        error: error instanceof Error ? error.message : 'Erro desconhecido'
+        success: true,
+        config: {
+          nome: 'Grupo Inteli',
+          logotipo: '',
+          corPrincipal: '#3b82f6'
+        },
+        fallback: true
       },
-      { status: 500 }
+      { status: 200 }
     )
   }
 }

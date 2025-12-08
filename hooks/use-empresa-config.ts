@@ -26,7 +26,7 @@ export function useEmpresaConfig() {
             const corPrincipal = data.config.corPrincipal || '#3b82f6'
             
             setConfig({
-              nome: data.config.nome || '',
+              nome: data.config.nome || 'Grupo Inteli',
               logotipo: normalizeLogoUrl(data.config.logotipo),
               corPrincipal
             })
@@ -38,10 +38,29 @@ export function useEmpresaConfig() {
               root.style.setProperty('--primary', hsl)
               root.style.setProperty('--ring', hsl)
             }
+          } else {
+            // Se API retornou erro, usar config padrão
+            setConfig({
+              nome: 'Grupo Inteli',
+              logotipo: '',
+              corPrincipal: '#3b82f6'
+            })
           }
+        } else {
+          // Se API não respondeu OK, usar config padrão
+          setConfig({
+            nome: 'Grupo Inteli',
+            logotipo: '',
+            corPrincipal: '#3b82f6'
+          })
         }
       } catch (error) {
-        // Silently fail
+        // Se falhou completamente, usar config padrão
+        setConfig({
+          nome: 'Grupo Inteli',
+          logotipo: '',
+          corPrincipal: '#3b82f6'
+        })
       } finally {
         setLoading(false)
       }

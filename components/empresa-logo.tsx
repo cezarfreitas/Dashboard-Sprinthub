@@ -34,20 +34,15 @@ export function EmpresaLogo({
 
   if (shouldShowFallback) {
     // Fallback: mostrar nome da empresa (e ícone se habilitado)
-    if (!empresaNome) {
-      // Se não tem nem logo nem nome, mostrar apenas o ícone
-      return showFallbackIcon ? (
-        <Building2 className={cn("h-6 w-6 text-primary flex-shrink-0", className)} />
-      ) : null
-    }
-
+    const fallbackText = empresaNome || 'Grupo Inteli'
+    
     return (
       <div className={cn("flex items-center gap-2", className)}>
         {showFallbackIcon && (
           <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
         )}
         <span className="font-semibold text-lg truncate">
-          {empresaNome}
+          {fallbackText}
         </span>
       </div>
     )
@@ -61,11 +56,9 @@ export function EmpresaLogo({
           {showFallbackIcon && (
             <Building2 className="h-6 w-6 text-primary flex-shrink-0 animate-pulse" />
           )}
-          {empresaNome && (
-            <span className="font-semibold text-lg truncate animate-pulse">
-              {empresaNome}
-            </span>
-          )}
+          <span className="font-semibold text-lg truncate animate-pulse">
+            {empresaNome || 'Grupo Inteli'}
+          </span>
         </div>
       )}
       
