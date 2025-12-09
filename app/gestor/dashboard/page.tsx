@@ -43,7 +43,7 @@ export default function GestorDashboard() {
         funilSelecionado={funilSelecionado}
         setFunilSelecionado={setFunilSelecionado}
       />
-      <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-20 py-3 space-y-4">
+      <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-4">
         {loadingCards ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-gray-500">Carregando dados...</div>
@@ -55,8 +55,8 @@ export default function GestorDashboard() {
                 valorAtual={cardsData?.ganhosValorTotalMes || 0}
                 meta={cardsData?.ganhosMeta || 0}
                 unidadeId={unidadeSelecionada}
-                mes={getPeriodoDatas ? new Date().getMonth() + 1 : undefined}
-                ano={getPeriodoDatas ? new Date().getFullYear() : undefined}
+                mes={getPeriodoDatas() ? new Date().getMonth() + 1 : undefined}
+                ano={getPeriodoDatas() ? new Date().getFullYear() : undefined}
               />
             )}
             <GestorEstatisticasCards
@@ -88,7 +88,7 @@ export default function GestorDashboard() {
             ticketTotalVendas={cardsData?.ticketTotalVendas || 0}
             ticketValorTotal={cardsData?.ticketValorTotal || 0}
             />
-            {unidadeSelecionada && getPeriodoDatas && (
+            {unidadeSelecionada && getPeriodoDatas() && (
               <>
                 <GestorOportunidadesDiarias
                   unidadeId={unidadeSelecionada}
