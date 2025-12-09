@@ -54,6 +54,9 @@ export default function GestorDashboard() {
               <GestorBarraProgressoMeta
                 valorAtual={cardsData?.ganhosValorTotalMes || 0}
                 meta={cardsData?.ganhosMeta || 0}
+                unidadeId={unidadeSelecionada}
+                mes={getPeriodoDatas ? new Date().getMonth() + 1 : undefined}
+                ano={getPeriodoDatas ? new Date().getFullYear() : undefined}
               />
             )}
             <GestorEstatisticasCards

@@ -1,10 +1,15 @@
-import { memo, useMemo } from "react"
-import { Target } from "lucide-react"
+import { memo, useMemo, useState } from "react"
+import { Target, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { GestorMetaDetalhesDialog } from "./GestorMetaDetalhesDialog"
 
 interface GestorBarraProgressoMetaProps {
   valorAtual: number
   meta: number
+  unidadeId?: number | null
+  mes?: number
+  ano?: number
 }
 
 const formatCurrency = (value: number): string => {
@@ -18,20 +23,37 @@ const formatCurrency = (value: number): string => {
 
 export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
   valorAtual,
-  meta
+  meta,
+  unidadeId = null,
+  mes,
+  ano
 }: GestorBarraProgressoMetaProps) {
+  const [dialogOpen, setDialogOpen] = useState(false)
+
   const percentualMeta = useMemo(() => {
     if (meta === 0) return 0
     return Math.min(100, (valorAtual / meta) * 100)
   }, [valorAtual, meta])
 
+  // Determinar mês e ano atual se não fornecidos
+  const currentDate = new Date()
+  const targetMes = mes ?? currentDate.getMonth() + 1
+  const targetAno = ano ?? currentDate.getFullYear()
+
   if (meta === 0 && valorAtual === 0) {
     return null
   }
 
+  const handleOpenDialog = () => {
+    if (unidadeId && meta > 0) {
+      setDialogOpen(true)
+    }
+  }
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-      <div className="flex items-center gap-4">
+    <>
+      <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+        <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 flex-shrink-0">
           <Target className="w-5 h-5 text-gray-700" />
           <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
@@ -85,6 +107,18 @@ export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
               {percentualMeta.toFixed(1)}%
             </span>
           </div>
+          
+          {unidadeId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenDialog}
+              className="flex-shrink-0 h-8 px-3 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+            >
+              <span className="text-xs font-medium">Ver Detalhes</span>
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          )}
         </div>
           </>
         ) : (
@@ -98,8 +132,21 @@ export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
             </div>
           </div>
         )}
+        </div>
       </div>
-    </div>
+
+      {unidadeId && (
+        <GestorMetaDetalhesDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          unidadeId={unidadeId}
+          mes={targetMes}
+          ano={targetAno}
+          metaTotal={meta}
+          realizadoTotal={valorAtual}
+        />
+      )}
+    </>
   )
 })
 
