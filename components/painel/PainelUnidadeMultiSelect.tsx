@@ -58,25 +58,32 @@ export default function PainelUnidadeMultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={isOpen}
-          className="w-full h-9 text-xs justify-between font-normal"
+          className="w-full h-9 text-xs justify-between font-normal bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
         >
           <span className="truncate">{getDisplayText()}</span>
           <ChevronDown className={`ml-2 h-3 w-3 shrink-0 opacity-50 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent className="w-[300px] p-0 bg-gray-900 border-gray-800" align="start">
         <div className="flex flex-col">
           {/* Opção "Todas" */}
-          <div className="flex items-center px-3 py-2 border-b hover:bg-gray-50 cursor-pointer">
+          <div
+            className="flex items-center px-3 py-2 border-b border-gray-800 hover:bg-gray-800 cursor-pointer"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              toggleAll()
+            }}
+          >
             <Checkbox
               id="select-all"
               checked={selectedIds.length === unidadesList.length && unidadesList.length > 0}
               onCheckedChange={toggleAll}
               className="mr-2"
+              onClick={(e) => e.stopPropagation()}
             />
             <label
               htmlFor="select-all"
-              className="flex-1 text-xs font-semibold text-gray-900 cursor-pointer py-1"
+              className="flex-1 text-xs font-semibold text-gray-200 cursor-pointer py-1"
             >
               Todas as unidades
             </label>
@@ -90,18 +97,22 @@ export default function PainelUnidadeMultiSelect({
                 return (
                   <div
                     key={unidade.id}
-                    className="flex items-center px-3 py-2 rounded-sm hover:bg-gray-50 cursor-pointer"
-                    onClick={() => toggleUnidade(unidade.id)}
+                    className="flex items-center px-3 py-2 rounded-sm hover:bg-gray-800 cursor-pointer"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      toggleUnidade(unidade.id)
+                    }}
                   >
                     <Checkbox
                       id={`unidade-${unidade.id}`}
                       checked={isChecked}
                       onCheckedChange={() => toggleUnidade(unidade.id)}
                       className="mr-2"
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <label
                       htmlFor={`unidade-${unidade.id}`}
-                      className="flex-1 text-xs text-gray-900 cursor-pointer py-1 truncate"
+                      className="flex-1 text-xs text-gray-200 cursor-pointer py-1 truncate"
                       title={unidade.nome}
                     >
                       {unidade.nome}

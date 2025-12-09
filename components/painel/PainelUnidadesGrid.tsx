@@ -70,6 +70,10 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
                 unidade={unidade}
                 posicao={posicao}
                 color={color}
+                filtros={{
+                  periodoInicio: filtros.periodoInicio,
+                  periodoFim: filtros.periodoFim
+                }}
                 onClickAbertas={() => setSelectedUnidade({ id: unidade.id, nome: nomeExibicao, status: 'abertas' })}
                 onClickGanhas={() => setSelectedUnidade({ id: unidade.id, nome: nomeExibicao, status: 'ganhas' })}
                 onClickPerdidas={() => setSelectedUnidade({ id: unidade.id, nome: nomeExibicao, status: 'perdidas' })}

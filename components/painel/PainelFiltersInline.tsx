@@ -1,6 +1,17 @@
 'use client'
 
 import PainelUnidadeMultiSelect from './PainelUnidadeMultiSelect'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { X } from 'lucide-react'
 
 interface PainelFiltersInlineProps {
   filtros: {
@@ -28,11 +39,21 @@ export default function PainelFiltersInline({
   periodoInicial,
   filtrosAtivos
 }: PainelFiltersInlineProps) {
+  const periodoOptions = [
+    { value: 'este-mes', label: 'Este Mês' },
+    { value: 'mes-passado', label: 'Mês Passado' },
+    { value: 'esta-semana', label: 'Esta Semana' },
+    { value: 'semana-passada', label: 'Semana Passada' },
+    { value: 'este-ano', label: 'Este Ano' },
+    { value: 'ano-anterior', label: 'Ano Anterior' },
+    { value: 'personalizado', label: 'Personalizado' },
+  ]
+
   return (
-    <div className="flex items-center gap-3 mb-4 bg-gray-900/50 border border-gray-800 rounded-lg p-3">
+    <div className="flex flex-wrap items-center gap-4 mb-6 bg-gray-900/50 border border-gray-800 rounded-lg p-4 shadow-sm">
       {/* Filtro de Unidade (Multi-select) */}
-      <div className="flex items-center gap-2 flex-1">
-        <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Unidades:</label>
+      <div className="flex flex-col gap-2 flex-1 min-w-[200px]">
+        <Label className="text-xs font-medium text-gray-400">Unidades</Label>
         <PainelUnidadeMultiSelect
           unidadesList={unidadesList}
           selectedIds={filtros.unidadesSelecionadas}
@@ -41,96 +62,112 @@ export default function PainelFiltersInline({
       </div>
 
       {/* Filtro de Período */}
-      <div className="flex items-center gap-2 flex-1">
-        <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Período:</label>
-        <select
+      <div className="flex flex-col gap-2 flex-1 min-w-[180px]">
+        <Label className="text-xs font-medium text-gray-400">Período</Label>
+        <Select
           value={filtros.periodoTipo}
-          onChange={(e) => setFiltros({ ...filtros, periodoTipo: e.target.value })}
-          className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+          onValueChange={(value) => setFiltros({ ...filtros, periodoTipo: value })}
         >
-          <option value="este-mes">Este Mês</option>
-          <option value="mes-passado">Mês Passado</option>
-          <option value="esta-semana">Esta Semana</option>
-          <option value="semana-passada">Semana Passada</option>
-          <option value="este-ano">Este Ano</option>
-          <option value="ano-anterior">Ano Anterior</option>
-          <option value="personalizado">Personalizado</option>
-        </select>
+          <SelectTrigger className="h-9 text-xs bg-gray-800 border-gray-700 text-white">
+            <SelectValue placeholder="Selecione o período" />
+          </SelectTrigger>
+          <SelectContent className="bg-gray-900 border-gray-800 text-white">
+            {periodoOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value} className="text-xs text-white focus:bg-gray-800 focus:text-white">
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Datas Personalizadas (condicional) */}
       {filtros.periodoTipo === 'personalizado' && (
         <>
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">De:</label>
-            <input
+          <div className="flex flex-col gap-2 min-w-[150px]">
+            <Label className="text-xs font-medium text-gray-400">De</Label>
+            <Input
               type="date"
               value={filtros.periodoInicio}
               onChange={(e) => setFiltros({ ...filtros, periodoInicio: e.target.value })}
-              className="px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="h-9 text-xs bg-gray-800 border-gray-700 text-white"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Até:</label>
-            <input
+          <div className="flex flex-col gap-2 min-w-[150px]">
+            <Label className="text-xs font-medium text-gray-400">Até</Label>
+            <Input
               type="date"
               value={filtros.periodoFim}
               onChange={(e) => setFiltros({ ...filtros, periodoFim: e.target.value })}
-              className="px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="h-9 text-xs bg-gray-800 border-gray-700 text-white"
             />
           </div>
         </>
       )}
 
       {/* Filtro de Funil */}
-      <div className="flex items-center gap-2 flex-1">
-        <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Funil:</label>
-        <select
+      <div className="flex flex-col gap-2 flex-1 min-w-[180px]">
+        <Label className="text-xs font-medium text-gray-400">Funil</Label>
+        <Select
           value={filtros.funilSelecionado}
-          onChange={(e) => setFiltros({ ...filtros, funilSelecionado: e.target.value })}
-          className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+          onValueChange={(value) => setFiltros({ ...filtros, funilSelecionado: value })}
         >
-          <option value="todos">Todos</option>
-          {funis.map(funil => (
-            <option key={funil.id} value={funil.id}>
-              {funil.funil_nome}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-9 text-xs bg-gray-800 border-gray-700 text-white">
+            <SelectValue placeholder="Selecione o funil" />
+          </SelectTrigger>
+          <SelectContent className="bg-gray-900 border-gray-800 text-white">
+            <SelectItem value="todos" className="text-xs text-white focus:bg-gray-800 focus:text-white">Todos</SelectItem>
+            {funis.map((funil) => (
+              <SelectItem key={funil.id} value={String(funil.id)} className="text-xs text-white focus:bg-gray-800 focus:text-white">
+                {funil.funil_nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Filtro de Grupo */}
-      <div className="flex items-center gap-2 flex-1">
-        <label className="text-xs font-semibold text-gray-400 whitespace-nowrap">Grupo:</label>
-        <select
+      <div className="flex flex-col gap-2 flex-1 min-w-[180px]">
+        <Label className="text-xs font-medium text-gray-400">Grupo</Label>
+        <Select
           value={filtros.grupoSelecionado}
-          onChange={(e) => setFiltros({ ...filtros, grupoSelecionado: e.target.value })}
-          className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+          onValueChange={(value) => setFiltros({ ...filtros, grupoSelecionado: value })}
         >
-          <option value="todos">Todos</option>
-          {grupos.map(grupo => (
-            <option key={grupo.id} value={grupo.id}>
-              {grupo.nome}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-9 text-xs bg-gray-800 border-gray-700 text-white">
+            <SelectValue placeholder="Selecione o grupo" />
+          </SelectTrigger>
+          <SelectContent className="bg-gray-900 border-gray-800 text-white">
+            <SelectItem value="todos" className="text-xs text-white focus:bg-gray-800 focus:text-white">Todos</SelectItem>
+            {grupos.map((grupo) => (
+              <SelectItem key={grupo.id} value={String(grupo.id)} className="text-xs text-white focus:bg-gray-800 focus:text-white">
+                {grupo.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Botão Limpar Filtros */}
       {filtrosAtivos && (
-        <button
-          onClick={() => setFiltros({
-            unidadesSelecionadas: [],
-            periodoTipo: 'este-mes',
-            periodoInicio: periodoInicial.inicio,
-            periodoFim: periodoInicial.fim,
-            funilSelecionado: 'todos',
-            grupoSelecionado: 'todos'
-          })}
-          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap"
-        >
-          Limpar
-        </button>
+        <div className="flex flex-col gap-2 min-w-[100px]">
+          <Label className="text-xs font-medium text-gray-400 opacity-0">Ações</Label>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setFiltros({
+              unidadesSelecionadas: [],
+              periodoTipo: 'este-mes',
+              periodoInicio: periodoInicial.inicio,
+              periodoFim: periodoInicial.fim,
+              funilSelecionado: 'todos',
+              grupoSelecionado: 'todos'
+            })}
+            className="h-9 text-xs gap-1"
+          >
+            <X className="h-3 w-3" />
+            Limpar
+          </Button>
+        </div>
       )}
     </div>
   )

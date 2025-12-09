@@ -105,19 +105,7 @@ const menuItems = [
     href: "/vendedores"
   },
   {
-    title: "Oportunidades",
-    icon: Clock,
-    href: "/oportunidades",
-    hasSubmenu: true,
-    submenu: [
-      {
-        title: "Paradas",
-        href: "/oportunidades/paradas"
-      }
-    ]
-  },
-      {
-        title: "Configurações",
+    title: "Configurações",
         icon: Settings,
         href: "/configuracoes",
         hasSubmenu: true,

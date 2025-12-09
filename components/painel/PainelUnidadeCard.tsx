@@ -1,7 +1,8 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { TrendingUp, CheckCircle, XCircle, Target } from 'lucide-react'
+import { TrendingUp, CheckCircle, XCircle, Target, FileSpreadsheet, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 import type { PainelUnidade } from '@/types/painel.types'
 
 interface PainelUnidadeCardProps {
@@ -10,6 +11,10 @@ interface PainelUnidadeCardProps {
   color: {
     bg: string
     text: string
+  }
+  filtros?: {
+    periodoInicio: string
+    periodoFim: string
   }
   onClickAbertas?: () => void
   onClickGanhas?: () => void
@@ -75,10 +80,13 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
   unidade,
   posicao,
   color,
+  filtros,
   onClickAbertas,
   onClickGanhas,
   onClickPerdidas
 }: PainelUnidadeCardProps) {
+  const [isExporting, setIsExporting] = useState(false)
+  const { toast } = useToast()
   const nomeExibicao = unidade.nome_exibicao || unidade.nome || unidade.name || 'Sem nome'
   
   const valorAbertoFormatado = new Intl.NumberFormat('pt-BR', {
@@ -105,6 +113,164 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
     ? Math.min(100, (unidade.valor_ganho / unidade.meta_valor) * 100)
     : 0
 
+  const handleExportToExcel = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    try {
+      setIsExporting(true)
+
+      // Buscar todas as oportunidades da unidade
+      const params = new URLSearchParams({
+        unidadeId: String(unidade.id),
+        ...(filtros?.periodoInicio && { periodoInicio: filtros.periodoInicio }),
+        ...(filtros?.periodoFim && { periodoFim: filtros.periodoFim })
+      })
+
+      const response = await fetch(`/api/painel/oportunidades-unidade?${params}`)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `Erro HTTP: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Erro ao buscar oportunidades')
+      }
+
+      if (!data.oportunidades || data.oportunidades.length === 0) {
+        toast({
+          title: 'Nenhuma oportunidade',
+          description: 'Não há oportunidades para exportar nesta unidade no período selecionado',
+        })
+        return
+      }
+
+      const XLSX = await import('xlsx')
+
+      // Preparar dados para exportação - TODAS AS COLUNAS
+      const exportData = data.oportunidades.map((op: any) => {
+        // Formatar datas
+        const formatDate = (date: any) => date ? new Date(date).toLocaleDateString('pt-BR', { 
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        }) : '-'
+
+        // Criar objeto base com campos principais
+        const baseData: any = {
+          'ID': op.id || '-',
+          'Título': op.title || '-',
+          'Valor': op.value || 0,
+          'Status': op.status || '-',
+          'Status Original': op.status_original || '-',
+          
+          // Datas
+          'Data Criação': formatDate(op.createDate),
+          'Data Atualização': formatDate(op.updateDate),
+          'Data Ganho': formatDate(op.gain_date),
+          'Data Perda': formatDate(op.lost_date),
+          'Data Mudança Coluna': formatDate(op.last_column_change),
+          'Data Mudança Status': formatDate(op.last_status_change),
+          'Data Fechamento Esperada': op.expectedCloseDate ? new Date(op.expectedCloseDate).toLocaleDateString('pt-BR') : '-',
+          'Data Reabertura': formatDate(op.reopen_date),
+          
+          // Vendedor
+          'Vendedor ID': op.vendedor_id || '-',
+          'Vendedor Nome': op.vendedor_nome || '-',
+          
+          // Funil e Lead
+          'Coluna CRM': op.crm_column || '-',
+          'Coluna Funil ID': op.coluna_funil_id || '-',
+          'Lead ID': op.lead_id || '-',
+          'Sequência': op.sequence || '-',
+          
+          // Motivos
+          'Motivo Perda ID': op.loss_reason || '-',
+          'Motivo Perda Nome': op.loss_reason_nome || '-',
+          'Motivo Ganho': op.gain_reason || '-',
+          
+          // Canais
+          'Canal de Venda': op.sale_channel || '-',
+          'Campanha': op.campaign || '-',
+          
+          // Aprovações
+          'Aguardando Aprovação': op.await_column_approved ? 'Sim' : 'Não',
+          'Usuário Aprovação': op.await_column_approved_user || '-',
+          'Aprovação Rejeitada': op.reject_appro ? 'Sim' : 'Não',
+          'Descrição Rejeição': op.reject_appro_desc || '-',
+          
+          // Outros
+          'Arquivado': op.archived ? 'Sim' : 'Não',
+        }
+
+        // Adicionar campos expandidos de JSON (fields, dataLead, conf_installment)
+        // Ignorar os campos _json (mantém apenas os expandidos)
+        Object.keys(op).forEach(key => {
+          if (key.startsWith('field_') || key.startsWith('dataLead_') || key.startsWith('conf_installment_')) {
+            baseData[key] = op[key] || '-'
+          }
+        })
+
+        return baseData
+      })
+
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.json_to_sheet(exportData)
+
+      // Auto-ajustar largura das colunas baseado no conteúdo
+      const colWidths = Object.keys(exportData[0] || {}).map(key => {
+        const maxLength = Math.max(
+          key.length,
+          ...exportData.map((row: any) => {
+            const value = String(row[key] || '')
+            return value.length
+          })
+        )
+        return { wch: Math.min(Math.max(maxLength + 2, 10), 50) }
+      })
+      ws['!cols'] = colWidths
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Oportunidades')
+
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([excelBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+
+      const link = document.createElement('a')
+      const urlBlob = URL.createObjectURL(blob)
+
+      const timestamp = new Date().toISOString().split('T')[0]
+      const filename = `${nomeExibicao}_Oportunidades_${timestamp}.xlsx`
+
+      link.setAttribute('href', urlBlob)
+      link.setAttribute('download', filename)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(urlBlob)
+
+      toast({
+        title: 'Excel exportado!',
+        description: `${data.oportunidades.length} oportunidade(s) exportada(s) com sucesso`,
+      })
+    } catch (error) {
+      console.error('Erro ao exportar oportunidades:', error)
+      toast({
+        title: 'Erro ao exportar',
+        description: error instanceof Error ? error.message : 'Erro desconhecido ao exportar oportunidades',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <Card 
       className={cn(
@@ -120,11 +286,29 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
           <span className="font-black text-lg uppercase tracking-wide truncate flex-1">
             {nomeExibicao}
           </span>
-          <div className={cn(
-            "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-base text-white",
-            posicao <= 3 ? "bg-yellow-400" : "bg-white/20"
-          )}>
-            {posicao}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportToExcel}
+              disabled={isExporting}
+              className={cn(
+                "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all",
+                "bg-white/20 hover:bg-white/30 active:scale-95",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+              title="Exportar todas as oportunidades para Excel"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4" />
+              )}
+            </button>
+            <div className={cn(
+              "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-base text-white",
+              posicao <= 3 ? "bg-yellow-400" : "bg-white/20"
+            )}>
+              {posicao}
+            </div>
           </div>
         </div>
         
