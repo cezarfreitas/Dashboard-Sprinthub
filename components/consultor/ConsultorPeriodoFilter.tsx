@@ -14,14 +14,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { PeriodoFiltro } from "@/hooks/gestor/useGestorDashboard"
+import { PeriodoFiltro } from "@/hooks/consultor/useConsultorDashboard"
 
 interface Funil {
   id: number
   funil_nome: string
 }
 
-interface GestorPeriodoFilterProps {
+interface ConsultorPeriodoFilterProps {
   periodoFiltro: PeriodoFiltro
   setPeriodoFiltro: (periodo: PeriodoFiltro) => void
   dataInicioPersonalizada: Date | undefined
@@ -32,7 +32,7 @@ interface GestorPeriodoFilterProps {
   setFunilSelecionado?: (funilId: string | null) => void
 }
 
-export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
+export const ConsultorPeriodoFilter = memo(function ConsultorPeriodoFilter({
   periodoFiltro,
   setPeriodoFiltro,
   dataInicioPersonalizada,
@@ -41,7 +41,7 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
   setDataFimPersonalizada,
   funilSelecionado,
   setFunilSelecionado
-}: GestorPeriodoFilterProps) {
+}: ConsultorPeriodoFilterProps) {
   const [popoverPersonalizadoOpen, setPopoverPersonalizadoOpen] = useState(false)
   const [funis, setFunis] = useState<Funil[]>([])
   
@@ -69,7 +69,7 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
 
   return (
     <div className="bg-white border-b border-gray-200">
-      <div className="w-full py-3">
+      <div className="max-w-[1800px] mx-auto w-full py-3">
         <div className="flex items-center justify-center gap-3 flex-wrap px-4">
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <span className="text-xs font-medium text-gray-700">Período:</span>

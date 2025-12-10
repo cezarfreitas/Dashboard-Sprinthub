@@ -141,7 +141,7 @@ export function HeaderGestor({
         "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
         className
       )}>
-        <div className="container flex h-14 items-center">
+        <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 flex h-14 items-center">
           <div className="flex-1 flex justify-center">
             <span className="text-sm text-muted-foreground">Carregando...</span>
           </div>
@@ -161,7 +161,7 @@ export function HeaderGestor({
       hideOnScroll && !isVisible && "-translate-y-full",
       className
     )}>
-      <div className="container flex h-14 items-center">
+      <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 flex h-14 items-center">
         {/* Logo */}
         <Link href="/gestor/dashboard" className="mr-4 flex items-center text-primary-foreground hover:text-primary-foreground/80">
           <EmpresaLogo
@@ -275,7 +275,7 @@ export function HeaderGestor({
       {/* Mobile Menu */}
       {isMobileMenuOpen && gestor && (
         <div className="md:hidden border-t border-primary-foreground/20 bg-primary">
-          <div className="container py-4">
+          <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
             {/* Unidade Selector Mobile */}
             {gestor.unidades.length > 1 && unidadeSelecionada !== undefined && setUnidadeSelecionada && (
               <div className="mb-4 px-3">

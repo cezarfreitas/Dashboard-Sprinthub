@@ -145,6 +145,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
 
     // Parâmetros de filtro
+    const userIdParam = searchParams.get('user_id') // Filtro direto por ID do vendedor
     const unidadeIdParam = searchParams.get('unidade_id')
     const funilIdParam = searchParams.get('funil_id')
     const grupoIdParam = searchParams.get('grupo_id')
@@ -161,8 +162,20 @@ export async function GET(request: NextRequest) {
     // Construir filtros de vendedores
     let userIds: number[] = []
     
-    // Filtro de unidade
-    if (unidadeIdParam) {
+    // Filtro direto por user_id (prioridade máxima)
+    if (userIdParam) {
+      const directUserIds = userIdParam
+        .split(',')
+        .map(id => parseInt(id.trim()))
+        .filter(id => !isNaN(id) && id > 0)
+      
+      if (directUserIds.length > 0) {
+        userIds = directUserIds
+      }
+    }
+    
+    // Filtro de unidade (só aplica se não tiver user_id direto)
+    if (!userIdParam && unidadeIdParam) {
       const unidadeUserIds = await buildUnidadeFilter(unidadeIdParam)
       if (unidadeUserIds.length === 0) {
         return NextResponse.json({
@@ -186,8 +199,8 @@ export async function GET(request: NextRequest) {
       userIds.push(...unidadeUserIds)
     }
 
-    // Filtro de grupo
-    if (grupoIdParam) {
+    // Filtro de grupo (só aplica se não tiver user_id direto)
+    if (!userIdParam && grupoIdParam) {
       const grupoUserIds = await buildGrupoFilter(grupoIdParam)
       if (grupoUserIds.length === 0) {
         return NextResponse.json({

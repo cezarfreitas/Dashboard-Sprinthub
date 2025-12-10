@@ -3,20 +3,29 @@ import { executeQuery } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
-// POST - Autenticar consultor
+// POST - Autenticar consultor (apenas com email)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { username, password } = body
+    const { email } = body
 
-    if (!username || !password) {
+    if (!email) {
       return NextResponse.json(
-        { success: false, message: 'Usuário e senha são obrigatórios' },
+        { success: false, message: 'Email é obrigatório' },
         { status: 400 }
       )
     }
 
-    // Buscar consultor no banco
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { success: false, message: 'Email inválido' },
+        { status: 400 }
+      )
+    }
+
+    // Buscar consultor no banco por email (sem validar unidade)
     const consultores = await executeQuery(`
       SELECT 
         v.id,
@@ -25,43 +34,38 @@ export async function POST(request: NextRequest) {
         v.username,
         v.email,
         v.telephone,
+        v.ativo,
+        v.status,
         u.id as unidade_id,
         COALESCE(u.name, u.nome) as unidade_nome,
         u.responsavel as unidade_responsavel
       FROM vendedores v
       LEFT JOIN unidades u ON v.unidade_id = u.id
-      WHERE v.username = ?
-    `, [username]) as Array<{
+      WHERE v.email = ?
+    `, [email]) as Array<{
       id: number
       name: string
       lastName: string
       username: string
       email: string
       telephone: string
-      unidade_id: number
-      unidade_nome: string
-      unidade_responsavel: string
+      ativo: number
+      status: string
+      unidade_id: number | null
+      unidade_nome: string | null
+      unidade_responsavel: string | null
     }>
 
     if (consultores.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Usuário não encontrado ou inativo' },
+        { success: false, message: 'Email não encontrado' },
         { status: 401 }
       )
     }
 
     const consultor = consultores[0]
 
-    // Verificar senha (por enquanto, aceita qualquer senha - implementar hash depois)
-    // TODO: Implementar verificação de senha com hash
-    if (password !== '123456') {
-      return NextResponse.json(
-        { success: false, message: 'Senha incorreta' },
-        { status: 401 }
-      )
-    }
-
-    // Retornar dados do consultor (sem senha)
+    // Retornar dados do consultor (com ou sem unidade)
     return NextResponse.json({
       success: true,
       message: 'Login realizado com sucesso',
@@ -72,11 +76,9 @@ export async function POST(request: NextRequest) {
         username: consultor.username,
         email: consultor.email,
         telephone: consultor.telephone,
-        unidade: {
-          id: consultor.unidade_id,
-          nome: consultor.unidade_nome,
-          responsavel: consultor.unidade_responsavel
-        }
+        unidade_id: consultor.unidade_id || null,
+        unidade_nome: consultor.unidade_nome || null,
+        unidade_responsavel: consultor.unidade_responsavel || null
       }
     })
 
