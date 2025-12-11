@@ -6,22 +6,59 @@ export const dynamic = 'force-dynamic'
 /**
  * GET /api/wpp/meta/[vendedor_id]
  * Webhook para retornar dados de meta do vendedor do mês atual
+ * Aceita tanto ID numérico quanto email do vendedor
+ * 
+ * Exemplos:
+ * - /api/wpp/meta/123 (busca por ID)
+ * - /api/wpp/meta/vendedor@empresa.com.br (busca por email)
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: { vendedor_id: string } }
 ) {
   try {
-    const vendedorId = params.vendedor_id
+    const vendedorParam = params.vendedor_id
 
-    if (!vendedorId || isNaN(parseInt(vendedorId))) {
+    if (!vendedorParam || vendedorParam.trim() === '') {
       return NextResponse.json(
         { 
           success: false, 
-          message: 'ID do vendedor inválido' 
+          message: 'Parâmetro do vendedor inválido' 
         },
         { status: 400 }
       )
+    }
+
+    // Verificar se é ID numérico ou email
+    const isNumericId = !isNaN(parseInt(vendedorParam))
+    let vendedorId: number | null = null
+
+    if (isNumericId) {
+      // Busca direta por ID
+      vendedorId = parseInt(vendedorParam)
+    } else {
+      // Buscar ID do vendedor pelo email
+      const emailQuery = `
+        SELECT id 
+        FROM vendedores 
+        WHERE email = ? 
+        LIMIT 1
+      `
+      
+      const emailResult = await executeQuery(emailQuery, [vendedorParam]) as Array<{ id: number }>
+      
+      if (emailResult.length === 0) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            message: 'Vendedor não encontrado com o email fornecido',
+            email_buscado: vendedorParam
+          },
+          { status: 404 }
+        )
+      }
+      
+      vendedorId = emailResult[0].id
     }
 
     // Obter mês e ano atual
@@ -121,13 +158,34 @@ export async function GET(
 
     const vendedorInfo = vendedorResult.length > 0 ? vendedorResult[0] : null
 
-    // 6. Retornar dados formatados
+    // 6. Formatar mensagem WhatsApp
+    const nomeCompleto = vendedorInfo ? `${vendedorInfo.name} ${vendedorInfo.lastName}`.trim() : 'Vendedor'
+    const primeiroNome = vendedorInfo?.name || 'Vendedor'
+    
+    const mensagemWhatsApp = gerarMensagemWhatsApp({
+      nome: primeiroNome,
+      nomeCompleto,
+      metaValor,
+      valorAtingido,
+      percentualAtingido,
+      projecaoValor,
+      projecaoPercentual,
+      faltaAtingir: Math.max(0, metaValor - valorAtingido),
+      faltaPercentual: metaValor > 0 ? ((Math.max(0, metaValor - valorAtingido) / metaValor) * 100) : 0,
+      status,
+      diaAtual,
+      mesAtual,
+      ultimoDiaMes,
+      percentualMesDecorrido: (diaAtual / ultimoDiaMes) * 100
+    })
+
+    // 7. Retornar dados formatados
     return NextResponse.json({
       success: true,
       data: {
         vendedor: {
-          id: parseInt(vendedorId),
-          nome: vendedorInfo ? `${vendedorInfo.name} ${vendedorInfo.lastName}`.trim() : 'Vendedor não encontrado',
+          id: vendedorId,
+          nome: nomeCompleto,
           username: vendedorInfo?.username || null,
           email: vendedorInfo?.email || null
         },
@@ -179,7 +237,8 @@ export async function GET(
             maximumFractionDigits: 2
           }).format(Math.max(0, metaValor - valorAtingido)),
           percentual: metaValor > 0 ? ((Math.max(0, metaValor - valorAtingido) / metaValor) * 100).toFixed(2) : '0.00'
-        }
+        },
+        mensagem: mensagemWhatsApp
       }
     })
 
@@ -212,5 +271,100 @@ function getStatusMensagem(status: string): string {
     default:
       return 'ℹ️ Sem meta cadastrada para este mês'
   }
+}
+
+// Função auxiliar para formatar valores em Real
+function formatarReal(valor: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(valor)
+}
+
+// Função para gerar mensagem formatada para WhatsApp
+interface MensagemParams {
+  nome: string
+  nomeCompleto: string
+  metaValor: number
+  valorAtingido: number
+  percentualAtingido: number
+  projecaoValor: number
+  projecaoPercentual: number
+  faltaAtingir: number
+  faltaPercentual: number
+  status: string
+  diaAtual: number
+  mesAtual: number
+  ultimoDiaMes: number
+  percentualMesDecorrido: number
+}
+
+function gerarMensagemWhatsApp(params: MensagemParams): string {
+  const {
+    nome,
+    nomeCompleto,
+    metaValor,
+    valorAtingido,
+    percentualAtingido,
+    projecaoValor,
+    projecaoPercentual,
+    faltaAtingir,
+    faltaPercentual,
+    status,
+    diaAtual,
+    mesAtual,
+    ultimoDiaMes,
+    percentualMesDecorrido
+  } = params
+
+  // Obter nome do mês em português
+  const meses = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ]
+  const nomeMes = meses[mesAtual - 1]
+
+  // Determinar emoji do status
+  let emojiStatus = '📊'
+  let textoStatus = ''
+  
+  switch (status) {
+    case 'meta-atingida':
+      emojiStatus = '🎉'
+      textoStatus = 'Meta Atingida!'
+      break
+    case 'no-caminho':
+      emojiStatus = '✅'
+      textoStatus = 'No Caminho'
+      break
+    case 'atencao':
+      emojiStatus = '⚠️'
+      textoStatus = 'Atenção (ritmo abaixo do necessário)'
+      break
+    case 'risco':
+      emojiStatus = '⚠️'
+      textoStatus = 'Risco (ritmo abaixo do necessário)'
+      break
+    case 'aguardando-vendas':
+      emojiStatus = 'ℹ️'
+      textoStatus = 'Aguardando primeiras vendas'
+      break
+    default:
+      emojiStatus = 'ℹ️'
+      textoStatus = 'Sem meta cadastrada'
+  }
+
+  // Montar mensagem com formatação WhatsApp (*negrito*)
+  let mensagem = `📊 *Desempenho do Mês* — *${nomeCompleto}*\n\n`
+  mensagem += `🎯 *Meta:* ${formatarReal(metaValor)}\n\n`
+  mensagem += `💰 *Atingido até hoje (${diaAtual}/${ultimoDiaMes}):* ${formatarReal(valorAtingido)} — *${percentualAtingido.toFixed(2)}%*\n\n`
+  mensagem += `📈 *Projeção atual:* ${formatarReal(projecaoValor)} — *${projecaoPercentual.toFixed(2)}%*\n`
+  mensagem += `${emojiStatus} *Status:* ${textoStatus}\n\n`
+  mensagem += `📉 *Falta para a meta:* ${formatarReal(faltaAtingir)} — *${faltaPercentual.toFixed(2)}%*\n`
+  mensagem += `📆 *Mês concluído:* ${percentualMesDecorrido.toFixed(1)}%`
+
+  return mensagem
 }
 
