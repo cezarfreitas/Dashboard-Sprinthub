@@ -58,13 +58,16 @@ export const ConsultorMatrizMotivosPerda = memo(function ConsultorMatrizMotivosP
         setLoading(true)
         setError(null)
 
+        // URL base da API
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+
         const params = new URLSearchParams()
         params.append('user_id', vendedorId.toString()) // Filtrar por vendedor
         params.append('lost_date_start', dataInicio)
         params.append('lost_date_end', dataFim)
         params.append('all', '1')
 
-        const response = await fetch(`/api/oportunidades/lost?${params.toString()}`)
+        const response = await fetch(`${baseUrl}/api/oportunidades/lost?${params.toString()}`)
         const data = await response.json()
 
         if (data.success) {

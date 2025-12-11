@@ -26,12 +26,6 @@ export default function ConsultorDashboard() {
     getPeriodoDatas
   } = useConsultorDashboard()
 
-  console.log('🏠 ConsultorDashboard:', { 
-    consultor: consultor?.id, 
-    periodo: getPeriodoDatas(),
-    temPeriodo: !!getPeriodoDatas()
-  })
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <HeaderConsultor />

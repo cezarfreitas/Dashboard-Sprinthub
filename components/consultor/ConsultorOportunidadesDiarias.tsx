@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useState } from "react"
-import { AlertCircle, TrendingUp } from "lucide-react"
+import { AlertCircle, TrendingUp, ExternalLink } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -11,6 +11,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 interface OportunidadeDiaria {
   data: string
@@ -19,6 +27,16 @@ interface OportunidadeDiaria {
   ano: number
   total: number
   valor_total?: number
+}
+
+interface Oportunidade {
+  id: number
+  title: string
+  value: number
+  createDate: string
+  lostDate?: string
+  gainDate?: string
+  status: string
 }
 
 interface ConsultorOportunidadesDiariasProps {
@@ -39,6 +57,97 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
   const [dadosCriadas, setDadosCriadas] = useState<OportunidadeDiaria[]>([])
   const [dadosPerdidas, setDadosPerdidas] = useState<OportunidadeDiaria[]>([])
   const [dadosGanhas, setDadosGanhas] = useState<OportunidadeDiaria[]>([])
+  const [modalAberto, setModalAberto] = useState(false)
+  const [oportunidadesModal, setOportunidadesModal] = useState<Oportunidade[]>([])
+  const [tituloModal, setTituloModal] = useState<string>('')
+  const [loadingModal, setLoadingModal] = useState(false)
+
+  // Função para abrir modal com oportunidades do dia
+  const handleCelulaClick = async (data: string, tipo: 'criadas' | 'perdidas' | 'ganhas', quantidade: number) => {
+    console.log('🔥 handleCelulaClick chamado:', { data, tipo, quantidade, vendedorId })
+    
+    if (quantidade === 0) {
+      console.log('⚠️ quantidade é 0, retornando sem buscar')
+      return
+    }
+
+    try {
+      setLoadingModal(true)
+      setModalAberto(true)
+      setTituloModal(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} - ${formatarDataCompleta(data)}`)
+      setOportunidadesModal([])
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+      const params = new URLSearchParams()
+      params.append('vendedor_id', vendedorId.toString())
+      params.append('data', data)
+      params.append('tipo', tipo)
+
+      const url = `${baseUrl}/api/consultor/oportunidades-por-data?${params.toString()}`
+      console.log('📡 Fazendo requisição para:', url)
+      
+      const response = await fetch(url)
+      const result = await response.json()
+      
+      console.log('📥 Resposta da API:', result)
+
+      if (result.success) {
+        setOportunidadesModal(result.data || [])
+      } else {
+        console.error('❌ API retornou erro:', result)
+        setOportunidadesModal([])
+      }
+    } catch (error) {
+      console.error('❌ Erro na requisição:', error)
+      setOportunidadesModal([])
+    } finally {
+      setLoadingModal(false)
+    }
+  }
+
+  // Função para abrir modal com TODAS as oportunidades do período (quando clicar no Total)
+  const handleTotalClick = async (tipo: 'criadas' | 'perdidas' | 'ganhas', quantidade: number) => {
+    if (quantidade === 0) return
+
+    try {
+      setLoadingModal(true)
+      setModalAberto(true)
+      setTituloModal(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} - Período Completo`)
+      setOportunidadesModal([])
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+      const params = new URLSearchParams()
+      params.append('vendedor_id', vendedorId.toString())
+      params.append('data_inicio', dataInicio)
+      params.append('data_fim', dataFim)
+      params.append('tipo', tipo)
+
+      const response = await fetch(`${baseUrl}/api/consultor/oportunidades-por-periodo?${params.toString()}`)
+      const result = await response.json()
+
+      if (result.success) {
+        setOportunidadesModal(result.data || [])
+      }
+    } catch (error) {
+      // Erro ao buscar oportunidades
+    } finally {
+      setLoadingModal(false)
+    }
+  }
+
+  // Função para formatar data completa
+  const formatarDataCompleta = (data: string) => {
+    if (!data) return ''
+    const [year, month, day] = data.split('-').map(Number)
+    // Criar data com UTC para evitar problemas de timezone
+    const date = new Date(Date.UTC(year, month - 1, day))
+    return date.toLocaleDateString('pt-BR', { 
+      day: '2-digit', 
+      month: 'long', 
+      year: 'numeric',
+      timeZone: 'America/Sao_Paulo'
+    })
+  }
 
   useEffect(() => {
     if (!vendedorId || !dataInicio || !dataFim) {
@@ -50,6 +159,9 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         setLoading(true)
         setError(null)
 
+        // URL base da API
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+
         // Buscar oportunidades criadas
         const paramsCriadas = new URLSearchParams()
         paramsCriadas.append('tipo', 'criadas')
@@ -58,7 +170,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsCriadas.append('user_id', vendedorId.toString())
         paramsCriadas.append('all', '1')
 
-        const responseCriadas = await fetch(`/api/oportunidades/diaria?${paramsCriadas.toString()}`)
+        const responseCriadas = await fetch(`${baseUrl}/api/oportunidades/diaria?${paramsCriadas.toString()}`)
         const dataCriadas = await responseCriadas.json()
 
         // Buscar oportunidades perdidas
@@ -69,7 +181,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsPerdidas.append('user_id', vendedorId.toString())
         paramsPerdidas.append('all', '1')
 
-        const responsePerdidas = await fetch(`/api/oportunidades/diaria?${paramsPerdidas.toString()}`)
+        const responsePerdidas = await fetch(`${baseUrl}/api/oportunidades/diaria?${paramsPerdidas.toString()}`)
         const dataPerdidas = await responsePerdidas.json()
 
         // Buscar oportunidades ganhas
@@ -80,7 +192,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsGanhas.append('user_id', vendedorId.toString())
         paramsGanhas.append('all', '1')
 
-        const responseGanhas = await fetch(`/api/oportunidades/diaria?${paramsGanhas.toString()}`)
+        const responseGanhas = await fetch(`${baseUrl}/api/oportunidades/diaria?${paramsGanhas.toString()}`)
         const dataGanhas = await responseGanhas.json()
 
         if (dataCriadas.success) {
@@ -280,7 +392,8 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className="text-center text-sm py-2 px-2 border-l border-gray-200"
+                      className={`text-center text-sm py-2 px-2 border-l border-gray-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
+                      onClick={() => handleCelulaClick(data, 'criadas', quantidade)}
                     >
                       {quantidade > 0 ? (
                         <span className="font-bold text-blue-700">{quantidade}</span>
@@ -290,7 +403,10 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                     </TableCell>
                   )
                 })}
-                <TableCell className="text-center bg-blue-100 font-bold border-l-2 border-blue-300 px-3 py-2 text-sm text-blue-800">
+                <TableCell 
+                  className={`text-center bg-blue-100 font-bold border-l-2 border-blue-300 px-3 py-2 text-sm text-blue-800 ${totalCriadas > 0 ? 'cursor-pointer hover:bg-blue-200 transition-colors' : ''}`}
+                  onClick={() => handleTotalClick('criadas', totalCriadas)}
+                >
                   {totalCriadas}
                 </TableCell>
               </TableRow>
@@ -306,7 +422,8 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className="text-center text-sm py-2 px-2 border-l border-gray-200"
+                      className={`text-center text-sm py-2 px-2 border-l border-gray-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-red-100 transition-colors' : ''}`}
+                      onClick={() => handleCelulaClick(data, 'perdidas', quantidade)}
                     >
                       {quantidade > 0 ? (
                         <span className="font-bold text-red-700">{quantidade}</span>
@@ -316,7 +433,10 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                     </TableCell>
                   )
                 })}
-                <TableCell className="text-center bg-red-100 font-bold border-l-2 border-red-300 px-3 py-2 text-sm text-red-800">
+                <TableCell 
+                  className={`text-center bg-red-100 font-bold border-l-2 border-red-300 px-3 py-2 text-sm text-red-800 ${totalPerdidas > 0 ? 'cursor-pointer hover:bg-red-200 transition-colors' : ''}`}
+                  onClick={() => handleTotalClick('perdidas', totalPerdidas)}
+                >
                   {totalPerdidas}
                 </TableCell>
               </TableRow>
@@ -332,7 +452,8 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className="text-center text-sm py-2 px-2 border-l border-gray-200"
+                      className={`text-center text-sm py-2 px-2 border-l border-gray-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-green-100 transition-colors' : ''}`}
+                      onClick={() => handleCelulaClick(data, 'ganhas', quantidade)}
                     >
                       {quantidade > 0 ? (
                         <span className="font-bold text-green-700">{quantidade}</span>
@@ -342,7 +463,10 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                     </TableCell>
                   )
                 })}
-                <TableCell className="text-center bg-green-100 font-bold border-l-2 border-green-300 px-3 py-2 text-sm text-green-800">
+                <TableCell 
+                  className={`text-center bg-green-100 font-bold border-l-2 border-green-300 px-3 py-2 text-sm text-green-800 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-green-200 transition-colors' : ''}`}
+                  onClick={() => handleTotalClick('ganhas', totalGanhasQtd)}
+                >
                   {totalGanhasQtd}
                 </TableCell>
               </TableRow>
@@ -355,10 +479,12 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                 {todasDatas.map(data => {
                   const item = dadosGanhas.find(d => d.data === data)
                   const valor = item?.valor_total || 0
+                  const quantidade = item?.total || 0
                   return (
                     <TableCell
                       key={data}
-                      className="text-center text-[11px] py-2 px-1 border-l border-gray-200"
+                      className={`text-center text-[11px] py-2 px-1 border-l border-gray-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-green-100 transition-colors' : ''}`}
+                      onClick={() => handleCelulaClick(data, 'ganhas', quantidade)}
                     >
                       {valor > 0 ? (
                         <span className="font-bold text-green-700">{formatCurrency(valor)}</span>
@@ -368,7 +494,10 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                     </TableCell>
                   )
                 })}
-                <TableCell className="text-center bg-green-100 font-bold border-l-2 border-green-300 px-3 py-2 text-[11px] text-green-800">
+                <TableCell 
+                  className={`text-center bg-green-100 font-bold border-l-2 border-green-300 px-3 py-2 text-[11px] text-green-800 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-green-200 transition-colors' : ''}`}
+                  onClick={() => handleTotalClick('ganhas', totalGanhasQtd)}
+                >
                   {formatCurrency(totalGanhasValor)}
                 </TableCell>
               </TableRow>
@@ -376,6 +505,78 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
           </Table>
         </div>
       </CardContent>
+
+      {/* Modal com lista de oportunidades */}
+      <Dialog open={modalAberto} onOpenChange={setModalAberto}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-blue-600" />
+              {tituloModal}
+            </DialogTitle>
+            <DialogDescription>
+              {oportunidadesModal.length} oportunidade(s) nesta data
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingModal ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-gray-500">Carregando oportunidades...</div>
+            </div>
+          ) : oportunidadesModal.length > 0 ? (
+            <div className="mt-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[60px]">ID</TableHead>
+                    <TableHead>Título</TableHead>
+                    <TableHead className="text-right w-[120px]">Valor</TableHead>
+                    <TableHead className="text-center w-[100px]">Status</TableHead>
+                    <TableHead className="text-center w-[120px]">Data</TableHead>
+                    <TableHead className="w-[80px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {oportunidadesModal.map((op) => (
+                    <TableRow key={op.id}>
+                      <TableCell className="font-medium">{op.id}</TableCell>
+                      <TableCell>{op.title}</TableCell>
+                      <TableCell className="text-right font-semibold text-green-600">
+                        {op.value > 0 ? formatCurrency(op.value) : '-'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {op.status === 'open' && <span className="text-blue-600 text-xs bg-blue-100 px-2 py-0.5 rounded">Aberta</span>}
+                        {op.status === 'won' && <span className="text-green-600 text-xs bg-green-100 px-2 py-0.5 rounded">Ganha</span>}
+                        {op.status === 'lost' && <span className="text-red-600 text-xs bg-red-100 px-2 py-0.5 rounded">Perdida</span>}
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">
+                        {op.createDate && new Date(op.createDate).toLocaleDateString('pt-BR')}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            const crmUrl = process.env.NEXT_PUBLIC_URL_PUBLIC || 'https://grupointeli.sprinthub.app'
+                            window.open(`${crmUrl}/sh/crm?opportunityID=${op.id}`, '_blank')
+                          }}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              Nenhuma oportunidade encontrada
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 })

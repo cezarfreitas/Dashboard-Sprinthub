@@ -79,6 +79,9 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
       setColunaModal({ nome: etapa.nome_coluna, total })
       setOportunidadesModal([])
 
+      // URL base da API
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+
       const params = new URLSearchParams()
       params.append('vendedor_id', vendedorId.toString())
       // Se coluna_id for null, não adiciona o filtro (busca de todas as colunas)
@@ -94,48 +97,44 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
         params.append('dias_aberta', '30')
       }
 
-      const response = await fetch(`/api/consultor/oportunidades-detalhes?${params.toString()}`)
+      const response = await fetch(`${baseUrl}/api/consultor/oportunidades-detalhes?${params.toString()}`)
       const data = await response.json()
 
       if (data.success) {
         setOportunidadesModal(data.data)
       }
     } catch (error) {
-      console.error('Erro ao buscar oportunidades:', error)
+      // Erro ao buscar oportunidades
     } finally {
       setLoadingModal(false)
     }
   }
 
   useEffect(() => {
-    console.log('🔍 ConsultorFunilEtapas montado', { vendedorId, dataInicio, dataFim })
-    
     if (!vendedorId || !dataInicio || !dataFim) {
-      console.log('❌ ConsultorFunilEtapas: Faltam parâmetros')
       return
     }
 
     const fetchData = async () => {
       try {
-        console.log('📡 ConsultorFunilEtapas: Iniciando busca...')
         setLoading(true)
         setError(null)
 
+        // URL base da API
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+
         // 1. Buscar todas as colunas do funil de vendas (ID 4)
-        const colunasResponse = await fetch('/api/funil/colunas?funil_id=4')
+        const colunasResponse = await fetch(`${baseUrl}/api/funil/colunas?funil_id=4`)
         const colunasData = await colunasResponse.json()
-        console.log('📊 Colunas do funil:', colunasData)
 
         if (!colunasData.success || !colunasData.colunas || colunasData.colunas.length === 0) {
-          console.log('⚠️ Nenhuma coluna encontrada')
           setEtapas([])
           return
         }
 
         // 2. Buscar oportunidades abertas do vendedor agrupadas por coluna
-        const oportResponse = await fetch(`/api/consultor/oportunidades-por-coluna?vendedor_id=${vendedorId}&funil_id=4`)
+        const oportResponse = await fetch(`${baseUrl}/api/consultor/oportunidades-por-coluna?vendedor_id=${vendedorId}&funil_id=4`)
         const oportData = await oportResponse.json()
-        console.log('📊 Oportunidades por coluna:', oportData)
 
         // 3. Criar mapa de dados por coluna
         const dadosPorColuna = new Map<number, { total: number; totalComValor: number; valorTotal: number; total10Dias: number; total30Dias: number }>()
@@ -152,8 +151,6 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
           })
         }
 
-        console.log('📊 Dados por coluna:', Array.from(dadosPorColuna.entries()))
-
         // 4. Montar dados combinando todas as colunas com suas contagens
         const etapasArray: EtapaFunil[] = colunasData.colunas.map((coluna: any) => {
           const dados = dadosPorColuna.get(coluna.id)
@@ -169,14 +166,9 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
             total_abertas_30_dias: dados?.total30Dias || 0
           }
         }).sort((a: EtapaFunil, b: EtapaFunil) => a.sequencia - b.sequencia)
-        console.log('✅ ConsultorFunilEtapas: Dados processados', { 
-          totalEtapas: etapasArray.length, 
-          etapas: etapasArray.map(e => ({ id: e.coluna_id, nome: e.nome_coluna }))
-        })
         setEtapas(etapasArray)
 
       } catch (err) {
-        console.error('❌ ConsultorFunilEtapas: Erro ao buscar dados', err)
         setError('Erro ao buscar dados das etapas do funil')
       } finally {
         setLoading(false)
@@ -187,7 +179,6 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
   }, [vendedorId, dataInicio, dataFim])
 
   if (loading) {
-    console.log('⏳ ConsultorFunilEtapas: Renderizando loading...')
     return (
       <Card>
         <CardContent className="p-6">
@@ -200,7 +191,6 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
   }
 
   if (error) {
-    console.log('❌ ConsultorFunilEtapas: Renderizando erro...', error)
     return (
       <Card>
         <CardContent className="p-6">
@@ -215,11 +205,8 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
 
   // Se não houver dados, não mostrar
   if (etapas.length === 0) {
-    console.log('⚠️ ConsultorFunilEtapas: Nenhuma etapa encontrada, não renderizando')
     return null
   }
-  
-  console.log('🎨 ConsultorFunilEtapas: Renderizando tabela com', etapas.length, 'etapas')
 
   // Calcular totais
   const totalAbertas = etapas.reduce((acc, etapa) => acc + (etapa.total_abertas || 0), 0)
@@ -435,7 +422,10 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
                           variant="ghost"
                           size="sm"
                           className="h-8 w-8 p-0"
-                          onClick={() => window.open(`https://app.sprinthub.com.br/oportunidades/${op.id}`, '_blank')}
+                          onClick={() => {
+                            const crmUrl = process.env.NEXT_PUBLIC_URL_PUBLIC || 'https://grupointeli.sprinthub.app'
+                            window.open(`${crmUrl}/sh/crm?opportunityID=${op.id}`, '_blank')
+                          }}
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
