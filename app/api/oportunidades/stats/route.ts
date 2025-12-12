@@ -225,10 +225,10 @@ export async function GET(request: NextRequest) {
           if (status === 'open' || status === 'aberta') {
             statusConditions.push("(o.status = 'open' AND o.gain_date IS NULL AND o.lost_date IS NULL)")
           } else if (status === 'won' || status === 'ganha' || status === 'gain') {
-            statusConditions.push('(o.gain_date IS NOT NULL OR o.status = ?)')
+            statusConditions.push('(o.gain_date IS NOT NULL AND o.status = ?)')
             queryParams.push('gain')
           } else if (status === 'lost' || status === 'perdida') {
-            statusConditions.push('(o.lost_date IS NOT NULL OR o.status = ?)')
+            statusConditions.push('(o.lost_date IS NOT NULL AND o.status = ?)')
             queryParams.push('lost')
           }
         })
@@ -532,16 +532,16 @@ export async function GET(request: NextRequest) {
     let selectClause = `
       COUNT(*) as total,
       COALESCE(SUM(o.value), 0) as valor_total,
-      COUNT(CASE WHEN o.gain_date IS NOT NULL THEN 1 END) as total_ganhas,
-      COUNT(CASE WHEN o.lost_date IS NOT NULL THEN 1 END) as total_perdidas,
+      COUNT(CASE WHEN o.gain_date IS NOT NULL AND o.status = 'gain' THEN 1 END) as total_ganhas,
+      COUNT(CASE WHEN o.lost_date IS NOT NULL AND o.status = 'lost' THEN 1 END) as total_perdidas,
       COUNT(CASE WHEN o.gain_date IS NULL AND o.lost_date IS NULL THEN 1 END) as total_abertas,
-      COALESCE(SUM(CASE WHEN o.gain_date IS NOT NULL THEN o.value ELSE 0 END), 0) as valor_ganhas,
-      COALESCE(SUM(CASE WHEN o.lost_date IS NOT NULL THEN o.value ELSE 0 END), 0) as valor_perdidas,
+      COALESCE(SUM(CASE WHEN o.gain_date IS NOT NULL AND o.status = 'gain' THEN o.value ELSE 0 END), 0) as valor_ganhas,
+      COALESCE(SUM(CASE WHEN o.lost_date IS NOT NULL AND o.status = 'lost' THEN o.value ELSE 0 END), 0) as valor_perdidas,
       COALESCE(SUM(CASE WHEN o.gain_date IS NULL AND o.lost_date IS NULL THEN o.value ELSE 0 END), 0) as valor_abertas,
-      COALESCE(AVG(CASE WHEN o.gain_date IS NOT NULL AND o.createDate IS NOT NULL 
+      COALESCE(AVG(CASE WHEN o.gain_date IS NOT NULL AND o.status = 'gain' AND o.createDate IS NOT NULL 
         THEN TIMESTAMPDIFF(DAY, o.createDate, o.gain_date) 
         ELSE NULL END), 0) as won_time,
-      COALESCE(AVG(CASE WHEN o.lost_date IS NOT NULL AND o.createDate IS NOT NULL 
+      COALESCE(AVG(CASE WHEN o.lost_date IS NOT NULL AND o.status = 'lost' AND o.createDate IS NOT NULL 
         THEN TIMESTAMPDIFF(DAY, o.createDate, o.lost_date) 
         ELSE NULL END), 0) as lost_time,
       COALESCE(AVG(CASE WHEN o.gain_date IS NULL AND o.lost_date IS NULL AND o.createDate IS NOT NULL 
@@ -563,8 +563,8 @@ export async function GET(request: NextRequest) {
       } else if (groupBy === 'status') {
         selectClause += `, 
           CASE 
-            WHEN o.gain_date IS NOT NULL THEN 'ganha'
-            WHEN o.lost_date IS NOT NULL THEN 'perdida'
+            WHEN o.gain_date IS NOT NULL AND o.status = 'gain' THEN 'ganha'
+            WHEN o.lost_date IS NOT NULL AND o.status = 'lost' THEN 'perdida'
             ELSE 'aberta'
           END as periodo`
         groupByClause = 'GROUP BY periodo ORDER BY periodo'
@@ -626,7 +626,7 @@ export async function GET(request: NextRequest) {
       const queryParamsBase: any[] = []
       
       // Status gain (oportunidades ganhas)
-      whereClausesBase.push('(o.gain_date IS NOT NULL)')
+      whereClausesBase.push('(o.gain_date IS NOT NULL AND o.status = \'gain\')')
       
       // Filtro de data de ganho (período) - TODAS devem ter gain_date no período
       whereClausesBase.push(`o.gain_date >= ?`)
@@ -863,7 +863,7 @@ export async function GET(request: NextRequest) {
       const queryParamsBase: any[] = []
       
       // Status lost (oportunidades perdidas)
-      whereClausesBase.push('(o.lost_date IS NOT NULL)')
+      whereClausesBase.push('(o.lost_date IS NOT NULL AND o.status = \'lost\')')
       
       // Filtro de data de perda (período) - TODAS devem ter lost_date no período
       whereClausesBase.push(`o.lost_date >= ?`)
@@ -971,16 +971,16 @@ export async function GET(request: NextRequest) {
           CAST(o.user AS UNSIGNED) as vendedor_id,
           COUNT(*) as total,
           COALESCE(SUM(o.value), 0) as valor_total,
-          COUNT(CASE WHEN o.gain_date IS NOT NULL THEN 1 END) as total_ganhas,
-          COUNT(CASE WHEN o.lost_date IS NOT NULL THEN 1 END) as total_perdidas,
+          COUNT(CASE WHEN o.gain_date IS NOT NULL AND o.status = 'gain' THEN 1 END) as total_ganhas,
+          COUNT(CASE WHEN o.lost_date IS NOT NULL AND o.status = 'lost' THEN 1 END) as total_perdidas,
           COUNT(CASE WHEN o.gain_date IS NULL AND o.lost_date IS NULL THEN 1 END) as total_abertas,
-          COALESCE(SUM(CASE WHEN o.gain_date IS NOT NULL THEN o.value ELSE 0 END), 0) as valor_ganhas,
-          COALESCE(SUM(CASE WHEN o.lost_date IS NOT NULL THEN o.value ELSE 0 END), 0) as valor_perdidas,
+          COALESCE(SUM(CASE WHEN o.gain_date IS NOT NULL AND o.status = 'gain' THEN o.value ELSE 0 END), 0) as valor_ganhas,
+          COALESCE(SUM(CASE WHEN o.lost_date IS NOT NULL AND o.status = 'lost' THEN o.value ELSE 0 END), 0) as valor_perdidas,
           COALESCE(SUM(CASE WHEN o.gain_date IS NULL AND o.lost_date IS NULL THEN o.value ELSE 0 END), 0) as valor_abertas,
-          COALESCE(AVG(CASE WHEN o.gain_date IS NOT NULL AND o.createDate IS NOT NULL 
+          COALESCE(AVG(CASE WHEN o.gain_date IS NOT NULL AND o.status = 'gain' AND o.createDate IS NOT NULL 
             THEN TIMESTAMPDIFF(DAY, o.createDate, o.gain_date) 
             ELSE NULL END), 0) as won_time,
-          COALESCE(AVG(CASE WHEN o.lost_date IS NOT NULL AND o.createDate IS NOT NULL 
+          COALESCE(AVG(CASE WHEN o.lost_date IS NOT NULL AND o.status = 'lost' AND o.createDate IS NOT NULL 
             THEN TIMESTAMPDIFF(DAY, o.createDate, o.lost_date) 
             ELSE NULL END), 0) as lost_time,
           COALESCE(AVG(CASE WHEN o.gain_date IS NULL AND o.lost_date IS NULL AND o.createDate IS NOT NULL 
