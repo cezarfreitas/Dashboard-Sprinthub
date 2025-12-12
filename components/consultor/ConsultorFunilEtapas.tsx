@@ -125,16 +125,34 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
 
         // 1. Buscar todas as colunas do funil de vendas (ID 4)
         const colunasResponse = await fetch(`${baseUrl}/api/funil/colunas?funil_id=4`)
+        
+        if (!colunasResponse.ok) {
+          throw new Error(`Erro ao buscar colunas: ${colunasResponse.status} ${colunasResponse.statusText}`)
+        }
+        
         const colunasData = await colunasResponse.json()
 
-        if (!colunasData.success || !colunasData.colunas || colunasData.colunas.length === 0) {
+        if (!colunasData.success) {
+          throw new Error(colunasData.message || 'Erro ao buscar colunas do funil')
+        }
+        
+        if (!colunasData.colunas || colunasData.colunas.length === 0) {
           setEtapas([])
           return
         }
 
         // 2. Buscar oportunidades abertas do vendedor agrupadas por coluna
         const oportResponse = await fetch(`${baseUrl}/api/consultor/oportunidades-por-coluna?vendedor_id=${vendedorId}&funil_id=4`)
+        
+        if (!oportResponse.ok) {
+          throw new Error(`Erro ao buscar oportunidades: ${oportResponse.status} ${oportResponse.statusText}`)
+        }
+        
         const oportData = await oportResponse.json()
+        
+        if (!oportData.success) {
+          throw new Error(oportData.message || 'Erro ao buscar oportunidades por coluna')
+        }
 
         // 3. Criar mapa de dados por coluna
         const dadosPorColuna = new Map<number, { total: number; totalComValor: number; valorTotal: number; total10Dias: number; total30Dias: number }>()
@@ -169,7 +187,9 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
         setEtapas(etapasArray)
 
       } catch (err) {
-        setError('Erro ao buscar dados das etapas do funil')
+        console.error('Erro detalhado ao buscar etapas do funil:', err)
+        const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar dados das etapas do funil'
+        setError(errorMessage)
       } finally {
         setLoading(false)
       }
