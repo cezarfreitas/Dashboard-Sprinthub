@@ -223,6 +223,43 @@ export function HeaderConsultor({
         </div>
       </div>
 
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && consultor && (
+        <div className="md:hidden border-t border-blue-700/50 bg-blue-700 animate-in slide-in-from-top-2">
+          <div className="max-w-[1900px] mx-auto px-4 py-3 space-y-2">
+            {/* Info do vendedor no mobile */}
+            <div className="flex items-center gap-3 p-3 bg-blue-800/50 rounded-lg">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-blue-900 text-white text-sm">
+                  {consultorInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <p className="font-semibold text-sm text-white">{consultorName}</p>
+                {consultor.unidade_nome && (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Building2 className="h-3 w-3 text-white/60" />
+                    <p className="text-xs text-white/80">{consultor.unidade_nome}</p>
+                  </div>
+                )}
+                {consultor.email && (
+                  <p className="text-xs text-white/60 truncate mt-0.5">{consultor.email}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Botão de Logout */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center w-full gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-500/90 hover:bg-red-600 rounded-lg transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sair</span>
+            </button>
+          </div>
+        </div>
+      )}
+
     </header>
   )
 }
