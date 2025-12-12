@@ -125,8 +125,72 @@ export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgresso
   // Sempre renderizar (mostra mensagem se não houver meta)
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-      <div className="flex items-center gap-4">
+    <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 shadow-sm">
+      {/* Mobile: Layout vertical */}
+      <div className="flex flex-col gap-3 md:hidden">
+        <div className="flex items-center gap-2">
+          <Target className="w-4 h-4 text-blue-600 flex-shrink-0" />
+          <span className="text-xs font-semibold text-gray-700">
+            {meta === 0 ? 'Minhas Vendas:' : 'Minha Meta:'}
+          </span>
+        </div>
+        
+        {meta > 0 ? (
+          <>
+            {/* Barra de progresso mobile */}
+            <div className="relative h-6 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className={cn(
+                  "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-center",
+                  getBarraClasses(corBarra)
+                )}
+                style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
+              >
+                {percentualMeta > 10 && (
+                  <span className="text-white text-[10px] font-bold">
+                    {percentualMeta.toFixed(0)}%
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            {/* Valores mobile */}
+            <div className="flex items-center justify-between text-xs">
+              <div>
+                <span className="text-gray-500">Atual: </span>
+                <span className="font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
+              </div>
+              <div className="text-gray-300">/</div>
+              <div>
+                <span className="text-gray-500">Meta: </span>
+                <span className="font-bold text-gray-900">{formatCurrency(meta)}</span>
+              </div>
+            </div>
+            
+            {statusProjecao !== 'atingido' && statusProjecao !== 'fora-periodo' && projecaoValor > 0 && (
+              <div className="text-center text-xs">
+                <span className="text-gray-500">Projeção: </span>
+                <span className={cn("font-bold", getTextoColor(corBarra))}>
+                  {formatCurrency(projecaoValor)} ({projecao.toFixed(0)}%)
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col gap-1 text-xs">
+            <div>
+              <span className="text-gray-500">Total: </span>
+              <span className="font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
+            </div>
+            <div className="px-2 py-1 bg-orange-50 border border-orange-200 rounded text-center">
+              <span className="text-orange-600">Sem meta cadastrada</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: Layout horizontal (original) */}
+      <div className="hidden md:flex items-center gap-4">
         <div className="flex items-center gap-2 flex-shrink-0">
           <Target className="w-5 h-5 text-blue-600" />
           <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
