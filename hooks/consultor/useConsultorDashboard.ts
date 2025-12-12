@@ -114,9 +114,6 @@ export function useConsultorDashboard() {
       setLoadingCards(true)
       const { dataInicio, dataFim } = getPeriodoDatas()
       
-      // URL base da API
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-      
       // Construir parâmetros base - Filtrar por user_id (ID do vendedor)
       const baseParams = new URLSearchParams()
       // As APIs esperam o parâmetro 'user_id' para filtrar pelo vendedor
@@ -128,7 +125,7 @@ export function useConsultorDashboard() {
 
       // 1. Buscar dados de HOJE
       const hojeParams = new URLSearchParams(baseParams)
-      const hojeResponse = await fetch(`${baseUrl}/api/oportunidades/today?${hojeParams.toString()}`)
+      const hojeResponse = await fetch(`/api/oportunidades/today?${hojeParams.toString()}`)
       const hojeData = hojeResponse.ok ? await hojeResponse.json() : null
 
       // 2. Buscar ABERTAS
@@ -137,7 +134,7 @@ export function useConsultorDashboard() {
       abertasParams.append('created_date_start', dataInicio)
       abertasParams.append('created_date_end', dataFim)
       abertasParams.append('all', '1')
-      const abertasResponse = await fetch(`${baseUrl}/api/oportunidades/stats?${abertasParams.toString()}`)
+      const abertasResponse = await fetch(`/api/oportunidades/stats?${abertasParams.toString()}`)
       const abertasData = abertasResponse.ok ? await abertasResponse.json() : null
 
       // 3. Buscar PERDIDAS
@@ -146,7 +143,7 @@ export function useConsultorDashboard() {
       perdidasParams.append('lost_date_start', dataInicio)
       perdidasParams.append('lost_date_end', dataFim)
       perdidasParams.append('all', '1')
-      const perdidasResponse = await fetch(`${baseUrl}/api/oportunidades/stats?${perdidasParams.toString()}`)
+      const perdidasResponse = await fetch(`/api/oportunidades/stats?${perdidasParams.toString()}`)
       const perdidasData = perdidasResponse.ok ? await perdidasResponse.json() : null
 
       // 4. Buscar GANHAS
@@ -155,7 +152,7 @@ export function useConsultorDashboard() {
       ganhasParams.append('gain_date_start', dataInicio)
       ganhasParams.append('gain_date_end', dataFim)
       ganhasParams.append('all', '1')
-      const ganhasResponse = await fetch(`${baseUrl}/api/oportunidades/stats?${ganhasParams.toString()}`)
+      const ganhasResponse = await fetch(`/api/oportunidades/stats?${ganhasParams.toString()}`)
       const ganhasData = ganhasResponse.ok ? await ganhasResponse.json() : null
 
       // 5. Buscar GANHOS DO MÊS (para comparação com meta)
@@ -181,7 +178,7 @@ export function useConsultorDashboard() {
       ganhasMesParams.append('gain_date_start', dataInicioMes)
       ganhasMesParams.append('gain_date_end', dataFimMes)
       
-      const ganhasMesResponse = await fetch(`${baseUrl}/api/oportunidades/stats?${ganhasMesParams.toString()}`)
+      const ganhasMesResponse = await fetch(`/api/oportunidades/stats?${ganhasMesParams.toString()}`)
       const ganhasMesData = ganhasMesResponse.ok ? await ganhasMesResponse.json() : null
 
       // 6. Buscar META do vendedor (aqui usamos vendedor_id correto)
@@ -190,7 +187,7 @@ export function useConsultorDashboard() {
       metaParams.append('mes', mesMeta.toString())
       metaParams.append('ano', anoMeta.toString())
       
-      const metaResponse = await fetch(`${baseUrl}/api/meta/stats?${metaParams.toString()}`)
+      const metaResponse = await fetch(`/api/meta/stats?${metaParams.toString()}`)
       const metaData = metaResponse.ok ? await metaResponse.json() : null
       
       // A API /api/meta/stats retorna a meta em data.meta_valor
