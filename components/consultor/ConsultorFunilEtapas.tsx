@@ -79,9 +79,6 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
       setColunaModal({ nome: etapa.nome_coluna, total })
       setOportunidadesModal([])
 
-      // URL base da API
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-
       const params = new URLSearchParams()
       params.append('vendedor_id', vendedorId.toString())
       // Se coluna_id for null, não adiciona o filtro (busca de todas as colunas)
@@ -97,7 +94,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
         params.append('dias_aberta', '30')
       }
 
-      const response = await fetch(`${baseUrl}/api/consultor/oportunidades-detalhes?${params.toString()}`)
+      const response = await fetch(`/api/consultor/oportunidades-detalhes?${params.toString()}`)
       const data = await response.json()
 
       if (data.success) {
@@ -120,11 +117,8 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
         setLoading(true)
         setError(null)
 
-        // URL base da API
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-
         // 1. Buscar todas as colunas do funil de vendas (ID 4)
-        const colunasResponse = await fetch(`${baseUrl}/api/funil/colunas?funil_id=4`)
+        const colunasResponse = await fetch(`/api/funil/colunas?funil_id=4`)
         
         if (!colunasResponse.ok) {
           throw new Error(`Erro ao buscar colunas: ${colunasResponse.status} ${colunasResponse.statusText}`)
@@ -142,7 +136,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
         }
 
         // 2. Buscar oportunidades abertas do vendedor agrupadas por coluna
-        const oportResponse = await fetch(`${baseUrl}/api/consultor/oportunidades-por-coluna?vendedor_id=${vendedorId}&funil_id=4`)
+        const oportResponse = await fetch(`/api/consultor/oportunidades-por-coluna?vendedor_id=${vendedorId}&funil_id=4`)
         
         if (!oportResponse.ok) {
           throw new Error(`Erro ao buscar oportunidades: ${oportResponse.status} ${oportResponse.statusText}`)

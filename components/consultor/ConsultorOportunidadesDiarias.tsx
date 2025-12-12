@@ -77,13 +77,12 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
       setTituloModal(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} - ${formatarDataCompleta(data)}`)
       setOportunidadesModal([])
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
       const params = new URLSearchParams()
       params.append('vendedor_id', vendedorId.toString())
       params.append('data', data)
       params.append('tipo', tipo)
 
-      const url = `${baseUrl}/api/consultor/oportunidades-por-data?${params.toString()}`
+      const url = `/api/consultor/oportunidades-por-data?${params.toString()}`
       console.log('📡 Fazendo requisição para:', url)
       
       const response = await fetch(url)
@@ -115,14 +114,13 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
       setTituloModal(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} - Período Completo`)
       setOportunidadesModal([])
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
       const params = new URLSearchParams()
       params.append('vendedor_id', vendedorId.toString())
       params.append('data_inicio', dataInicio)
       params.append('data_fim', dataFim)
       params.append('tipo', tipo)
 
-      const response = await fetch(`${baseUrl}/api/consultor/oportunidades-por-periodo?${params.toString()}`)
+      const response = await fetch(`/api/consultor/oportunidades-por-periodo?${params.toString()}`)
       const result = await response.json()
 
       if (result.success) {
@@ -159,9 +157,6 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         setLoading(true)
         setError(null)
 
-        // URL base da API
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-
         // Buscar oportunidades criadas
         const paramsCriadas = new URLSearchParams()
         paramsCriadas.append('tipo', 'criadas')
@@ -170,7 +165,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsCriadas.append('user_id', vendedorId.toString())
         paramsCriadas.append('all', '1')
 
-        const responseCriadas = await fetch(`${baseUrl}/api/oportunidades/diaria?${paramsCriadas.toString()}`)
+        const responseCriadas = await fetch(`/api/oportunidades/diaria?${paramsCriadas.toString()}`)
         const dataCriadas = await responseCriadas.json()
 
         // Buscar oportunidades perdidas
@@ -181,7 +176,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsPerdidas.append('user_id', vendedorId.toString())
         paramsPerdidas.append('all', '1')
 
-        const responsePerdidas = await fetch(`${baseUrl}/api/oportunidades/diaria?${paramsPerdidas.toString()}`)
+        const responsePerdidas = await fetch(`/api/oportunidades/diaria?${paramsPerdidas.toString()}`)
         const dataPerdidas = await responsePerdidas.json()
 
         // Buscar oportunidades ganhas
@@ -192,7 +187,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsGanhas.append('user_id', vendedorId.toString())
         paramsGanhas.append('all', '1')
 
-        const responseGanhas = await fetch(`${baseUrl}/api/oportunidades/diaria?${paramsGanhas.toString()}`)
+        const responseGanhas = await fetch(`/api/oportunidades/diaria?${paramsGanhas.toString()}`)
         const dataGanhas = await responseGanhas.json()
 
         if (dataCriadas.success) {
