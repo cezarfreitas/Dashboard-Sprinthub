@@ -29,11 +29,11 @@ export async function GET(request: NextRequest) {
 
     if (tipo === 'mensal') {
       // Filtrar por mês e ano específicos - GMT-3
-      query += ` WHERE MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?`
+      query += ` WHERE o.gain_date IS NOT NULL AND o.status = 'gain' AND MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?`
       params.push(mes, ano)
     } else if (tipo === 'anual') {
       // Filtrar apenas por ano - GMT-3
-      query += ` WHERE YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?`
+      query += ` WHERE o.gain_date IS NOT NULL AND o.status = 'gain' AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?`
       params.push(ano)
     }
 

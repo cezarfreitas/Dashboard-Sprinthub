@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       `
       params.push(vendedorId, data)
     } else if (tipo === 'ganhas') {
-      // Não filtrar por status - usar apenas gain_date IS NOT NULL (igual à API /diaria)
+      // Filtrar por status = 'gain' e gain_date IS NOT NULL
       query = `
         SELECT 
           o.id,
@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
         WHERE CAST(o.user AS UNSIGNED) = ?
           AND o.archived = 0
           AND o.gain_date IS NOT NULL
+          AND o.status = 'gain'
           AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
         ORDER BY o.gain_date DESC
       `

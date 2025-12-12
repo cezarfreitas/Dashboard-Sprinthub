@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(o.value), 0) as valor_total
       FROM oportunidades o
       WHERE o.gain_date IS NOT NULL
+        AND o.status = 'gain'
         AND MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ? 
         AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
         ${filtroUnidade}

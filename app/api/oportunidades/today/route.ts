@@ -283,6 +283,7 @@ export async function GET(request: NextRequest) {
       ${whereClause}
         AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
         AND o.gain_date IS NOT NULL
+        AND o.status = 'gain'
     `
     const paramsGanhasHoje = [...queryParams, hojeStr]
 
@@ -306,6 +307,7 @@ export async function GET(request: NextRequest) {
       ${whereClause}
         AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
         AND o.gain_date IS NOT NULL
+        AND o.status = 'gain'
     `
     const paramsGanhasOntem = [...queryParams, ontemStr]
 

@@ -261,7 +261,7 @@ export async function GET(request: NextRequest) {
         break
       case 'ganhas':
         campoData = 'o.gain_date'
-        condicaoStatus = 'AND o.gain_date IS NOT NULL'
+        condicaoStatus = "AND o.gain_date IS NOT NULL AND o.status = 'gain'"
         break
       case 'perdidas':
         campoData = 'o.lost_date'
