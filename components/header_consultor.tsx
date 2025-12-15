@@ -24,6 +24,8 @@ import { EmpresaLogo } from "@/components/empresa-logo"
 interface HeaderConsultorProps {
   className?: string
   hideOnScroll?: boolean
+  valorVendido?: number
+  percentualMeta?: number
 }
 
 interface ConsultorData {
@@ -38,7 +40,9 @@ interface ConsultorData {
 
 export function HeaderConsultor({ 
   className, 
-  hideOnScroll = false
+  hideOnScroll = false,
+  valorVendido = 0,
+  percentualMeta = 0
 }: HeaderConsultorProps) {
   const { config: empresaConfig } = useEmpresaConfig()
   const [consultor, setConsultor] = useState<ConsultorData | null>(null)
@@ -152,11 +156,43 @@ export function HeaderConsultor({
 
         {/* Nome do Vendedor */}
         {consultor && (
-          <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-blue-700/50 rounded-lg">
-            <User className="h-4 w-4 text-white/80" />
-            <span className="text-sm font-semibold text-white">
-              {consultorName}
-            </span>
+          <div className="hidden md:flex items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-700/50 rounded-lg">
+              <User className="h-4 w-4 text-white/80" />
+              <span className="text-sm font-semibold text-white">
+                {consultorName}
+              </span>
+              <span className="text-xs text-white/60 font-mono">
+                (#{consultor.id})
+              </span>
+            </div>
+            
+            {/* Informações de Meta */}
+            {valorVendido > 0 && (
+              <>
+                <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-800/50 rounded-lg">
+                  <span className="text-xs text-white/80">Vendido:</span>
+                  <span className="text-sm font-bold text-white">
+                    {new Intl.NumberFormat('pt-BR', { 
+                      style: 'currency', 
+                      currency: 'BRL',
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    }).format(valorVendido)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-800/50 rounded-lg">
+                  <span className="text-sm font-bold text-white">
+                    {percentualMeta >= 100 ? '🎉 Meta atingida!' : 
+                     percentualMeta >= 75 ? '🚀 Quase lá!' :
+                     percentualMeta >= 50 ? '💪 Continue assim!' :
+                     percentualMeta >= 25 ? '⚡ Acelere!' :
+                     '🔥 Vamos lá!'}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -235,7 +271,10 @@ export function HeaderConsultor({
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <p className="font-semibold text-sm text-white">{consultorName}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm text-white">{consultorName}</p>
+                  <span className="text-xs text-white/60 font-mono">(#{consultor.id})</span>
+                </div>
                 {consultor.unidade_nome && (
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <Building2 className="h-3 w-3 text-white/60" />

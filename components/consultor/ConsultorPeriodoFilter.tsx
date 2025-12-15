@@ -1,6 +1,6 @@
 import { memo, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar as CalendarIcon, RefreshCw } from "lucide-react"
 import {
   Popover,
   PopoverContent,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { PeriodoFiltro } from "@/hooks/consultor/useConsultorDashboard"
+import { useToast } from "@/hooks/use-toast"
 
 interface Funil {
   id: number
@@ -30,6 +31,8 @@ interface ConsultorPeriodoFilterProps {
   setDataFimPersonalizada: (data: Date | undefined) => void
   funilSelecionado?: string | null
   setFunilSelecionado?: (funilId: string | null) => void
+  vendedorId?: number
+  onSyncComplete?: () => void
 }
 
 export const ConsultorPeriodoFilter = memo(function ConsultorPeriodoFilter({
@@ -40,15 +43,70 @@ export const ConsultorPeriodoFilter = memo(function ConsultorPeriodoFilter({
   dataFimPersonalizada,
   setDataFimPersonalizada,
   funilSelecionado,
-  setFunilSelecionado
+  setFunilSelecionado,
+  vendedorId,
+  onSyncComplete
 }: ConsultorPeriodoFilterProps) {
   const [popoverPersonalizadoOpen, setPopoverPersonalizadoOpen] = useState(false)
   const [funis, setFunis] = useState<Funil[]>([])
+  const [syncing, setSyncing] = useState(false)
+  const { toast } = useToast()
   
   const handleFunilChange = (value: string) => {
     const newValue = value === "todos" ? null : value
     if (setFunilSelecionado) {
       setFunilSelecionado(newValue)
+    }
+  }
+
+  const handleSync = async () => {
+    if (!vendedorId) {
+      toast({
+        title: "Erro",
+        description: "ID do vendedor não disponível",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setSyncing(true)
+      toast({
+        title: "Sincronizando...",
+        description: "Buscando oportunidades do CRM"
+      })
+
+      const response = await fetch('/api/consultor/sync-oportunidades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: vendedorId })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "Sincronização concluída!",
+          description: `${data.stats.criadas} criadas, ${data.stats.atualizadas} atualizadas`,
+        })
+        if (onSyncComplete) {
+          onSyncComplete()
+        }
+      } else {
+        toast({
+          title: "Erro na sincronização",
+          description: data.message,
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao sincronizar oportunidades",
+        variant: "destructive"
+      })
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -238,6 +296,19 @@ export const ConsultorPeriodoFilter = memo(function ConsultorPeriodoFilter({
               </SelectContent>
             </Select>
           </div>
+
+          {vendedorId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+              className="h-7 text-xs px-2.5 gap-1.5"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            </Button>
+          )}
         </div>
       </div>
     </div>

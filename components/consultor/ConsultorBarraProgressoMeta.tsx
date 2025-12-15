@@ -220,12 +220,12 @@ export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgresso
   return (
     <div className="w-full">
       <div className="p-3">
-        <div className="grid grid-cols-1 lg:grid-cols-[20%_80%] gap-6 items-center">
-          {/* Coluna 1: Velocímetro + Informações (20%) */}
-          <div className="flex flex-col items-center justify-center h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-[25%_75%] gap-6 items-center">
+          {/* Coluna 1: Velocímetro (25%) */}
+          <div className="flex items-center justify-center">
             {/* Velocímetro SVG Customizado */}
-            <div className="flex-shrink-0 relative">
-              <svg width="280" height="140" viewBox="0 50 300 120" className="drop-shadow-lg">
+            <div className="w-full max-w-sm">
+              <svg width="100%" height="180" viewBox="0 40 300 140" className="drop-shadow-lg">
                 {/* Fundo do velocímetro */}
                 <path
                   d={criarArco(100, startAngle, endAngle)}
@@ -313,17 +313,24 @@ export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgresso
                 y="125"
                 textAnchor="middle"
                 className="text-2xl font-bold"
-                fill={cores.texto}
+                fill="#1e40af"
               >
                 {Math.round(percentualMeta)}%
               </text>
+              
+              {/* Mensagem motivacional */}
               <text
                 x="150"
-                y="142"
+                y="145"
                 textAnchor="middle"
-                className="text-xs font-medium fill-gray-500"
+                className="text-[10px] font-medium"
+                fill="#6b7280"
               >
-                da meta
+                {percentualMeta >= 100 ? '🎉 Meta atingida!' : 
+                 percentualMeta >= 75 ? '🚀 Quase lá!' :
+                 percentualMeta >= 50 ? '💪 Continue assim!' :
+                 percentualMeta >= 25 ? '⚡ Acelere!' :
+                 '🔥 Vamos lá!'}
               </text>
               
               {/* Ícone de status */}
@@ -335,67 +342,45 @@ export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgresso
               )}
             </svg>
             </div>
+          </div>
 
-            {/* Informações do Velocímetro */}
-            <div className="w-full">
-              {/* Linha única: Alcançado | Meta | Falta | Projeção/Status */}
-              <div className="grid grid-cols-4 gap-2 text-center">
-                {/* Alcançado */}
-                <div>
-                  <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Alcançado</div>
-                  <div className="text-sm font-bold" style={{ color: cores.texto }}>
-                    {formatCurrency(valorAtual)}
+          {/* Coluna 2: Cards de Estatísticas (75%) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Card Resumo Meta */}
+            <div className="bg-white border-2 border-blue-600 rounded-lg p-3 shadow-md hover:shadow-lg transition-shadow">
+              <div className="text-[10px] font-bold text-blue-600 uppercase mb-2 text-center">Meta do Mês</div>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Coluna 1 */}
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-[8px] text-muted-foreground uppercase">Alcançado</div>
+                    <div className="text-sm font-bold text-green-600">{formatCurrency(valorAtual)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[8px] text-muted-foreground uppercase">Meta</div>
+                    <div className="text-sm font-bold text-blue-600">{formatCurrency(meta)}</div>
                   </div>
                 </div>
-
-                {/* Meta */}
-                <div>
-                  <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Meta</div>
-                  <div className="text-sm font-bold text-foreground">
-                    {formatCurrency(meta)}
+                
+                {/* Coluna 2 */}
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-[8px] text-muted-foreground uppercase">Falta</div>
+                    <div className="text-sm font-bold text-orange-600">{formatCurrency(Math.max(0, meta - valorAtual))}</div>
                   </div>
-                </div>
-
-                {/* Falta */}
-                <div>
-                  <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Falta</div>
-                  <div className="text-sm font-bold text-muted-foreground">
-                    {formatCurrency(Math.max(0, meta - valorAtual))}
-                  </div>
-                </div>
-
-                {/* Projeção ou Status */}
-                <div>
-                  {statusProjecao === 'atingido' ? (
-                    <>
-                      <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Status</div>
-                      <div className="flex items-center justify-center gap-1 px-1 py-0.5 rounded" style={{ backgroundColor: cores.bg }}>
-                        <Trophy className="h-3 w-3" style={{ color: cores.texto }} />
-                        <span className="text-[9px] font-bold" style={{ color: cores.texto }}>
-                          Atingida!
-                        </span>
+                  {statusProjecao !== 'fora-periodo' && projecaoValor > 0 && (
+                    <div>
+                      <div className="text-[8px] text-muted-foreground uppercase">Projeção</div>
+                      <div className="text-sm font-bold" style={{ color: cores.texto }}>{formatCurrency(projecaoValor)}</div>
+                      <div className="text-[7px] text-muted-foreground mt-0.5">
+                        {projecaoValor >= meta ? '🚀 No caminho!' : '💪 Acelere!'}
                       </div>
-                    </>
-                  ) : statusProjecao !== 'fora-periodo' && projecaoValor > 0 ? (
-                    <>
-                      <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Projeção</div>
-                      <div className="text-sm font-bold" style={{ color: cores.texto }}>
-                        {formatCurrency(projecaoValor)}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">-</div>
-                      <div className="text-sm font-bold text-muted-foreground">-</div>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Coluna 2: Cards de Estatísticas (80%) */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* Criadas Hoje */}
             <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
               <div className="flex items-center justify-between">

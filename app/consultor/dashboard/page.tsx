@@ -23,12 +23,21 @@ export default function ConsultorDashboard() {
     setFunilSelecionado,
     cardsData,
     loadingCards,
-    getPeriodoDatas
+    getPeriodoDatas,
+    fetchCardsData
   } = useConsultorDashboard()
+
+  // Calcular percentual da meta
+  const valorVendido = cardsData?.ganhosValorTotalMes || 0
+  const meta = cardsData?.ganhosMeta || 0
+  const percentualMeta = meta > 0 ? (valorVendido / meta) * 100 : 0
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <HeaderConsultor />
+      <HeaderConsultor 
+        valorVendido={valorVendido}
+        percentualMeta={percentualMeta}
+      />
       <ConsultorPeriodoFilter
         periodoFiltro={periodoFiltro}
         setPeriodoFiltro={setPeriodoFiltro}
@@ -38,6 +47,8 @@ export default function ConsultorDashboard() {
         setDataFimPersonalizada={setDataFimPersonalizada}
         funilSelecionado={funilSelecionado}
         setFunilSelecionado={setFunilSelecionado}
+        vendedorId={consultor?.id}
+        onSyncComplete={fetchCardsData}
       />
       <div className="max-w-[1800px] w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-3 space-y-3 sm:space-y-4">
         {loadingCards ? (

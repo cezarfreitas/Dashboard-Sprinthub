@@ -290,7 +290,8 @@ export function useConsultorDashboard() {
     handleLogout,
     exportando,
     cardsData,
-    loadingCards
+    loadingCards,
+    fetchCardsData
   }
 }
 
