@@ -146,12 +146,13 @@ export function useConsultorDashboard() {
       const perdidasResponse = await fetch(`/api/oportunidades/stats?${perdidasParams.toString()}`)
       const perdidasData = perdidasResponse.ok ? await perdidasResponse.json() : null
 
-      // 4. Buscar GANHAS
+      // 4. Buscar GANHAS (filtrar por data de ganho no período selecionado)
       const ganhasParams = new URLSearchParams(baseParams)
       ganhasParams.append('status', 'won')
       ganhasParams.append('gain_date_start', dataInicio)
       ganhasParams.append('gain_date_end', dataFim)
       ganhasParams.append('all', '1')
+      
       const ganhasResponse = await fetch(`/api/oportunidades/stats?${ganhasParams.toString()}`)
       const ganhasData = ganhasResponse.ok ? await ganhasResponse.json() : null
 

@@ -44,13 +44,15 @@ interface ConsultorOportunidadesDiariasProps {
   vendedorId: number
   dataInicio: string
   dataFim: string
+  funilSelecionado?: string | null
 }
 
 export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidadesDiarias({
   unidadeId,
   vendedorId,
   dataInicio,
-  dataFim
+  dataFim,
+  funilSelecionado
 }: ConsultorOportunidadesDiariasProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -164,6 +166,9 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsCriadas.append('data_fim', dataFim)
         paramsCriadas.append('user_id', vendedorId.toString())
         paramsCriadas.append('all', '1')
+        if (funilSelecionado) {
+          paramsCriadas.append('funil_id', funilSelecionado)
+        }
 
         const responseCriadas = await fetch(`/api/oportunidades/diaria?${paramsCriadas.toString()}`)
         const dataCriadas = await responseCriadas.json()
@@ -175,6 +180,9 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsPerdidas.append('data_fim', dataFim)
         paramsPerdidas.append('user_id', vendedorId.toString())
         paramsPerdidas.append('all', '1')
+        if (funilSelecionado) {
+          paramsPerdidas.append('funil_id', funilSelecionado)
+        }
 
         const responsePerdidas = await fetch(`/api/oportunidades/diaria?${paramsPerdidas.toString()}`)
         const dataPerdidas = await responsePerdidas.json()
@@ -186,6 +194,9 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
         paramsGanhas.append('data_fim', dataFim)
         paramsGanhas.append('user_id', vendedorId.toString())
         paramsGanhas.append('all', '1')
+        if (funilSelecionado) {
+          paramsGanhas.append('funil_id', funilSelecionado)
+        }
 
         const responseGanhas = await fetch(`/api/oportunidades/diaria?${paramsGanhas.toString()}`)
         const dataGanhas = await responseGanhas.json()
@@ -213,7 +224,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
     }
 
     fetchData()
-  }, [vendedorId, dataInicio, dataFim])
+  }, [vendedorId, dataInicio, dataFim, funilSelecionado])
 
   if (loading) {
     return (
@@ -328,57 +339,61 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
   }
 
   return (
-    <Card className="border-gray-300 shadow-sm">
-      <CardHeader className="bg-blue-100 py-2.5 px-4 flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-blue-600" />
-            Minhas Oportunidades Criadas Dia a Dia
-          </CardTitle>
-          <CardDescription className="text-[10px] mt-0.5">
-            Distribuição diária das minhas oportunidades criadas no período
-          </CardDescription>
+    <Card className="border-blue-600 border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-4 px-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-white" />
+            <div>
+              <div className="text-base font-bold text-white tracking-wide">
+                Minhas Oportunidades Criadas Dia a Dia
+              </div>
+              <div className="text-xs text-blue-100 font-medium">
+                Distribuição diária das minhas oportunidades criadas no período
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <div className="text-right">
+              <div className="text-[10px] text-blue-100 font-medium">Criadas</div>
+              <div className="font-bold text-sm text-white">{totalCriadas} ops</div>
+            </div>
+            <div className="text-right border-l border-blue-400 pl-4">
+              <div className="text-[10px] text-blue-100 font-medium">Perdidas</div>
+              <div className="font-bold text-sm text-white">{totalPerdidas} ops</div>
+            </div>
+            <div className="text-right border-l border-blue-400 pl-4">
+              <div className="text-[10px] text-blue-100 font-medium">Ganhas</div>
+              <div className="font-bold text-sm text-white">{totalGanhasQtd} ops · {formatCurrency(totalGanhasValor)}</div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-xs">
-          <div className="text-right">
-            <div className="text-[10px] text-gray-600 font-medium">Criadas</div>
-            <div className="font-bold text-sm text-blue-700">{totalCriadas} ops</div>
-          </div>
-          <div className="text-right border-l border-gray-300 pl-4">
-            <div className="text-[10px] text-gray-600 font-medium">Perdidas</div>
-            <div className="font-bold text-sm text-red-700">{totalPerdidas} ops</div>
-          </div>
-          <div className="text-right border-l border-gray-300 pl-4">
-            <div className="text-[10px] text-gray-600 font-medium">Ganhas</div>
-            <div className="font-bold text-sm text-green-700">{totalGanhasQtd} ops · {formatCurrency(totalGanhasValor)}</div>
-          </div>
-        </div>
-      </CardHeader>
+      </div>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="sticky left-0 z-20 bg-gray-50 min-w-[120px] border-r border-gray-300 h-10 px-3 text-xs font-semibold text-gray-700">
+              <TableRow className="hover:bg-transparent bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-blue-200">
+                <TableHead className="sticky left-0 z-20 bg-gradient-to-r from-slate-50 to-slate-100 min-w-[120px] border-r-2 border-blue-200 h-10 px-3 text-xs font-bold text-gray-700 uppercase">
                   Período
                 </TableHead>
                 {todasDatas.map(data => (
                   <TableHead
                     key={data}
-                    className="text-center min-w-[60px] h-10 px-2 text-[10px] font-medium text-muted-foreground"
+                    className="text-center min-w-[60px] h-10 px-2 text-xs font-bold text-gray-700"
                   >
                     {formatarDataHeader(data)}
                   </TableHead>
                 ))}
-                <TableHead className="text-center bg-blue-100 min-w-[70px] border-l-2 border-blue-300 h-10 px-3 text-xs font-bold text-gray-700">
+                <TableHead className="text-center bg-blue-50 min-w-[70px] border-l-2 border-blue-300 h-10 px-3 text-xs font-extrabold text-blue-800 uppercase">
                   Total
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {/* Linha de Criadas */}
-              <TableRow className="hover:bg-blue-50/50 bg-white">
-                <TableCell className="sticky left-0 z-10 bg-white border-r border-gray-300 font-semibold text-xs px-3 py-2 text-blue-700">
+              <TableRow className="hover:bg-slate-50/80 bg-white border-b transition-colors">
+                <TableCell className="sticky left-0 z-10 bg-white border-r-2 border-slate-200 font-bold text-xs px-3 py-2.5 text-slate-700">
                   Criadas
                 </TableCell>
                 {todasDatas.map(data => {
@@ -387,19 +402,15 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className={`text-center text-sm py-2 px-2 border-l border-gray-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
+                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-blue-600 cursor-pointer hover:bg-blue-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
                       onClick={() => handleCelulaClick(data, 'criadas', quantidade)}
                     >
-                      {quantidade > 0 ? (
-                        <span className="font-bold text-blue-700">{quantidade}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      {quantidade > 0 ? quantidade : '-'}
                     </TableCell>
                   )
                 })}
                 <TableCell 
-                  className={`text-center bg-blue-100 font-bold border-l-2 border-blue-300 px-3 py-2 text-sm text-blue-800 ${totalCriadas > 0 ? 'cursor-pointer hover:bg-blue-200 transition-colors' : ''}`}
+                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-blue-700 ${totalCriadas > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
                   onClick={() => handleTotalClick('criadas', totalCriadas)}
                 >
                   {totalCriadas}
@@ -407,8 +418,8 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
               </TableRow>
               
               {/* Linha de Perdidas */}
-              <TableRow className="hover:bg-red-50/50 bg-red-50/20 border-t border-gray-200">
-                <TableCell className="sticky left-0 z-10 bg-red-50/20 border-r border-gray-300 font-semibold text-xs px-3 py-2 text-red-700">
+              <TableRow className="hover:bg-slate-50/80 bg-slate-50/40 border-b transition-colors">
+                <TableCell className="sticky left-0 z-10 bg-slate-50/40 border-r-2 border-slate-200 font-bold text-xs px-3 py-2.5 text-slate-700">
                   Perdidas
                 </TableCell>
                 {todasDatas.map(data => {
@@ -417,19 +428,15 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className={`text-center text-sm py-2 px-2 border-l border-gray-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-red-100 transition-colors' : ''}`}
+                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-red-600 cursor-pointer hover:bg-red-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
                       onClick={() => handleCelulaClick(data, 'perdidas', quantidade)}
                     >
-                      {quantidade > 0 ? (
-                        <span className="font-bold text-red-700">{quantidade}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      {quantidade > 0 ? quantidade : '-'}
                     </TableCell>
                   )
                 })}
                 <TableCell 
-                  className={`text-center bg-red-100 font-bold border-l-2 border-red-300 px-3 py-2 text-sm text-red-800 ${totalPerdidas > 0 ? 'cursor-pointer hover:bg-red-200 transition-colors' : ''}`}
+                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-red-700 ${totalPerdidas > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
                   onClick={() => handleTotalClick('perdidas', totalPerdidas)}
                 >
                   {totalPerdidas}
@@ -437,8 +444,8 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
               </TableRow>
 
               {/* Linha de Ganhas - Quantidade */}
-              <TableRow className="hover:bg-green-50/50 bg-green-50/20 border-t border-gray-200">
-                <TableCell className="sticky left-0 z-10 bg-green-50/20 border-r border-gray-300 font-semibold text-xs px-3 py-2 text-green-700">
+              <TableRow className="hover:bg-slate-50/80 bg-white border-b transition-colors">
+                <TableCell className="sticky left-0 z-10 bg-white border-r-2 border-slate-200 font-bold text-xs px-3 py-2.5 text-slate-700">
                   Ganhas (Qtd)
                 </TableCell>
                 {todasDatas.map(data => {
@@ -447,19 +454,15 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className={`text-center text-sm py-2 px-2 border-l border-gray-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-green-100 transition-colors' : ''}`}
+                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-green-600 cursor-pointer hover:bg-green-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
                       onClick={() => handleCelulaClick(data, 'ganhas', quantidade)}
                     >
-                      {quantidade > 0 ? (
-                        <span className="font-bold text-green-700">{quantidade}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      {quantidade > 0 ? quantidade : '-'}
                     </TableCell>
                   )
                 })}
                 <TableCell 
-                  className={`text-center bg-green-100 font-bold border-l-2 border-green-300 px-3 py-2 text-sm text-green-800 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-green-200 transition-colors' : ''}`}
+                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-green-700 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
                   onClick={() => handleTotalClick('ganhas', totalGanhasQtd)}
                 >
                   {totalGanhasQtd}
@@ -467,8 +470,8 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
               </TableRow>
 
               {/* Linha de Ganhas - Valor */}
-              <TableRow className="hover:bg-green-50/50 bg-green-50/30 border-t border-gray-200">
-                <TableCell className="sticky left-0 z-10 bg-green-50/30 border-r border-gray-300 font-semibold text-xs px-3 py-2 text-green-700">
+              <TableRow className="hover:bg-slate-50/80 bg-slate-50/40 transition-colors">
+                <TableCell className="sticky left-0 z-10 bg-slate-50/40 border-r-2 border-slate-200 font-bold text-xs px-3 py-2.5 text-slate-700">
                   Ganhas (Valor)
                 </TableCell>
                 {todasDatas.map(data => {
@@ -478,19 +481,15 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className={`text-center text-[11px] py-2 px-1 border-l border-gray-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-green-100 transition-colors' : ''}`}
+                      className={`text-center text-[11px] py-2.5 px-1 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-green-600 cursor-pointer hover:bg-green-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
                       onClick={() => handleCelulaClick(data, 'ganhas', quantidade)}
                     >
-                      {valor > 0 ? (
-                        <span className="font-bold text-green-700">{formatCurrency(valor)}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      {valor > 0 ? formatCurrency(valor) : '-'}
                     </TableCell>
                   )
                 })}
                 <TableCell 
-                  className={`text-center bg-green-100 font-bold border-l-2 border-green-300 px-3 py-2 text-[11px] text-green-800 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-green-200 transition-colors' : ''}`}
+                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-[11px] text-green-700 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
                   onClick={() => handleTotalClick('ganhas', totalGanhasQtd)}
                 >
                   {formatCurrency(totalGanhasValor)}

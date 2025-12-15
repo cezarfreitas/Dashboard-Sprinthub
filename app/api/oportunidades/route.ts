@@ -10,6 +10,11 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get('offset') || '0')
     const status = searchParams.get('status')
     const colunaId = searchParams.get('colunaId')
+    const userId = searchParams.get('user_id')
+    const lostDateStart = searchParams.get('lost_date_start')
+    const lostDateEnd = searchParams.get('lost_date_end')
+    const motivoId = searchParams.get('motivo_id')
+    const motivo = searchParams.get('motivo')
 
     let query = 'SELECT * FROM oportunidades'
     const params: any[] = []
@@ -23,6 +28,26 @@ export async function GET(request: Request) {
     if (colunaId) {
       conditions.push('coluna_funil_id = ?')
       params.push(colunaId)
+    }
+
+    if (userId) {
+      conditions.push('user = ?')
+      params.push(userId)
+    }
+
+    if (lostDateStart && lostDateEnd) {
+      conditions.push('lost_date >= ? AND lost_date <= ?')
+      params.push(lostDateStart, lostDateEnd)
+    }
+
+    if (motivoId) {
+      // Tratar tanto "Motivo X" quanto "X"
+      const cleanMotivoId = motivoId.toString().replace(/^Motivo\s+/i, '').trim()
+      conditions.push('(loss_reason = ? OR loss_reason = ?)')
+      params.push(motivoId, cleanMotivoId)
+    } else if (motivo) {
+      conditions.push('loss_reason LIKE ?')
+      params.push(`%${motivo}%`)
     }
 
     if (conditions.length > 0) {
@@ -44,6 +69,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
+      oportunidades: oportunidades,
       data: oportunidades,
       total,
       limit,

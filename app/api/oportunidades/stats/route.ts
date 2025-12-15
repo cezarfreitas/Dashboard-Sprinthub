@@ -785,23 +785,22 @@ export async function GET(request: NextRequest) {
         ? Number(((totalGanhasPeriodo / totalCriadasPeriodo) * 100).toFixed(2))
         : 0
       
-      if ((resultGanhasDentro && resultGanhasDentro.length > 0) || (resultGanhasFora && resultGanhasFora.length > 0) || (resultGanhasTotal && resultGanhasTotal.length > 0)) {
-        statsDoPeriodo = {
-          total_ganhas_periodo: Number(resultGanhasTotal[0]?.total_ganhas_periodo || 0), // Total geral (já filtrado por gain_date)
-          valor_ganhas_periodo: Number(resultGanhasTotal[0]?.valor_ganhas_periodo || 0), // Valor total geral
-          ticket_medio_periodo: Number(resultGanhasTotal[0]?.ticket_medio_periodo || 0), // Ticket médio geral
-          valor_minimo_periodo: Number(resultGanhasTotal[0]?.valor_minimo_periodo || 0), // Valor mínimo geral (apenas para ganhos)
-          valor_maximo_periodo: Number(resultGanhasTotal[0]?.valor_maximo_periodo || 0), // Valor máximo geral (apenas para ganhos)
-          total_ganhas_dentro: Number(resultGanhasDentro[0]?.total_ganhas_dentro || 0),
-          valor_ganhas_dentro: Number(resultGanhasDentro[0]?.valor_ganhas_dentro || 0),
-          ticket_medio_dentro: Number(resultGanhasDentro[0]?.ticket_medio_dentro || 0),
-          total_ganhas_fora: Number(resultGanhasFora[0]?.total_ganhas_fora || 0),
-          valor_ganhas_fora: Number(resultGanhasFora[0]?.valor_ganhas_fora || 0),
-          ticket_medio_fora: Number(resultGanhasFora[0]?.ticket_medio_fora || 0),
-          total_criadas_periodo: totalCriadasPeriodo, // Total de oportunidades criadas no período (createDate)
-          taxa_conversao: taxaConversao, // Taxa de conversão: (ganhas com createDate no período / criadas no período) * 100
-          taxa_conversao_completa: taxaConversaoCompleta // Taxa de conversão: (todas as ganhas no período / criadas no período) * 100
-        }
+      // Sempre preencher statsDoPeriodo, mesmo que sem dados (para evitar valores undefined)
+      statsDoPeriodo = {
+        total_ganhas_periodo: Number(resultGanhasTotal[0]?.total_ganhas_periodo || 0), // Total geral (já filtrado por gain_date)
+        valor_ganhas_periodo: Number(resultGanhasTotal[0]?.valor_ganhas_periodo || 0), // Valor total geral
+        ticket_medio_periodo: Number(resultGanhasTotal[0]?.ticket_medio_periodo || 0), // Ticket médio geral
+        valor_minimo_periodo: Number(resultGanhasTotal[0]?.valor_minimo_periodo || 0), // Valor mínimo geral (apenas para ganhos)
+        valor_maximo_periodo: Number(resultGanhasTotal[0]?.valor_maximo_periodo || 0), // Valor máximo geral (apenas para ganhos)
+        total_ganhas_dentro: Number(resultGanhasDentro[0]?.total_ganhas_dentro || 0),
+        valor_ganhas_dentro: Number(resultGanhasDentro[0]?.valor_ganhas_dentro || 0),
+        ticket_medio_dentro: Number(resultGanhasDentro[0]?.ticket_medio_dentro || 0),
+        total_ganhas_fora: Number(resultGanhasFora[0]?.total_ganhas_fora || 0),
+        valor_ganhas_fora: Number(resultGanhasFora[0]?.valor_ganhas_fora || 0),
+        ticket_medio_fora: Number(resultGanhasFora[0]?.ticket_medio_fora || 0),
+        total_criadas_periodo: totalCriadasPeriodo, // Total de oportunidades criadas no período (createDate)
+        taxa_conversao: taxaConversao, // Taxa de conversão: (ganhas com createDate no período / criadas no período) * 100
+        taxa_conversao_completa: taxaConversaoCompleta // Taxa de conversão: (todas as ganhas no período / criadas no período) * 100
       }
     } else if (allParam && statusParam === 'open' && createdDateStart && createdDateEnd) {
       // Construir where clauses para query do período (incluindo created_date)
@@ -851,11 +850,10 @@ export async function GET(request: NextRequest) {
       `
       
       const resultPeriodo = await executeQuery(queryPeriodo, queryParamsPeriodo) as any[]
-      if (resultPeriodo && resultPeriodo.length > 0) {
-        statsDoPeriodo = {
-          total_abertas_periodo: Number(resultPeriodo[0]?.total_abertas_periodo || 0),
-          valor_abertas_periodo: Number(resultPeriodo[0]?.valor_abertas_periodo || 0)
-        }
+      // Sempre preencher statsDoPeriodo, mesmo que sem dados (para evitar valores undefined)
+      statsDoPeriodo = {
+        total_abertas_periodo: Number(resultPeriodo[0]?.total_abertas_periodo || 0),
+        valor_abertas_periodo: Number(resultPeriodo[0]?.valor_abertas_periodo || 0)
       }
     } else if (allParam && statusParam === 'lost' && lostDateStart && lostDateEnd) {
       // Base comum: todas as oportunidades perdidas no período (lost_date)
@@ -950,15 +948,14 @@ export async function GET(request: NextRequest) {
         executeQuery(queryTotal, queryParamsBase) as Promise<any[]>
       ])
       
-      if ((resultDentro && resultDentro.length > 0) || (resultFora && resultFora.length > 0) || (resultTotal && resultTotal.length > 0)) {
-        statsDoPeriodo = {
-          total_perdidas_periodo: Number(resultTotal[0]?.total_perdidas_periodo || 0), // Total geral (já filtrado por lost_date)
-          valor_perdidas_periodo: Number(resultTotal[0]?.valor_perdidas_periodo || 0), // Valor total geral
-          total_perdidas_dentro: Number(resultDentro[0]?.total_perdidas_dentro || 0),
-          valor_perdidas_dentro: Number(resultDentro[0]?.valor_perdidas_dentro || 0),
-          total_perdidas_fora: Number(resultFora[0]?.total_perdidas_fora || 0),
-          valor_perdidas_fora: Number(resultFora[0]?.valor_perdidas_fora || 0)
-        }
+      // Sempre preencher statsDoPeriodo, mesmo que sem dados (para evitar valores undefined)
+      statsDoPeriodo = {
+        total_perdidas_periodo: Number(resultTotal[0]?.total_perdidas_periodo || 0), // Total geral (já filtrado por lost_date)
+        valor_perdidas_periodo: Number(resultTotal[0]?.valor_perdidas_periodo || 0), // Valor total geral
+        total_perdidas_dentro: Number(resultDentro[0]?.total_perdidas_dentro || 0),
+        valor_perdidas_dentro: Number(resultDentro[0]?.valor_perdidas_dentro || 0),
+        total_perdidas_fora: Number(resultFora[0]?.total_perdidas_fora || 0),
+        valor_perdidas_fora: Number(resultFora[0]?.valor_perdidas_fora || 0)
       }
     }
 

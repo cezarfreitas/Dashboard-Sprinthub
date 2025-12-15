@@ -46,44 +46,22 @@ export default function ConsultorDashboard() {
           </div>
         ) : (
           <>
-            {/* Barra de Meta - sempre mostra, mesmo sem meta cadastrada */}
+            {/* Barra de Meta com Cards integrados */}
             <ConsultorBarraProgressoMeta
               valorAtual={cardsData?.ganhosValorTotalMes || 0}
               meta={cardsData?.ganhosMeta || 0}
               vendedorId={consultor?.id}
               mes={getPeriodoDatas() ? new Date().getMonth() + 1 : undefined}
               ano={getPeriodoDatas() ? new Date().getFullYear() : undefined}
-            />
-            <ConsultorEstatisticasCards
-            criadasHoje={cardsData?.criadasHoje || 0}
-            valorCriadasHoje={cardsData?.valorCriadasHoje || 0}
-            criadasOntem={cardsData?.criadasOntem || 0}
-            valorCriadasOntem={cardsData?.valorCriadasOntem || 0}
-            ganhasHoje={cardsData?.ganhasHoje || 0}
-            valorGanhasHoje={cardsData?.valorGanhasHoje || 0}
-            abertasTotal={cardsData?.abertasTotal || 0}
-            abertasValorTotal={cardsData?.abertasValorTotal || 0}
-            abertasCriadasNoPeriodo={cardsData?.abertasCriadasNoPeriodo || 0}
-            abertasValorCriadasNoPeriodo={cardsData?.abertasValorCriadasNoPeriodo || 0}
-            abertasCriadasOutrosPeriodos={cardsData?.abertasCriadasOutrosPeriodos || 0}
-            abertasValorCriadasOutrosPeriodos={cardsData?.abertasValorCriadasOutrosPeriodos || 0}
-            perdidasTotal={cardsData?.perdidasTotal || 0}
-            perdidasCriadasDentro={cardsData?.perdidasCriadasDentro || 0}
-            perdidasValorCriadasDentro={cardsData?.perdidasValorCriadasDentro || 0}
-            perdidasCriadasFora={cardsData?.perdidasCriadasFora || 0}
-            perdidasValorCriadasFora={cardsData?.perdidasValorCriadasFora || 0}
-            ganhosValorTotal={cardsData?.ganhosValorTotal || 0}
-            ganhosTotalOportunidades={cardsData?.ganhosTotalOportunidades || 0}
-            ganhosCriadasDentro={cardsData?.ganhosCriadasDentro || 0}
-            ganhosValorCriadasDentro={cardsData?.ganhosValorCriadasDentro || 0}
-            ganhosCriadasFora={cardsData?.ganhosCriadasFora || 0}
-            ganhosValorCriadasFora={cardsData?.ganhosValorCriadasFora || 0}
-            taxaCriadas={cardsData?.taxaCriadas || 0}
-            taxaGanhas={cardsData?.taxaGanhas || 0}
-            ticketTotalVendas={cardsData?.ticketTotalVendas || 0}
-            ticketValorTotal={cardsData?.ticketValorTotal || 0}
-            meta={cardsData?.ganhosMeta || 0}
-            percentualMeta={cardsData?.ganhosMeta > 0 ? ((cardsData?.ganhosValorTotalMes || 0) / cardsData.ganhosMeta) * 100 : 0}
+              criadasHoje={cardsData?.criadasHoje || 0}
+              valorCriadasHoje={cardsData?.valorCriadasHoje || 0}
+              abertasTotal={cardsData?.abertasTotal || 0}
+              abertasValorTotal={cardsData?.abertasValorTotal || 0}
+              ganhosTotalOportunidades={cardsData?.ganhosTotalOportunidades || 0}
+              ganhosValorTotal={cardsData?.ganhosValorTotal || 0}
+              perdidasTotal={cardsData?.perdidasTotal || 0}
+              perdidasValorTotal={(cardsData?.perdidasValorCriadasDentro || 0) + (cardsData?.perdidasValorCriadasFora || 0)}
+              ticketMedio={cardsData?.ganhosTotalOportunidades > 0 ? (cardsData?.ganhosValorTotal || 0) / cardsData.ganhosTotalOportunidades : 0}
             />
             {consultor && getPeriodoDatas() && (
               <>
@@ -91,18 +69,21 @@ export default function ConsultorDashboard() {
                   vendedorId={consultor.id}
                   dataInicio={getPeriodoDatas().dataInicio}
                   dataFim={getPeriodoDatas().dataFim}
+                  funilSelecionado={funilSelecionado}
                 />
                 <ConsultorOportunidadesDiarias
                   unidadeId={consultor.unidade_id || 0}
                   vendedorId={consultor.id}
                   dataInicio={getPeriodoDatas().dataInicio}
                   dataFim={getPeriodoDatas().dataFim}
+                  funilSelecionado={funilSelecionado}
                 />
                 <ConsultorMatrizMotivosPerda
                   unidadeId={consultor.unidade_id || 0}
                   vendedorId={consultor.id}
                   dataInicio={getPeriodoDatas().dataInicio}
                   dataFim={getPeriodoDatas().dataFim}
+                  funilSelecionado={funilSelecionado}
                 />
               </>
             )}

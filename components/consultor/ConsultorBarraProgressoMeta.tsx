@@ -1,6 +1,7 @@
+"use client"
+
 import { memo, useMemo } from "react"
-import { Target } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Target, TrendingUp, Trophy } from "lucide-react"
 
 interface ConsultorBarraProgressoMetaProps {
   valorAtual: number
@@ -8,6 +9,16 @@ interface ConsultorBarraProgressoMetaProps {
   vendedorId?: number
   mes?: number
   ano?: number
+  // Cards de estatísticas
+  criadasHoje?: number
+  valorCriadasHoje?: number
+  abertasTotal?: number
+  abertasValorTotal?: number
+  ganhosTotalOportunidades?: number
+  ganhosValorTotal?: number
+  perdidasTotal?: number
+  perdidasValorTotal?: number
+  ticketMedio?: number
 }
 
 const formatCurrency = (value: number): string => {
@@ -19,12 +30,46 @@ const formatCurrency = (value: number): string => {
   }).format(value)
 }
 
+// Funções auxiliares para o velocímetro
+const startAngle = -180
+const endAngle = 0
+
+const percentualParaAngulo = (percent: number): number => {
+  const angulo = startAngle + (percent / 100) * (endAngle - startAngle)
+  return angulo
+}
+
+const criarArco = (
+  raio: number,
+  anguloInicio: number,
+  anguloFim: number
+): string => {
+  const radianos = (angulo: number) => (angulo * Math.PI) / 180
+  const x1 = 150 + raio * Math.cos(radianos(anguloInicio))
+  const y1 = 150 + raio * Math.sin(radianos(anguloInicio))
+  const x2 = 150 + raio * Math.cos(radianos(anguloFim))
+  const y2 = 150 + raio * Math.sin(radianos(anguloFim))
+  
+  const largeArcFlag = anguloFim - anguloInicio > 180 ? 1 : 0
+  
+  return `M ${x1} ${y1} A ${raio} ${raio} 0 ${largeArcFlag} 1 ${x2} ${y2}`
+}
+
 export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgressoMeta({
   valorAtual,
   meta,
   vendedorId,
   mes,
-  ano
+  ano,
+  criadasHoje = 0,
+  valorCriadasHoje = 0,
+  abertasTotal = 0,
+  abertasValorTotal = 0,
+  ganhosTotalOportunidades = 0,
+  ganhosValorTotal = 0,
+  perdidasTotal = 0,
+  perdidasValorTotal = 0,
+  ticketMedio = 0
 }: ConsultorBarraProgressoMetaProps) {
   const { percentualMeta, projecao, projecaoValor, corBarra, statusProjecao } = useMemo(() => {
     if (meta === 0) return { percentualMeta: 0, projecao: 0, projecaoValor: 0, corBarra: 'blue', statusProjecao: 'sem-meta' }
@@ -51,8 +96,6 @@ export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgresso
     const diaAtual = now.getDate()
     const ultimoDiaMes = new Date(targetAno, targetMes, 0).getDate()
     const diasDecorridos = diaAtual
-    const diasRestantes = ultimoDiaMes - diaAtual
-    const percentualMesDecorrido = (diasDecorridos / ultimoDiaMes) * 100
     
     // Calcular projeção linear
     const projecaoVal = diasDecorridos > 0 ? (valorAtual / diasDecorridos) * ultimoDiaMes : 0
@@ -85,195 +128,336 @@ export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgresso
     }
   }, [valorAtual, meta, mes, ano])
 
-  // Determinar mês e ano atual se não fornecidos
-  const currentDate = new Date()
-  const targetMes = mes ?? currentDate.getMonth() + 1
-  const targetAno = ano ?? currentDate.getFullYear()
-
-  // Função para obter classes de cor da barra
-  const getBarraClasses = (cor: string) => {
+  // Função para obter cores
+  const getCores = (cor: string) => {
     switch (cor) {
       case 'gold':
-        return 'bg-gradient-to-r from-yellow-400 to-yellow-500'
+        return {
+          primaria: '#eab308',
+          secundaria: '#fbbf24',
+          texto: '#ca8a04',
+          bg: '#fef9c3'
+        }
       case 'green':
-        return 'bg-gradient-to-r from-green-400 to-green-600'
+        return {
+          primaria: '#16a34a',
+          secundaria: '#22c55e',
+          texto: '#15803d',
+          bg: '#dcfce7'
+        }
       case 'yellow':
-        return 'bg-gradient-to-r from-yellow-500 to-orange-500'
+        return {
+          primaria: '#ea580c',
+          secundaria: '#fb923c',
+          texto: '#c2410c',
+          bg: '#ffedd5'
+        }
       case 'red':
-        return 'bg-gradient-to-r from-red-400 to-red-600'
+        return {
+          primaria: '#dc2626',
+          secundaria: '#ef4444',
+          texto: '#b91c1c',
+          bg: '#fee2e2'
+        }
       default:
-        return 'bg-gradient-to-r from-blue-400 to-blue-600'
+        return {
+          primaria: '#2563eb',
+          secundaria: '#3b82f6',
+          texto: '#1d4ed8',
+          bg: '#dbeafe'
+        }
     }
   }
 
-  // Função para obter classe de cor do texto
-  const getTextoColor = (cor: string) => {
-    switch (cor) {
-      case 'gold':
-        return 'text-yellow-600'
-      case 'green':
-        return 'text-green-600'
-      case 'yellow':
-        return 'text-orange-600'
-      case 'red':
-        return 'text-red-600'
-      default:
-        return 'text-blue-600'
-    }
+  const cores = getCores(corBarra)
+
+  // Calcular ângulos para o velocímetro (180° = semicírculo)
+  const startAngle = -180
+  const endAngle = 0
+  const percentualParaAngulo = (percent: number) => {
+    const angulo = startAngle + (percent / 100) * (endAngle - startAngle)
+    return angulo
   }
 
-  // Sempre renderizar (mostra mensagem se não houver meta)
+  // Criar path do arco
+  const criarArco = (
+    raio: number,
+    anguloInicio: number,
+    anguloFim: number
+  ) => {
+    const radianos = (angulo: number) => (angulo * Math.PI) / 180
+    const x1 = 150 + raio * Math.cos(radianos(anguloInicio))
+    const y1 = 150 + raio * Math.sin(radianos(anguloInicio))
+    const x2 = 150 + raio * Math.cos(radianos(anguloFim))
+    const y2 = 150 + raio * Math.sin(radianos(anguloFim))
+    
+    const largeArcFlag = anguloFim - anguloInicio > 180 ? 1 : 0
+    
+    return `M ${x1} ${y1} A ${raio} ${raio} 0 ${largeArcFlag} 1 ${x2} ${y2}`
+  }
+
+  if (meta === 0) {
+    return (
+      <div className="w-full p-3">
+        <div className="flex items-center gap-3">
+          <Target className="w-6 h-6 text-blue-600 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="text-sm font-bold text-gray-900">
+              Minhas Vendas do Mês: {formatCurrency(valorAtual)}
+            </div>
+            <div className="text-xs text-orange-600 mt-1">
+              Sem meta cadastrada
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const anguloAtual = percentualParaAngulo(Math.min(percentualMeta, 100))
+  const anguloProjecao = percentualParaAngulo(Math.min(projecao, 100))
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 shadow-sm">
-      {/* Mobile: Layout vertical */}
-      <div className="flex flex-col gap-3 md:hidden">
-        <div className="flex items-center gap-2">
-          <Target className="w-4 h-4 text-blue-600 flex-shrink-0" />
-          <span className="text-xs font-semibold text-gray-700">
-            {meta === 0 ? 'Minhas Vendas:' : 'Minha Meta:'}
-          </span>
-        </div>
-        
-        {meta > 0 ? (
-          <>
-            {/* Barra de progresso mobile */}
-            <div className="relative h-6 bg-gray-200 rounded-full overflow-hidden">
-              <div 
-                className={cn(
-                  "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-center",
-                  getBarraClasses(corBarra)
-                )}
-                style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
-              >
-                {percentualMeta > 10 && (
-                  <span className="text-white text-[10px] font-bold">
-                    {percentualMeta.toFixed(0)}%
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            {/* Valores mobile */}
-            <div className="flex items-center justify-between text-xs">
-              <div>
-                <span className="text-gray-500">Atual: </span>
-                <span className="font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
-              </div>
-              <div className="text-gray-300">/</div>
-              <div>
-                <span className="text-gray-500">Meta: </span>
-                <span className="font-bold text-gray-900">{formatCurrency(meta)}</span>
-              </div>
-            </div>
-            
-            {statusProjecao !== 'atingido' && statusProjecao !== 'fora-periodo' && projecaoValor > 0 && (
-              <div className="text-center text-xs">
-                <span className="text-gray-500">Projeção: </span>
-                <span className={cn("font-bold", getTextoColor(corBarra))}>
-                  {formatCurrency(projecaoValor)} ({projecao.toFixed(0)}%)
-                </span>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex flex-col gap-1 text-xs">
-            <div>
-              <span className="text-gray-500">Total: </span>
-              <span className="font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
-            </div>
-            <div className="px-2 py-1 bg-orange-50 border border-orange-200 rounded text-center">
-              <span className="text-orange-600">Sem meta cadastrada</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Desktop: Layout horizontal (original) */}
-      <div className="hidden md:flex items-center gap-4">
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Target className="w-5 h-5 text-blue-600" />
-          <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-            {meta === 0 ? 'Minhas Vendas do Mês:' : 'Minha Meta do Mês:'}
-          </span>
-        </div>
-        
-        {meta > 0 ? (
-          <div className="flex-1">
-            <div className="flex items-center gap-4">
-              {/* Barra de Progresso Grande */}
-              <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden flex-1">
-                <div 
-                  className={cn(
-                    "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-3",
-                    getBarraClasses(corBarra)
-                  )}
-                  style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
-                >
-                  {percentualMeta > 15 && (
-                    <span className="text-white text-xs font-bold">
-                      {percentualMeta.toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-                {percentualMeta <= 15 && percentualMeta > 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-gray-600 text-xs font-bold">
-                      {percentualMeta.toFixed(1)}%
-                    </span>
-                  </div>
-                )}
-              </div>
+    <div className="w-full">
+      <div className="p-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[20%_80%] gap-6 items-center">
+          {/* Coluna 1: Velocímetro + Informações (20%) */}
+          <div className="flex flex-col items-center justify-center h-full">
+            {/* Velocímetro SVG Customizado */}
+            <div className="flex-shrink-0 relative">
+              <svg width="280" height="140" viewBox="0 50 300 120" className="drop-shadow-lg">
+                {/* Fundo do velocímetro */}
+                <path
+                  d={criarArco(100, startAngle, endAngle)}
+                  fill="none"
+                  stroke="#e5e7eb"
+                  strokeWidth="20"
+                  strokeLinecap="round"
+                />
+                
+                {/* Marcações do velocímetro */}
+                {[0, 25, 50, 75, 100].map((marca) => {
+                const angulo = percentualParaAngulo(marca)
+                const radianos = (angulo * Math.PI) / 180
+                const x1 = 150 + 85 * Math.cos(radianos)
+                const y1 = 150 + 85 * Math.sin(radianos)
+                const x2 = 150 + 95 * Math.cos(radianos)
+                const y2 = 150 + 95 * Math.sin(radianos)
+                
+                return (
+                  <g key={marca}>
+                    <line
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      stroke="#9ca3af"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <text
+                      x={150 + 70 * Math.cos(radianos)}
+                      y={150 + 70 * Math.sin(radianos)}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="text-[10px] font-semibold fill-gray-500"
+                    >
+                      {marca}%
+                    </text>
+                  </g>
+                )
+              })}
               
-              <div className="flex items-center gap-4 flex-shrink-0">
-                <div className="text-right">
-                  <span className="text-xs text-gray-500">Atingido: </span>
-                  <span className="text-sm font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
-                </div>
-                <div className="text-gray-300">/</div>
-                <div className="text-right">
-                  <span className="text-xs text-gray-500">Meta: </span>
-                  <span className="text-sm font-bold text-gray-900">{formatCurrency(meta)}</span>
-                </div>
-                {statusProjecao !== 'atingido' && statusProjecao !== 'fora-periodo' && projecaoValor > 0 && (
-                  <>
-                    <div className="text-gray-300">/</div>
-                    <div className="text-right">
-                      <span className="text-xs text-gray-500">Projeção: </span>
-                      <span className={cn("text-sm font-bold", getTextoColor(corBarra))}>
-                        {formatCurrency(projecaoValor)}
-                      </span>
-                    </div>
-                  </>
-                )}
-                <div className="text-right min-w-[80px]">
-                  <div className="flex flex-col gap-0.5">
-                    <span className={cn("text-sm font-bold", getTextoColor(corBarra))}>
-                      {percentualMeta.toFixed(1)}%
-                    </span>
-                    {statusProjecao !== 'atingido' && statusProjecao !== 'fora-periodo' && projecao > 0 && (
-                      <span className={cn("text-[10px] font-semibold", getTextoColor(corBarra))}>
-                        Proj: {projecao.toFixed(0)}%
-                      </span>
-                    )}
+              {/* Arco da projeção (se aplicável) */}
+              {statusProjecao !== 'atingido' && statusProjecao !== 'fora-periodo' && projecao > percentualMeta && (
+                <path
+                  d={criarArco(100, anguloAtual, anguloProjecao)}
+                  fill="none"
+                  stroke="#d1d5db"
+                  strokeWidth="20"
+                  strokeLinecap="round"
+                  opacity="0.6"
+                />
+              )}
+              
+              {/* Arco principal (alcançado) */}
+              <path
+                d={criarArco(100, startAngle, anguloAtual)}
+                fill="none"
+                stroke={cores.primaria}
+                strokeWidth="20"
+                strokeLinecap="round"
+              >
+                <animate
+                  attributeName="stroke-dasharray"
+                  from="0 1000"
+                  to="1000 1000"
+                  dur="1.5s"
+                  fill="freeze"
+                />
+              </path>
+              
+              {/* Ponteiro */}
+              <g transform={`rotate(${anguloAtual + 90} 150 150)`}>
+                <path
+                  d="M 150 150 L 145 155 L 150 55 L 155 155 Z"
+                  fill={cores.texto}
+                  className="drop-shadow-md"
+                />
+                <circle cx="150" cy="150" r="8" fill={cores.primaria} stroke="white" strokeWidth="2" />
+              </g>
+              
+              {/* Texto central */}
+              <text
+                x="150"
+                y="125"
+                textAnchor="middle"
+                className="text-2xl font-bold"
+                fill={cores.texto}
+              >
+                {Math.round(percentualMeta)}%
+              </text>
+              <text
+                x="150"
+                y="142"
+                textAnchor="middle"
+                className="text-xs font-medium fill-gray-500"
+              >
+                da meta
+              </text>
+              
+              {/* Ícone de status */}
+              {statusProjecao === 'atingido' && (
+                <g transform="translate(125, 165)">
+                  <circle cx="25" cy="10" r="15" fill={cores.bg} />
+                  <text x="25" y="15" textAnchor="middle" className="text-xl">🏆</text>
+                </g>
+              )}
+            </svg>
+            </div>
+
+            {/* Informações do Velocímetro */}
+            <div className="w-full">
+              {/* Linha única: Alcançado | Meta | Falta | Projeção/Status */}
+              <div className="grid grid-cols-4 gap-2 text-center">
+                {/* Alcançado */}
+                <div>
+                  <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Alcançado</div>
+                  <div className="text-sm font-bold" style={{ color: cores.texto }}>
+                    {formatCurrency(valorAtual)}
                   </div>
+                </div>
+
+                {/* Meta */}
+                <div>
+                  <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Meta</div>
+                  <div className="text-sm font-bold text-foreground">
+                    {formatCurrency(meta)}
+                  </div>
+                </div>
+
+                {/* Falta */}
+                <div>
+                  <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Falta</div>
+                  <div className="text-sm font-bold text-muted-foreground">
+                    {formatCurrency(Math.max(0, meta - valorAtual))}
+                  </div>
+                </div>
+
+                {/* Projeção ou Status */}
+                <div>
+                  {statusProjecao === 'atingido' ? (
+                    <>
+                      <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Status</div>
+                      <div className="flex items-center justify-center gap-1 px-1 py-0.5 rounded" style={{ backgroundColor: cores.bg }}>
+                        <Trophy className="h-3 w-3" style={{ color: cores.texto }} />
+                        <span className="text-[9px] font-bold" style={{ color: cores.texto }}>
+                          Atingida!
+                        </span>
+                      </div>
+                    </>
+                  ) : statusProjecao !== 'fora-periodo' && projecaoValor > 0 ? (
+                    <>
+                      <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">Projeção</div>
+                      <div className="text-sm font-bold" style={{ color: cores.texto }}>
+                        {formatCurrency(projecaoValor)}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[8px] text-muted-foreground font-medium uppercase mb-0.5">-</div>
+                      <div className="text-sm font-bold text-muted-foreground">-</div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-        ) : (
-          <div className="flex items-center gap-4 flex-shrink-0">
-            <div className="text-right">
-              <span className="text-xs text-gray-500">Total vendido: </span>
-              <span className="text-sm font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
+
+          {/* Coluna 2: Cards de Estatísticas (80%) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Criadas Hoje */}
+            <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Criadas Hoje</div>
+                  <div className="text-3xl font-bold">{criadasHoje}</div>
+                  <div className="text-sm opacity-90 mt-1">{formatCurrency(valorCriadasHoje)}</div>
+                </div>
+                <div className="text-4xl opacity-20">📝</div>
+              </div>
             </div>
-            <div className="px-3 py-1 bg-orange-50 border border-orange-200 rounded-md">
-              <span className="text-xs text-orange-600">Sem meta cadastrada</span>
+
+            {/* Abertas */}
+            <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Abertas</div>
+                  <div className="text-3xl font-bold">{abertasTotal}</div>
+                  <div className="text-sm opacity-90 mt-1">{formatCurrency(abertasValorTotal)}</div>
+                </div>
+                <div className="text-4xl opacity-20">📂</div>
+              </div>
+            </div>
+
+            {/* Ganhas */}
+            <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Ganhas</div>
+                  <div className="text-3xl font-bold">{formatCurrency(ganhosValorTotal)}</div>
+                  <div className="text-sm opacity-90 mt-1">{ganhosTotalOportunidades} ops</div>
+                </div>
+                <div className="text-4xl opacity-20">✅</div>
+              </div>
+            </div>
+
+            {/* Perdidas */}
+            <div className="bg-gradient-to-br from-red-400 to-red-600 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Perdidas</div>
+                  <div className="text-3xl font-bold">{perdidasTotal}</div>
+                  <div className="text-sm opacity-90 mt-1">{formatCurrency(perdidasValorTotal)}</div>
+                </div>
+                <div className="text-4xl opacity-20">❌</div>
+              </div>
+            </div>
+
+            {/* Ticket Médio */}
+            <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg p-4 text-white shadow-md hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Ticket Médio</div>
+                  <div className="text-3xl font-bold">{formatCurrency(ticketMedio)}</div>
+                  <div className="text-sm opacity-90 mt-1">{ganhosTotalOportunidades} vendas</div>
+                </div>
+                <div className="text-4xl opacity-20">💰</div>
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
 })
-

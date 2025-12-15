@@ -36,6 +36,7 @@ interface ConsultorFunilEtapasProps {
   vendedorId: number
   dataInicio: string
   dataFim: string
+  funilSelecionado?: string | null
 }
 
 interface Oportunidade {
@@ -49,7 +50,8 @@ interface Oportunidade {
 export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
   vendedorId,
   dataInicio,
-  dataFim
+  dataFim,
+  funilSelecionado
 }: ConsultorFunilEtapasProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -117,8 +119,11 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
         setLoading(true)
         setError(null)
 
-        // 1. Buscar todas as colunas do funil de vendas (ID 4)
-        const colunasResponse = await fetch(`/api/funil/colunas?funil_id=4`)
+        // Usar funil selecionado ou funil de vendas (ID 4) como padrão
+        const funilId = funilSelecionado || '4'
+
+        // 1. Buscar todas as colunas do funil
+        const colunasResponse = await fetch(`/api/funil/colunas?funil_id=${funilId}`)
         
         if (!colunasResponse.ok) {
           throw new Error(`Erro ao buscar colunas: ${colunasResponse.status} ${colunasResponse.statusText}`)
@@ -136,7 +141,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
         }
 
         // 2. Buscar oportunidades abertas do vendedor agrupadas por coluna
-        const oportResponse = await fetch(`/api/consultor/oportunidades-por-coluna?vendedor_id=${vendedorId}&funil_id=4`)
+        const oportResponse = await fetch(`/api/consultor/oportunidades-por-coluna?vendedor_id=${vendedorId}&funil_id=${funilId}`)
         
         if (!oportResponse.ok) {
           throw new Error(`Erro ao buscar oportunidades: ${oportResponse.status} ${oportResponse.statusText}`)
@@ -190,7 +195,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
     }
 
     fetchData()
-  }, [vendedorId, dataInicio, dataFim])
+  }, [vendedorId, dataInicio, dataFim, funilSelecionado])
 
   if (loading) {
     return (
@@ -242,60 +247,66 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
 
   return (
     <>
-      <Card className="border-gray-300 shadow-sm">
-      <CardHeader className="bg-blue-100 py-2.5 px-4">
+      <Card className="border-blue-600 border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-4 px-5">
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <GitBranch className="h-4 w-4 text-blue-600" />
-              Minhas Oportunidades por Etapa do Funil
-            </CardTitle>
-            <CardDescription className="text-[10px] mt-0.5">
-              Distribuição de oportunidades nas etapas do funil de vendas
-            </CardDescription>
+          <div className="flex items-center gap-2">
+            <GitBranch className="h-5 w-5 text-white" />
+            <div>
+              <div className="text-base font-bold text-white tracking-wide">
+                Oportunidades por Etapa do Funil
+              </div>
+              <div className="text-xs text-blue-100 font-medium">
+                {totalAbertas} oportunidades distribuídas em {etapas.length} etapas
+              </div>
+            </div>
           </div>
         </div>
-      </CardHeader>
+      </div>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="sticky left-0 z-20 bg-background min-w-[100px] border-r h-10 px-3 text-xs font-medium text-muted-foreground">
+              <TableRow className="hover:bg-transparent bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-blue-200">
+                <TableHead className="sticky left-0 z-20 bg-gradient-to-r from-slate-50 to-slate-100 min-w-[90px] border-r-2 border-blue-200 h-10 px-3 text-xs font-bold text-gray-700 uppercase">
                   Status
                 </TableHead>
                 {etapas.map((etapa) => (
                   <TableHead
                     key={etapa.coluna_id}
-                    className="text-center min-w-[120px] h-10 px-2 text-xs font-medium text-muted-foreground"
+                    className="text-center min-w-[100px] h-10 px-2 text-xs font-bold text-gray-700"
                   >
                     <div className="truncate" title={etapa.nome_coluna}>
-                      {etapa.nome_coluna}
+                      {etapa.sequencia}. {etapa.nome_coluna}
                     </div>
                   </TableHead>
                 ))}
-                <TableHead className="text-center bg-blue-100 min-w-[100px] border-l-2 border-blue-300 h-10 px-3 text-xs font-semibold text-gray-700">
+                <TableHead className="text-center bg-blue-50 min-w-[80px] border-l-2 border-blue-300 h-10 px-2 text-xs font-extrabold text-blue-800 uppercase">
                   Total
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {/* Linha 1: Todas as Oportunidades Abertas */}
-              <TableRow className="hover:bg-blue-50/50 bg-white">
-                <TableCell className="sticky left-0 z-10 bg-white border-r border-gray-300 font-semibold text-xs px-3 py-2 text-blue-700">
+              <TableRow className="hover:bg-slate-50/80 bg-white border-b transition-colors">
+                <TableCell className="sticky left-0 z-10 bg-white border-r-2 border-slate-200 font-bold text-xs px-3 py-2.5 text-slate-700">
                   Abertas
                 </TableCell>
                 {etapas.map((etapa) => (
                   <TableCell
                     key={etapa.coluna_id}
-                    className="text-center text-sm py-2 px-2 font-bold text-blue-700 cursor-pointer hover:bg-blue-100 transition-colors border-l border-gray-200"
+                    className={`text-center text-sm py-2.5 px-1 font-bold border-l border-slate-200 ${
+                      etapa.total_abertas > 0 
+                        ? 'text-blue-600 cursor-pointer hover:bg-blue-50 hover:scale-105 transition-all duration-200' 
+                        : 'text-gray-400'
+                    }`}
                     onClick={() => etapa.total_abertas > 0 && handleCelulaClick(etapa, 'todas')}
                   >
-                    {etapa.total_abertas > 0 ? etapa.total_abertas : <span className="text-gray-400">-</span>}
+                    {etapa.total_abertas > 0 ? etapa.total_abertas : '-'}
                   </TableCell>
                 ))}
                 <TableCell 
-                  className="text-center bg-blue-100 font-bold border-l-2 border-blue-300 px-3 py-2 text-sm text-blue-800 cursor-pointer hover:bg-blue-200 transition-colors"
+                  className="text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-2 py-2.5 text-sm text-blue-700 cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200"
                   onClick={() => totalAbertas > 0 && handleCelulaClick({ coluna_id: null, nome_coluna: 'Todas as Etapas' } as any, 'todas')}
                 >
                   {totalAbertas}
@@ -303,20 +314,24 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
               </TableRow>
 
               {/* Linha 2: Abertas com Valor > 0 (Qtd + Valor) */}
-              <TableRow className="hover:bg-green-50 bg-green-50/30 border-t-2 border-gray-200">
-                <TableCell className="sticky left-0 z-10 bg-green-50/30 border-r border-gray-300 font-semibold text-xs px-3 py-2 text-green-700">
+              <TableRow className="hover:bg-slate-50/80 bg-slate-50/40 border-b transition-colors">
+                <TableCell className="sticky left-0 z-10 bg-slate-50/40 border-r-2 border-slate-200 font-bold text-xs px-3 py-2.5 text-slate-700">
                   Com Valor
                 </TableCell>
                 {etapas.map((etapa) => (
                   <TableCell
                     key={etapa.coluna_id}
-                    className="text-center py-2 px-1 cursor-pointer hover:bg-green-100 transition-colors border-l border-gray-200"
+                    className={`text-center py-2.5 px-1 border-l border-slate-200 ${
+                      etapa.total_com_valor > 0 
+                        ? 'cursor-pointer hover:bg-green-50 hover:scale-105 transition-all duration-200' 
+                        : ''
+                    }`}
                     onClick={() => etapa.total_com_valor > 0 && handleCelulaClick(etapa, 'com_valor')}
                   >
                     {etapa.total_com_valor > 0 ? (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-bold text-green-700">{etapa.total_com_valor}</span>
-                        <span className="text-[10px] font-semibold text-green-700">{formatCurrency(etapa.valor_total_com_valor)}</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-green-600">{etapa.total_com_valor}</span>
+                        <span className="text-[10px] font-medium text-green-600">{formatCurrency(etapa.valor_total_com_valor)}</span>
                       </div>
                     ) : (
                       <span className="text-gray-400">-</span>
@@ -324,65 +339,65 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
                   </TableCell>
                 ))}
                 <TableCell 
-                  className="text-center bg-green-100 font-bold border-l-2 border-green-300 px-3 py-2 cursor-pointer hover:bg-green-200 transition-colors"
+                  className="text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-2 py-2.5 cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200"
                   onClick={() => totalComValor > 0 && handleCelulaClick({ coluna_id: null, nome_coluna: 'Todas as Etapas' } as any, 'com_valor')}
                 >
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm text-green-800">{totalComValor}</span>
-                    <span className="text-[10px] text-green-800">{formatCurrency(valorTotalComValor)}</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-green-700">{totalComValor}</span>
+                    <span className="text-[10px] font-medium text-green-600">{formatCurrency(valorTotalComValor)}</span>
                   </div>
                 </TableCell>
               </TableRow>
 
               {/* Linha 3: Abertas há + de 10 dias */}
-              <TableRow className="hover:bg-orange-50/50 bg-orange-50/20 border-t-2 border-gray-200">
-                <TableCell className="sticky left-0 z-10 bg-orange-50/20 border-r border-gray-300 font-semibold text-xs px-3 py-2 text-orange-700">
-                  Abertas +10 dias
+              <TableRow className="hover:bg-slate-50/80 bg-white border-b transition-colors">
+                <TableCell className="sticky left-0 z-10 bg-white border-r-2 border-slate-200 font-bold text-xs px-3 py-2.5 text-slate-700">
+                  +10 dias
                 </TableCell>
                 {etapas.map((etapa) => (
                   <TableCell
                     key={etapa.coluna_id}
-                    className="text-center py-2 px-1 cursor-pointer hover:bg-orange-100 transition-colors border-l border-gray-200"
-                    onClick={() => etapa.total_abertas_10_dias > 0 && handleCelulaClick(etapa, '10_dias' as any)}
+                    className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${
+                      etapa.total_abertas_10_dias > 0 
+                        ? 'text-orange-600 cursor-pointer hover:bg-orange-50 hover:scale-105 transition-all duration-200' 
+                        : 'text-gray-400'
+                    }`}
+                    onClick={() => etapa.total_abertas_10_dias > 0 && handleCelulaClick(etapa, '10_dias')}
                   >
-                    {etapa.total_abertas_10_dias > 0 ? (
-                      <span className="text-sm font-bold text-orange-700">{etapa.total_abertas_10_dias}</span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
+                    {etapa.total_abertas_10_dias > 0 ? etapa.total_abertas_10_dias : '-'}
                   </TableCell>
                 ))}
                 <TableCell 
-                  className="text-center bg-orange-100 font-bold border-l-2 border-orange-300 px-3 py-2 cursor-pointer hover:bg-orange-200 transition-colors"
-                  onClick={() => totalAbertas10Dias > 0 && handleCelulaClick({ coluna_id: null, nome_coluna: 'Todas as Etapas' } as any, '10_dias' as any)}
+                  className="text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-2 py-2.5 text-sm text-orange-700 cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200"
+                  onClick={() => totalAbertas10Dias > 0 && handleCelulaClick({ coluna_id: null, nome_coluna: 'Todas as Etapas' } as any, '10_dias')}
                 >
-                  <span className="text-sm text-orange-800">{totalAbertas10Dias}</span>
+                  {totalAbertas10Dias}
                 </TableCell>
               </TableRow>
 
               {/* Linha 4: Abertas há + de 30 dias */}
-              <TableRow className="hover:bg-red-50/50 bg-red-50/20 border-t border-gray-200">
-                <TableCell className="sticky left-0 z-10 bg-red-50/20 border-r border-gray-300 font-semibold text-xs px-3 py-2 text-red-700">
-                  Abertas +30 dias
+              <TableRow className="hover:bg-slate-50/80 bg-slate-50/40 transition-colors">
+                <TableCell className="sticky left-0 z-10 bg-slate-50/40 border-r-2 border-slate-200 font-bold text-xs px-3 py-2.5 text-slate-700">
+                  +30 dias
                 </TableCell>
                 {etapas.map((etapa) => (
                   <TableCell
                     key={etapa.coluna_id}
-                    className="text-center py-2 px-1 cursor-pointer hover:bg-red-100 transition-colors border-l border-gray-200"
-                    onClick={() => etapa.total_abertas_30_dias > 0 && handleCelulaClick(etapa, '30_dias' as any)}
+                    className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${
+                      etapa.total_abertas_30_dias > 0 
+                        ? 'text-red-600 cursor-pointer hover:bg-red-50 hover:scale-105 transition-all duration-200' 
+                        : 'text-gray-400'
+                    }`}
+                    onClick={() => etapa.total_abertas_30_dias > 0 && handleCelulaClick(etapa, '30_dias')}
                   >
-                    {etapa.total_abertas_30_dias > 0 ? (
-                      <span className="text-sm font-bold text-red-700">{etapa.total_abertas_30_dias}</span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
+                    {etapa.total_abertas_30_dias > 0 ? etapa.total_abertas_30_dias : '-'}
                   </TableCell>
                 ))}
                 <TableCell 
-                  className="text-center bg-red-100 font-bold border-l-2 border-red-300 px-3 py-2 cursor-pointer hover:bg-red-200 transition-colors"
-                  onClick={() => totalAbertas30Dias > 0 && handleCelulaClick({ coluna_id: null, nome_coluna: 'Todas as Etapas' } as any, '30_dias' as any)}
+                  className="text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-2 py-2.5 text-sm text-red-700 cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200"
+                  onClick={() => totalAbertas30Dias > 0 && handleCelulaClick({ coluna_id: null, nome_coluna: 'Todas as Etapas' } as any, '30_dias')}
                 >
-                  <span className="text-sm text-red-800">{totalAbertas30Dias}</span>
+                  {totalAbertas30Dias}
                 </TableCell>
               </TableRow>
             </TableBody>
