@@ -42,11 +42,8 @@ async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
       }
     })
 
-    // Verificar conexão antes de enviar
     await transporter.verify()
 
-    // Usar EMAIL_FROM se configurado, senão usar GMAIL_USER
-    // Formato: "Nome <email@domain.com>" ou apenas "email@domain.com"
     const fromEmail = process.env.EMAIL_FROM || 
                      `Sistema <${process.env.GMAIL_USER}>`
     
@@ -62,7 +59,6 @@ async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     
-    // Detectar erro específico de senha de app
     let friendlyError = errorMessage
     if (errorMessage.includes('Application-specific password required') || 
         errorMessage.includes('InvalidSecondFactor')) {
@@ -70,14 +66,6 @@ async function sendEmailViaGmail({ to, subject, html }: SendEmailParams) {
     } else if (errorMessage.includes('Invalid login') || errorMessage.includes('EAUTH')) {
       friendlyError = 'Credenciais do Gmail inválidas. Verifique se está usando uma senha de app (não a senha normal da conta) e se a verificação em duas etapas está ativada.'
     }
-    
-    console.error('Erro ao enviar email via Gmail:', {
-      error: errorMessage,
-      friendlyError,
-      gmailUser: process.env.GMAIL_USER || 'Não configurado',
-      hasPassword: !!process.env.GMAIL_PASSWORD,
-      helpUrl: 'https://support.google.com/mail/?p=InvalidSecondFactor'
-    })
     
     return { 
       success: false, 
@@ -99,6 +87,100 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
       error: new Error('Gmail não está configurado. Configure as variáveis de ambiente GMAIL_USER e GMAIL_PASSWORD.')
     }
   }
+}
+
+export async function getOTPEmailTemplate(otpCode: string, userName: string, expiresInMinutes: number = 5) {
+  const empresaConfig = await getEmpresaEmailConfig()
+  
+  // Obter URL base para o logotipo
+  let appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+               process.env.NEXT_PUBLIC_BASE_URL || 
+               process.env.APP_URL ||
+               'http://localhost:3000'
+  
+  // Construir URL completa do logotipo
+  let logotipoUrl = ''
+  if (empresaConfig.logotipo) {
+    if (empresaConfig.logotipo.startsWith('http://') || empresaConfig.logotipo.startsWith('https://')) {
+      logotipoUrl = empresaConfig.logotipo
+    } else {
+      const logoPath = empresaConfig.logotipo.startsWith('/') 
+        ? empresaConfig.logotipo 
+        : `/${empresaConfig.logotipo}`
+      const cleanAppUrl = appUrl.replace(/\/$/, '')
+      logotipoUrl = `${cleanAppUrl}${logoPath}`
+    }
+  }
+
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Código de Acesso - ${empresaConfig.nome}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: ${empresaConfig.corPrincipal}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        ${logotipoUrl ? `
+          <img src="${logotipoUrl}" 
+               alt="${empresaConfig.nome}" 
+               style="max-height: 60px; max-width: 200px; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto; border: 0; outline: none; text-decoration: none;" 
+               width="200" 
+               height="60" 
+               border="0" />
+        ` : ''}
+        <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Código de Acesso</h1>
+      </div>
+      
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <p style="font-size: 16px; margin-bottom: 20px;">Olá <strong>${userName}</strong>,</p>
+        
+        <p style="font-size: 14px; color: #555; margin-bottom: 20px;">
+          Você solicitou acesso à <strong>Área do Consultor</strong> no <strong>${empresaConfig.nome}</strong>.
+        </p>
+        
+        <p style="font-size: 14px; color: #555; margin-bottom: 30px;">
+          Use o código abaixo para fazer login:
+        </p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <div style="background: white; 
+                      border: 3px dashed ${empresaConfig.corPrincipal}; 
+                      padding: 20px 40px; 
+                      border-radius: 10px;
+                      display: inline-block;">
+            <span style="font-size: 42px; 
+                         font-weight: bold; 
+                         letter-spacing: 8px;
+                         color: ${empresaConfig.corPrincipal};
+                         font-family: 'Courier New', monospace;">
+              ${otpCode}
+            </span>
+          </div>
+        </div>
+        
+        <p style="font-size: 13px; color: #777; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+          <strong>⏱️ Este código expira em ${expiresInMinutes} minutos.</strong>
+        </p>
+        
+        <p style="font-size: 13px; color: #777; margin-top: 15px;">
+          Se você não solicitou este código, ignore este email. Nenhuma ação é necessária.
+        </p>
+        
+        <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; margin-top: 25px;">
+          <p style="font-size: 13px; color: #856404; margin: 0;">
+            <strong>⚠️ Dica de Segurança:</strong> Nunca compartilhe este código com ninguém. Nossa equipe nunca solicitará este código por telefone ou email.
+          </p>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+        <p>© ${new Date().getFullYear()} ${empresaConfig.nome}. Todos os direitos reservados.</p>
+      </div>
+    </body>
+    </html>
+  `
 }
 
 export async function getPasswordResetEmailTemplate(resetLink: string, userName: string, requestUrl?: string) {
@@ -139,15 +221,6 @@ export async function getPasswordResetEmailTemplate(resetLink: string, userName:
       logotipoUrl = `${cleanAppUrl}${logoPath}`
     }
   }
-  
-  // Log para debug (sempre logar para ajudar no diagnóstico)
-  console.log('Email template - Logo URL:', {
-    logotipo: empresaConfig.logotipo,
-    appUrl,
-    logotipoUrl,
-    hasLogo: !!logotipoUrl,
-    isAbsolute: logotipoUrl ? (logotipoUrl.startsWith('http://') || logotipoUrl.startsWith('https://')) : false
-  })
 
   return `
     <!DOCTYPE html>
