@@ -105,3 +105,4 @@ async function debugGanhosConsultor() {
 // Executar depuração
 debugGanhosConsultor()
 
+

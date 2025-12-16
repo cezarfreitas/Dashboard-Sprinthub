@@ -243,3 +243,4 @@ O problema era **apenas nos componentes de tabelas/gráficos** que estavam hardc
 - Hook relacionado: `useConsultorDashboard.ts` (já estava correto)
 - Filtro: `ConsultorPeriodoFilter` (componente que renderiza os filtros)
 
+

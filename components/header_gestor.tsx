@@ -14,6 +14,8 @@ import {
   Users,
   Clock,
   ChevronDown,
+  UserCog,
+  LayoutDashboard,
 } from "lucide-react"
 import {
   Popover,
@@ -172,7 +174,7 @@ export function HeaderGestor({
           />
         </Link>
 
-        {/* Unidade Selector e Fila de Atendimento */}
+        {/* Menu de Navegação */}
         {gestor && (
           <div className="flex items-center space-x-2 mr-4">
             {gestor.unidades.length > 1 && unidadeSelecionada !== undefined && setUnidadeSelecionada && (
@@ -194,6 +196,18 @@ export function HeaderGestor({
                 </Select>
               </div>
             )}
+            <Link href="/gestor/dashboard" className="hidden md:block">
+              <Button
+                variant="ghost"
+                className={cn(
+                  "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none",
+                  pathname === '/gestor/dashboard' && "bg-primary-foreground/10 text-primary-foreground"
+                )}
+              >
+                <LayoutDashboard className="h-4 w-4 mr-2" />
+                Dashboard
+              </Button>
+            </Link>
             <Link href="/gestor/fila" className="hidden md:block">
               <Button
                 variant="ghost"
@@ -204,6 +218,18 @@ export function HeaderGestor({
               >
                 <Users className="h-4 w-4 mr-2" />
                 Fila de Atendimento
+              </Button>
+            </Link>
+            <Link href="/gestor/consultores" className="hidden md:block">
+              <Button
+                variant="ghost"
+                className={cn(
+                  "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none",
+                  pathname === '/gestor/consultores' && "bg-primary-foreground/10 text-primary-foreground"
+                )}
+              >
+                <UserCog className="h-4 w-4 mr-2" />
+                Consultores
               </Button>
             </Link>
           </div>
@@ -298,6 +324,17 @@ export function HeaderGestor({
             )}
             <nav className="flex flex-col space-y-2">
               <Link
+                href="/gestor/dashboard"
+                className={cn(
+                  "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                  pathname === '/gestor/dashboard' && "bg-primary-foreground/10 text-primary-foreground"
+                )}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Dashboard</span>
+              </Link>
+              <Link
                 href="/gestor/fila"
                 className={cn(
                   "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
@@ -307,6 +344,17 @@ export function HeaderGestor({
               >
                 <Users className="h-4 w-4" />
                 <span>Fila de Atendimento</span>
+              </Link>
+              <Link
+                href="/gestor/consultores"
+                className={cn(
+                  "flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                  pathname === '/gestor/consultores' && "bg-primary-foreground/10 text-primary-foreground"
+                )}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <UserCog className="h-4 w-4" />
+                <span>Consultores</span>
               </Link>
             </nav>
           </div>

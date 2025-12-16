@@ -17,8 +17,60 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const unidadeId = searchParams.get('unidade_id')
+    const unidadesParam = searchParams.get('unidades')
 
-    // Se tiver filtro de unidade, buscar do banco de dados local
+    // Se tiver filtro de unidades (múltiplas), buscar do banco de dados local
+    if (unidadesParam) {
+      const { executeQuery } = require('@/lib/database')
+      
+      const unidadesIds = unidadesParam.split(',').map((id: string) => parseInt(id.trim())).filter((id: number) => !isNaN(id))
+      
+      if (unidadesIds.length === 0) {
+        return NextResponse.json({
+          success: false,
+          message: 'IDs de unidades inválidos'
+        }, { status: 400 })
+      }
+
+      const placeholders = unidadesIds.map(() => '?').join(',')
+      
+      const vendedores = await executeQuery(`
+        SELECT 
+          v.id,
+          v.name,
+          v.lastName,
+          v.email,
+          v.cpf,
+          v.username,
+          v.birthDate,
+          v.telephone,
+          v.unidade_id,
+          u.nome as unidade_nome
+        FROM vendedores v
+        LEFT JOIN unidades u ON v.unidade_id = u.id
+        WHERE v.unidade_id IN (${placeholders}) AND v.ativo = 1
+        ORDER BY u.nome, v.name, v.lastName
+      `, unidadesIds) as Array<{
+        id: number
+        name: string
+        lastName: string
+        email: string
+        cpf: string | null
+        username: string
+        birthDate: string
+        telephone: string
+        unidade_id: number
+        unidade_nome: string
+      }>
+
+      return NextResponse.json({
+        success: true,
+        vendedores,
+        message: `${vendedores.length} vendedores encontrados nas unidades`
+      })
+    }
+
+    // Se tiver filtro de unidade única, buscar do banco de dados local
     if (unidadeId) {
       const { executeQuery } = require('@/lib/database')
       
