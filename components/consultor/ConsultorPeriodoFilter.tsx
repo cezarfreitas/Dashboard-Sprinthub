@@ -1,6 +1,6 @@
 import { memo, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Calendar as CalendarIcon, RefreshCw } from "lucide-react"
+import { Calendar as CalendarIcon, RefreshCw, FileSpreadsheet } from "lucide-react"
 import {
   Popover,
   PopoverContent,
@@ -33,6 +33,8 @@ interface ConsultorPeriodoFilterProps {
   setFunilSelecionado?: (funilId: string | null) => void
   vendedorId?: number
   onSyncComplete?: () => void
+  onExportar?: () => void
+  exportando?: boolean
 }
 
 export const ConsultorPeriodoFilter = memo(function ConsultorPeriodoFilter({
@@ -45,7 +47,9 @@ export const ConsultorPeriodoFilter = memo(function ConsultorPeriodoFilter({
   funilSelecionado,
   setFunilSelecionado,
   vendedorId,
-  onSyncComplete
+  onSyncComplete,
+  onExportar,
+  exportando = false
 }: ConsultorPeriodoFilterProps) {
   const [popoverPersonalizadoOpen, setPopoverPersonalizadoOpen] = useState(false)
   const [funis, setFunis] = useState<Funil[]>([])
@@ -307,6 +311,19 @@ export const ConsultorPeriodoFilter = memo(function ConsultorPeriodoFilter({
             >
               <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            </Button>
+          )}
+
+          {onExportar && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportar}
+              disabled={exportando}
+              className="h-7 text-xs px-2.5 gap-1.5"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              {exportando ? 'Exportando...' : 'Exportar XLSX'}
             </Button>
           )}
         </div>

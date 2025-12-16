@@ -24,7 +24,9 @@ export default function GestorDashboard() {
     setFunilSelecionado,
     cardsData,
     loadingCards,
-    getPeriodoDatas
+    getPeriodoDatas,
+    exportarOportunidades,
+    exportando
   } = useGestorDashboard()
 
   return (
@@ -42,6 +44,8 @@ export default function GestorDashboard() {
         setDataFimPersonalizada={setDataFimPersonalizada}
         funilSelecionado={funilSelecionado}
         setFunilSelecionado={setFunilSelecionado}
+        onExportar={exportarOportunidades}
+        exportando={exportando}
       />
       <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-4">
         {loadingCards ? (

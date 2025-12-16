@@ -1,6 +1,6 @@
 import { memo, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar as CalendarIcon, FileSpreadsheet } from "lucide-react"
 import {
   Popover,
   PopoverContent,
@@ -30,6 +30,8 @@ interface GestorPeriodoFilterProps {
   setDataFimPersonalizada: (data: Date | undefined) => void
   funilSelecionado?: string | null
   setFunilSelecionado?: (funilId: string | null) => void
+  onExportar?: () => void
+  exportando?: boolean
 }
 
 export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
@@ -40,7 +42,9 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
   dataFimPersonalizada,
   setDataFimPersonalizada,
   funilSelecionado,
-  setFunilSelecionado
+  setFunilSelecionado,
+  onExportar,
+  exportando = false
 }: GestorPeriodoFilterProps) {
   const [popoverPersonalizadoOpen, setPopoverPersonalizadoOpen] = useState(false)
   const [funis, setFunis] = useState<Funil[]>([])
@@ -238,6 +242,19 @@ export const GestorPeriodoFilter = memo(function GestorPeriodoFilter({
               </SelectContent>
             </Select>
           </div>
+
+          {onExportar && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportar}
+              disabled={exportando}
+              className="h-7 text-xs px-2.5 gap-1.5"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              {exportando ? 'Exportando...' : 'Exportar XLSX'}
+            </Button>
+          )}
         </div>
       </div>
     </div>

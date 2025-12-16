@@ -257,6 +257,248 @@ export function useConsultorDashboard() {
     router.push('/consultor')
   }, [router])
 
+  const exportarOportunidades = useCallback(async () => {
+    if (!consultor) {
+      return
+    }
+
+    try {
+      setExportando(true)
+      const { dataInicio, dataFim } = getPeriodoDatas()
+      
+      // Para consultor, filtrar por user_id
+      const url = `/api/consultor/exportar?user_id=${consultor.id}&dataInicio=${dataInicio}&dataFim=${dataFim}&tipo=todas`
+      
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        throw new Error('Erro ao exportar oportunidades')
+      }
+
+      const result = await response.json()
+      
+      if (!result.success || !result.data) {
+        throw new Error(result.message || 'Erro ao exportar oportunidades')
+      }
+
+      const oportunidades = result.data
+      
+      if (oportunidades.length === 0) {
+        alert('Nenhuma oportunidade encontrada para o período selecionado.')
+        return
+      }
+
+      // Processar campos JSON (fields e dataLead) para extrair todas as chaves
+      const allFieldsKeys = new Set<string>()
+      const allDataLeadKeys = new Set<string>()
+      
+      oportunidades.forEach((opp: any) => {
+        // Processar fields
+        if (opp.fields) {
+          try {
+            const fields = typeof opp.fields === 'string' ? JSON.parse(opp.fields) : opp.fields
+            if (fields && typeof fields === 'object') {
+              Object.keys(fields).forEach(key => allFieldsKeys.add(key))
+            }
+          } catch (e) {
+            // Ignorar erro ao parsear
+          }
+        }
+        
+        // Processar dataLead
+        if (opp.dataLead) {
+          try {
+            const dataLead = typeof opp.dataLead === 'string' ? JSON.parse(opp.dataLead) : opp.dataLead
+            if (dataLead && typeof dataLead === 'object') {
+              Object.keys(dataLead).forEach(key => allDataLeadKeys.add(key))
+            }
+          } catch (e) {
+            // Ignorar erro ao parsear
+          }
+        }
+      })
+
+      // Criar headers base
+      const excelHeaders = [
+        'ID',
+        'Título',
+        'Valor',
+        'Status',
+        'Data Criação',
+        'Data Ganho',
+        'Data Perda',
+        'Vendedor',
+        'Unidade',
+        'Coluna CRM',
+        'Motivo Perda',
+        'Motivo Ganho',
+        'Canal Venda',
+        'Campanha'
+      ]
+
+      // Adicionar headers dos campos fields (com prefixo "Fields - ")
+      Array.from(allFieldsKeys).sort().forEach(key => {
+        excelHeaders.push(`Fields - ${key}`)
+      })
+
+      // Adicionar headers dos campos dataLead (com prefixo "DataLead - ")
+      Array.from(allDataLeadKeys).sort().forEach(key => {
+        excelHeaders.push(`DataLead - ${key}`)
+      })
+
+      const formatarData = (data: string | null) => {
+        if (!data) return '-'
+        const d = new Date(data)
+        return d.toLocaleDateString('pt-BR')
+      }
+
+      const formatarStatus = (status: string) => {
+        const statusMap: Record<string, string> = {
+          'open': 'Aberta',
+          'gain': 'Ganha',
+          'lost': 'Perdida'
+        }
+        return statusMap[status] || status
+      }
+
+      // Converter Sets para Arrays ordenados para manter consistência
+      const fieldsKeysArray = Array.from(allFieldsKeys).sort()
+      const dataLeadKeysArray = Array.from(allDataLeadKeys).sort()
+
+      const excelRows = oportunidades.map((opp: any) => {
+        // Parsear fields
+        let fieldsObj: any = {}
+        if (opp.fields) {
+          try {
+            fieldsObj = typeof opp.fields === 'string' ? JSON.parse(opp.fields) : opp.fields
+            if (!fieldsObj || typeof fieldsObj !== 'object') {
+              fieldsObj = {}
+            }
+          } catch (e) {
+            fieldsObj = {}
+          }
+        }
+
+        // Parsear dataLead
+        let dataLeadObj: any = {}
+        if (opp.dataLead) {
+          try {
+            dataLeadObj = typeof opp.dataLead === 'string' ? JSON.parse(opp.dataLead) : opp.dataLead
+            if (!dataLeadObj || typeof dataLeadObj !== 'object') {
+              dataLeadObj = {}
+            }
+          } catch (e) {
+            dataLeadObj = {}
+          }
+        }
+
+        // Criar linha base
+        const row: any[] = [
+          opp.id,
+          opp.title || '-',
+          opp.value || 0, // Valor numérico para Excel
+          formatarStatus(opp.status),
+          formatarData(opp.createDate),
+          formatarData(opp.gain_date),
+          formatarData(opp.lost_date),
+          (() => {
+            const nome = ((opp.vendedor_nome || '') + ' ' + (opp.vendedor_sobrenome || '')).trim()
+            return nome || '-'
+          })(),
+          opp.unidade_nome || '-',
+          opp.crm_column || '-',
+          opp.loss_reason || '-',
+          opp.gain_reason || '-',
+          opp.sale_channel || '-',
+          opp.campaign || '-'
+        ]
+
+        // Adicionar valores dos campos fields
+        fieldsKeysArray.forEach(key => {
+          const value = fieldsObj[key]
+          if (value === null || value === undefined) {
+            row.push('-')
+          } else if (typeof value === 'object') {
+            row.push(JSON.stringify(value))
+          } else {
+            row.push(String(value))
+          }
+        })
+
+        // Adicionar valores dos campos dataLead
+        dataLeadKeysArray.forEach(key => {
+          const value = dataLeadObj[key]
+          if (value === null || value === undefined) {
+            row.push('-')
+          } else if (typeof value === 'object') {
+            row.push(JSON.stringify(value))
+          } else {
+            row.push(String(value))
+          }
+        })
+
+        return row
+      })
+
+      // Importar xlsx dinamicamente (client-side)
+      const XLSX = await import('xlsx')
+      
+      // Preparar dados para Excel (headers + rows)
+      const excelData = [
+        excelHeaders,
+        ...excelRows
+      ]
+
+      // Criar workbook e worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.aoa_to_sheet(excelData)
+      
+      // Ajustar largura das colunas
+      const colWidths = excelHeaders.map((header: string, idx: number) => {
+        const maxLength = Math.max(
+          header.length,
+          ...excelData.slice(1).map((row: any[]) => {
+            const cell = row[idx]
+            return cell ? String(cell).length : 0
+          })
+        )
+        return { wch: Math.min(Math.max(maxLength + 2, 10), 50) }
+      })
+      ws['!cols'] = colWidths
+      
+      // Adicionar worksheet ao workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Oportunidades')
+      
+      // Gerar arquivo Excel
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      })
+      
+      const link = document.createElement('a')
+      const urlBlob = URL.createObjectURL(blob)
+      
+      const nomeVendedor = `${consultor.name}_${consultor.lastName}`.replace(/\s+/g, '_')
+      const nomeArquivo = `oportunidades_${nomeVendedor}_${dataInicio}_${dataFim}.xlsx`
+      
+      link.setAttribute('href', urlBlob)
+      link.setAttribute('download', nomeArquivo)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      
+      setTimeout(() => {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(urlBlob)
+      }, 100)
+
+    } catch (error) {
+      alert(`Erro ao exportar oportunidades: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    } finally {
+      setExportando(false)
+    }
+  }, [consultor, getPeriodoDatas])
+
   useEffect(() => {
     const consultorData = localStorage.getItem('consultor')
     
@@ -289,6 +531,7 @@ export function useConsultorDashboard() {
     getPeriodoDatas,
     handleLogout,
     exportando,
+    exportarOportunidades,
     cardsData,
     loadingCards,
     fetchCardsData

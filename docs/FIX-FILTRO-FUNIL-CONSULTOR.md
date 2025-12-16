@@ -244,3 +244,4 @@ O problema era **apenas nos componentes de tabelas/gráficos** que estavam hardc
 - Filtro: `ConsultorPeriodoFilter` (componente que renderiza os filtros)
 
 
+

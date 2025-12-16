@@ -24,7 +24,9 @@ export default function ConsultorDashboard() {
     cardsData,
     loadingCards,
     getPeriodoDatas,
-    fetchCardsData
+    fetchCardsData,
+    exportarOportunidades,
+    exportando
   } = useConsultorDashboard()
 
   // Calcular percentual da meta
@@ -49,6 +51,8 @@ export default function ConsultorDashboard() {
         setFunilSelecionado={setFunilSelecionado}
         vendedorId={consultor?.id}
         onSyncComplete={fetchCardsData}
+        onExportar={exportarOportunidades}
+        exportando={exportando}
       />
       <div className="max-w-[1800px] w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-3 space-y-3 sm:space-y-4">
         {loadingCards ? (

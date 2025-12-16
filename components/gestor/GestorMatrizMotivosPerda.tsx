@@ -202,11 +202,11 @@ export const GestorMatrizMotivosPerda = memo(function GestorMatrizMotivosPerda({
     const justifyClass = align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start'
 
     return (
-      <TableHead className={`${alignClass} text-xs h-10 px-1.5 font-medium text-muted-foreground`}>
+      <TableHead className={`${alignClass} text-xs h-10 px-1.5 font-bold text-gray-700`}>
         <Button
           variant="ghost"
           size="sm"
-          className="h-auto p-0 font-semibold hover:bg-transparent"
+          className="h-auto p-0 font-bold hover:bg-transparent"
           onClick={() => handleSort(vendedorId, field)}
         >
           <div className={`flex items-center gap-1 ${justifyClass}`}>
@@ -259,78 +259,80 @@ export const GestorMatrizMotivosPerda = memo(function GestorMatrizMotivosPerda({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {todosVendedores.map(vendedor => (
-              <Card key={vendedor.vendedor_id} className="border-gray-200">
-                <CardHeader className="bg-muted/50 py-2.5 px-4 flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-sm font-semibold">
-                      {vendedor.vendedor_nome}
-                    </CardTitle>
-                    <CardDescription className="text-[10px] mt-0.5">
-                      {vendedor.total_oportunidades} oportunidades
-                      {vendedor.valor_total > 0 && (
-                        <span className="ml-2">
-                          • R$ {vendedor.valor_total.toLocaleString('pt-BR', {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0
-                          })}
-                        </span>
-                      )}
-                    </CardDescription>
+              <Card key={vendedor.vendedor_id} className="border-blue-600 border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-3 px-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-white">
+                        {vendedor.vendedor_nome}
+                      </div>
+                      <div className="text-[10px] text-blue-100 font-medium mt-0.5">
+                        {vendedor.total_oportunidades} oportunidades
+                        {vendedor.valor_total > 0 && (
+                          <span className="ml-2">
+                            • R$ {vendedor.valor_total.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </CardHeader>
+                </div>
                 <CardContent className="p-0">
                   {vendedor.motivos.length > 0 ? (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="hover:bg-transparent">
+                          <TableRow className="hover:bg-transparent bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-blue-200">
                             <SortableHeader vendedorId={vendedor.vendedor_id} field="motivo" align="left">
-                              <span className="text-xs">Motivo</span>
+                              <span className="text-xs font-bold text-gray-700">Motivo</span>
                             </SortableHeader>
                             <SortableHeader vendedorId={vendedor.vendedor_id} field="quantidade">
-                              <span className="text-xs">Qtd</span>
+                              <span className="text-xs font-bold text-gray-700">Qtd</span>
                             </SortableHeader>
                             <SortableHeader vendedorId={vendedor.vendedor_id} field="percentual">
-                              <span className="text-xs">%</span>
+                              <span className="text-xs font-bold text-gray-700">%</span>
                             </SortableHeader>
                             <SortableHeader vendedorId={vendedor.vendedor_id} field="tempo">
-                              <span className="text-xs">Tempo</span>
+                              <span className="text-xs font-bold text-gray-700">Tempo</span>
                             </SortableHeader>
                             <SortableHeader vendedorId={vendedor.vendedor_id} field="valor" align="right">
-                              <span className="text-xs">Valor</span>
+                              <span className="text-xs font-bold text-gray-700">Valor</span>
                             </SortableHeader>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {sortMotivos(vendedor.motivos, vendedor.vendedor_id, vendedor.total_oportunidades)
                             .map((motivo, idx) => (
-                              <TableRow key={motivo.motivo_id || `vendedor-${vendedor.vendedor_id}-motivo-${idx}`} className="hover:bg-muted/30">
-                                <TableCell className="text-xs py-1.5 px-3">
+                              <TableRow key={motivo.motivo_id || `vendedor-${vendedor.vendedor_id}-motivo-${idx}`} className={`hover:bg-slate-50/80 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} border-b transition-colors`}>
+                                <TableCell className="text-xs py-2.5 px-3 font-medium text-slate-700">
                                   <div className="truncate max-w-[200px]" title={motivo.motivo}>
                                     {motivo.motivo}
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-center text-xs font-semibold py-1.5 px-1">
+                                <TableCell className="text-center text-sm font-bold py-2.5 px-1 text-red-600">
                                   {motivo.total_oportunidades}
                                 </TableCell>
-                                <TableCell className="text-center py-1.5 px-1">
-                                  <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-medium">
+                                <TableCell className="text-center py-2.5 px-1">
+                                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">
                                     {((motivo.total_oportunidades / vendedor.total_oportunidades) * 100).toFixed(1)}%
                                   </span>
                                 </TableCell>
-                                <TableCell className="text-center text-xs text-muted-foreground py-1.5 px-1">
+                                <TableCell className="text-center text-xs text-gray-600 font-medium py-2.5 px-1">
                                   {motivo.lost_time}d
                                 </TableCell>
-                                <TableCell className="text-right text-xs font-medium py-1.5 px-3">
+                                <TableCell className="text-right text-xs font-bold py-2.5 px-3">
                                   {motivo.valor_total > 0 ? (
-                                    <span>
+                                    <span className="text-red-600">
                                       R$ {motivo.valor_total.toLocaleString('pt-BR', {
                                         minimumFractionDigits: 0,
                                         maximumFractionDigits: 0
                                       })}
                                     </span>
                                   ) : (
-                                    <span className="text-muted-foreground/50">-</span>
+                                    <span className="text-gray-400">-</span>
                                   )}
                                 </TableCell>
                               </TableRow>
@@ -339,7 +341,7 @@ export const GestorMatrizMotivosPerda = memo(function GestorMatrizMotivosPerda({
                       </Table>
                     </div>
                   ) : (
-                    <div className="text-xs text-muted-foreground text-center py-4">
+                    <div className="text-xs text-gray-500 text-center py-4">
                       Nenhum motivo registrado
                     </div>
                   )}
