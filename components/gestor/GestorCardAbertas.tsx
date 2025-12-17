@@ -30,7 +30,7 @@ export const GestorCardAbertas = memo(function GestorCardAbertas({
   valorCriadasOutrosPeriodos
 }: GestorCardAbertasProps) {
   return (
-    <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-0 rounded-2xl h-full flex flex-col">
+    <Card className="bg-gradient-to-br from-indigo-600 to-indigo-700 border-0 rounded-2xl h-full flex flex-col">
       <CardContent className="p-4 flex-1 flex flex-col justify-between">
         <div className="space-y-2 flex-1 flex flex-col">
           <div className="flex items-center gap-2">
@@ -44,7 +44,7 @@ export const GestorCardAbertas = memo(function GestorCardAbertas({
             {total.toLocaleString('pt-BR')}
           </p>
 
-          <Separator className="bg-blue-500/30" />
+          <Separator className="bg-indigo-500/30" />
 
           <div className="space-y-1 text-[10px]">
             <div className="flex items-center justify-between">
@@ -53,7 +53,7 @@ export const GestorCardAbertas = memo(function GestorCardAbertas({
                 {formatCurrency(valorTotal)}
               </span>
             </div>
-            <Separator className="bg-blue-500/20 my-1" />
+            <Separator className="bg-indigo-500/20 my-1" />
             <div className="flex items-center justify-between">
               <span className="text-white/60">Criadas no período:</span>
               <span className="text-white/90 font-medium">

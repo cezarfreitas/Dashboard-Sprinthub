@@ -64,7 +64,6 @@ export default function GestorConsultoresPage() {
       setGestor(gestorData)
       loadConsultores(gestorData.unidades.map((u: any) => u.id))
     } catch (error) {
-      console.error('Erro ao carregar gestor:', error)
       router.push('/gestor')
     }
   }, [router])
@@ -131,7 +130,6 @@ export default function GestorConsultoresPage() {
         setError(data.message || 'Erro ao carregar consultores')
       }
     } catch (error) {
-      console.error('Erro ao carregar consultores:', error)
       setError('Erro ao carregar consultores')
     } finally {
       setLoading(false)
@@ -331,7 +329,6 @@ export default function GestorConsultoresPage() {
 
       setCardsData(cards)
     } catch (error) {
-      console.error('Erro ao buscar dados:', error)
       setCardsData(null)
     } finally {
       setLoadingCards(false)

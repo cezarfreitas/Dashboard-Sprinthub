@@ -247,16 +247,16 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
 
   return (
     <>
-      <Card className="border-blue-600 border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-4 px-5">
+      <Card className="border-primary border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+      <div className="card-header-brand">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <GitBranch className="h-5 w-5 text-white" />
+            <GitBranch className="card-header-brand-icon" />
             <div>
-              <div className="text-base font-bold text-white tracking-wide">
+              <div className="card-header-brand-title">
                 Oportunidades por Etapa do Funil
               </div>
-              <div className="text-xs text-blue-100 font-medium">
+              <div className="card-header-brand-subtitle">
                 {totalAbertas} oportunidades distribuídas em {etapas.length} etapas
               </div>
             </div>

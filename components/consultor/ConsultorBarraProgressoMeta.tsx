@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useMemo } from "react"
-import { Target, TrendingUp, Trophy } from "lucide-react"
+import { CircleDot, DollarSign, Target, TrendingDown, TrendingUp } from "lucide-react"
 
 interface ConsultorBarraProgressoMetaProps {
   valorAtual: number
@@ -200,7 +200,7 @@ export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgresso
     return (
       <div className="w-full p-3">
         <div className="flex items-center gap-3">
-          <Target className="w-6 h-6 text-blue-600 flex-shrink-0" />
+          <Target className="w-6 h-6 text-primary flex-shrink-0" />
           <div className="flex-1">
             <div className="text-sm font-bold text-gray-900">
               Minhas Vendas do Mês: {formatCurrency(valorAtual)}
@@ -344,101 +344,82 @@ export const ConsultorBarraProgressoMeta = memo(function ConsultorBarraProgresso
             </div>
           </div>
 
-          {/* Coluna 2: Cards de Estatísticas (75%) */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Coluna 2: Cards de Estatísticas (padrão Gestor) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {/* Card Resumo Meta */}
-            <div className="bg-white border-2 border-blue-600 rounded-lg p-3 shadow-md hover:shadow-lg transition-shadow">
-              <div className="text-[10px] font-bold text-blue-600 uppercase mb-2 text-center">Meta do Mês</div>
-              <div className="grid grid-cols-2 gap-3">
-                {/* Coluna 1 */}
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-[8px] text-muted-foreground uppercase">Alcançado</div>
-                    <div className="text-sm font-bold text-green-600">{formatCurrency(valorAtual)}</div>
-                  </div>
-                  <div>
-                    <div className="text-[8px] text-muted-foreground uppercase">Meta</div>
-                    <div className="text-sm font-bold text-blue-600">{formatCurrency(meta)}</div>
-                  </div>
+            <div className="min-w-0 rounded-2xl bg-white/95 p-3 shadow-lg hover:shadow-xl transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-extrabold text-primary uppercase">Meta do mês</div>
+                <Target className="h-4 w-4 text-primary" />
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+                <div className="space-y-1">
+                  <div className="text-[10px] text-muted-foreground">Alcançado</div>
+                  <div className="font-bold text-slate-900">{formatCurrency(valorAtual)}</div>
                 </div>
-                
-                {/* Coluna 2 */}
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-[8px] text-muted-foreground uppercase">Falta</div>
-                    <div className="text-sm font-bold text-orange-600">{formatCurrency(Math.max(0, meta - valorAtual))}</div>
-                  </div>
-                  {statusProjecao !== 'fora-periodo' && projecaoValor > 0 && (
-                    <div>
-                      <div className="text-[8px] text-muted-foreground uppercase">Projeção</div>
-                      <div className="text-sm font-bold" style={{ color: cores.texto }}>{formatCurrency(projecaoValor)}</div>
-                      <div className="text-[7px] text-muted-foreground mt-0.5">
-                        {projecaoValor >= meta ? '🚀 No caminho!' : '💪 Acelere!'}
-                      </div>
-                    </div>
-                  )}
+                <div className="space-y-1">
+                  <div className="text-[10px] text-muted-foreground">Meta</div>
+                  <div className="font-bold text-slate-900">{formatCurrency(meta)}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-muted-foreground">Falta</div>
+                  <div className="font-bold text-slate-900">{formatCurrency(Math.max(0, meta - valorAtual))}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-muted-foreground">Projeção</div>
+                  <div className="font-bold text-slate-900">{formatCurrency(projecaoValor)}</div>
                 </div>
               </div>
             </div>
 
             {/* Criadas Hoje */}
-            <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
+            <div className="min-w-0 rounded-2xl bg-gradient-to-br from-sky-600 to-sky-700 p-4 text-white shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Criadas Hoje</div>
-                  <div className="text-3xl font-bold">{criadasHoje}</div>
-                  <div className="text-sm opacity-90 mt-1">{formatCurrency(valorCriadasHoje)}</div>
-                </div>
-                <div className="text-4xl opacity-20">📝</div>
+                <div className="text-white/90 text-[10px] font-bold uppercase tracking-wider">Criadas hoje</div>
+                <TrendingUp className="h-4 w-4 text-white/90" />
               </div>
+              <div className="mt-2 text-3xl font-black leading-none">{criadasHoje}</div>
+              <div className="mt-1 text-xs font-medium text-white/90">{formatCurrency(valorCriadasHoje)}</div>
             </div>
 
             {/* Abertas */}
-            <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
+            <div className="min-w-0 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 p-4 text-white shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Abertas</div>
-                  <div className="text-3xl font-bold">{abertasTotal}</div>
-                  <div className="text-sm opacity-90 mt-1">{formatCurrency(abertasValorTotal)}</div>
-                </div>
-                <div className="text-4xl opacity-20">📂</div>
+                <div className="text-white/90 text-[10px] font-bold uppercase tracking-wider">Abertas</div>
+                <CircleDot className="h-4 w-4 text-white/90" />
               </div>
+              <div className="mt-2 text-3xl font-black leading-none">{abertasTotal}</div>
+              <div className="mt-1 text-xs font-medium text-white/90">{formatCurrency(abertasValorTotal)}</div>
             </div>
 
             {/* Ganhas */}
-            <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
+            <div className="min-w-0 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-4 text-white shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Ganhas</div>
-                  <div className="text-3xl font-bold">{formatCurrency(ganhosValorTotal)}</div>
-                  <div className="text-sm opacity-90 mt-1">{ganhosTotalOportunidades} ops</div>
-                </div>
-                <div className="text-4xl opacity-20">✅</div>
+                <div className="text-white/90 text-[10px] font-bold uppercase tracking-wider">Ganhas</div>
+                <TrendingUp className="h-4 w-4 text-white/90" />
               </div>
+              <div className="mt-2 text-2xl font-black leading-none truncate">{formatCurrency(ganhosValorTotal)}</div>
+              <div className="mt-1 text-xs font-medium text-white/90">{ganhosTotalOportunidades} ops</div>
             </div>
 
             {/* Perdidas */}
-            <div className="bg-gradient-to-br from-red-400 to-red-600 rounded-lg p-3 text-white shadow-md hover:shadow-lg transition-shadow">
+            <div className="min-w-0 rounded-2xl bg-gradient-to-br from-rose-600 to-rose-700 p-4 text-white shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Perdidas</div>
-                  <div className="text-3xl font-bold">{perdidasTotal}</div>
-                  <div className="text-sm opacity-90 mt-1">{formatCurrency(perdidasValorTotal)}</div>
-                </div>
-                <div className="text-4xl opacity-20">❌</div>
+                <div className="text-white/90 text-[10px] font-bold uppercase tracking-wider">Perdidas</div>
+                <TrendingDown className="h-4 w-4 text-white/90" />
               </div>
+              <div className="mt-2 text-3xl font-black leading-none">{perdidasTotal}</div>
+              <div className="mt-1 text-xs font-medium text-white/90">{formatCurrency(perdidasValorTotal)}</div>
             </div>
 
             {/* Ticket Médio */}
-            <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg p-4 text-white shadow-md hover:shadow-lg transition-shadow">
+            <div className="min-w-0 rounded-2xl bg-gradient-to-br from-amber-600 to-amber-700 p-4 text-white shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold uppercase opacity-90 mb-2">Ticket Médio</div>
-                  <div className="text-3xl font-bold">{formatCurrency(ticketMedio)}</div>
-                  <div className="text-sm opacity-90 mt-1">{ganhosTotalOportunidades} vendas</div>
-                </div>
-                <div className="text-4xl opacity-20">💰</div>
+                <div className="text-white/90 text-[10px] font-bold uppercase tracking-wider">Ticket médio</div>
+                <DollarSign className="h-4 w-4 text-white/90" />
               </div>
+              <div className="mt-2 text-2xl font-black leading-none truncate">{formatCurrency(ticketMedio)}</div>
+              <div className="mt-1 text-xs font-medium text-white/90">{ganhosTotalOportunidades} vendas</div>
             </div>
           </div>
         </div>

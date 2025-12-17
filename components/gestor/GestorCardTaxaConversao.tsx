@@ -20,7 +20,7 @@ export const GestorCardTaxaConversao = memo(function GestorCardTaxaConversao({
   const taxa = calcularTaxa()
 
   return (
-    <Card className="bg-gradient-to-br from-purple-600 to-purple-700 border-0 rounded-2xl h-full flex flex-col">
+    <Card className="bg-gradient-to-br from-violet-600 to-violet-700 border-0 rounded-2xl h-full flex flex-col">
       <CardContent className="p-4 flex-1 flex flex-col justify-between">
         <div className="space-y-2 flex-1 flex flex-col">
           <div className="flex items-center gap-2">
@@ -34,7 +34,7 @@ export const GestorCardTaxaConversao = memo(function GestorCardTaxaConversao({
             {taxa}%
           </p>
 
-          <Separator className="bg-purple-500/30" />
+          <Separator className="bg-violet-500/30" />
 
           <div className="space-y-1 text-[10px]">
             <div className="flex items-center justify-between">

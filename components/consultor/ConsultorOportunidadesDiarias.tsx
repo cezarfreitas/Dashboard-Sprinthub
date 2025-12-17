@@ -339,32 +339,32 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
   }
 
   return (
-    <Card className="border-blue-600 border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-4 px-5">
+    <Card className="border-primary border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+      <div className="card-header-brand">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-white" />
+            <TrendingUp className="card-header-brand-icon" />
             <div>
-              <div className="text-base font-bold text-white tracking-wide">
+              <div className="card-header-brand-title">
                 Minhas Oportunidades Criadas Dia a Dia
               </div>
-              <div className="text-xs text-blue-100 font-medium">
+              <div className="card-header-brand-subtitle">
                 Distribuição diária das minhas oportunidades criadas no período
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-4 text-xs text-primary-foreground">
             <div className="text-right">
-              <div className="text-[10px] text-blue-100 font-medium">Criadas</div>
-              <div className="font-bold text-sm text-white">{totalCriadas} ops</div>
+              <div className="text-[10px] text-primary-foreground/80 font-medium">Criadas</div>
+              <div className="font-bold text-[12px] leading-tight">{totalCriadas} ops</div>
             </div>
-            <div className="text-right border-l border-blue-400 pl-4">
-              <div className="text-[10px] text-blue-100 font-medium">Perdidas</div>
-              <div className="font-bold text-sm text-white">{totalPerdidas} ops</div>
+            <div className="text-right border-l border-primary-foreground/30 pl-3">
+              <div className="text-[10px] text-primary-foreground/80 font-medium">Perdidas</div>
+              <div className="font-bold text-[12px] leading-tight">{totalPerdidas} ops</div>
             </div>
-            <div className="text-right border-l border-blue-400 pl-4">
-              <div className="text-[10px] text-blue-100 font-medium">Ganhas</div>
-              <div className="font-bold text-sm text-white">{totalGanhasQtd} ops · {formatCurrency(totalGanhasValor)}</div>
+            <div className="text-right border-l border-primary-foreground/30 pl-3">
+              <div className="text-[10px] text-primary-foreground/80 font-medium">Ganhas</div>
+              <div className="font-bold text-[12px] leading-tight">{totalGanhasQtd} ops · {formatCurrency(totalGanhasValor)}</div>
             </div>
           </div>
         </div>

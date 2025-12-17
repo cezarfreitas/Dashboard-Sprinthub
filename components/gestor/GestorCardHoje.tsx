@@ -40,7 +40,7 @@ export const GestorCardHoje = memo(function GestorCardHoje({
   const isPositive = variacao !== null && parseFloat(variacao) >= 0
 
   return (
-    <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-0 rounded-2xl h-full flex flex-col">
+    <Card className="bg-gradient-to-br from-sky-600 to-sky-700 border-0 rounded-2xl h-full flex flex-col">
       <CardContent className="p-4 flex-1 flex flex-col justify-between">
         <div className="space-y-3 flex-1 flex flex-col">
           <div className="flex items-center gap-2">
@@ -60,7 +60,7 @@ export const GestorCardHoje = memo(function GestorCardHoje({
                 {formatCurrency(valorCriadasHoje)}
               </span>
               {criadasOntem > 0 && (
-                <div className="flex flex-col gap-0.5 mt-1 pt-1 border-t border-blue-500/20">
+                <div className="flex flex-col gap-0.5 mt-1 pt-1 border-t border-sky-500/20">
                   <span className="text-white/50 text-[9px]">Ontem:</span>
                   <span className="text-white/70 text-[10px] font-medium">
                     {criadasOntem.toLocaleString('pt-BR')} | {formatCurrency(valorCriadasOntem)}
@@ -77,7 +77,7 @@ export const GestorCardHoje = memo(function GestorCardHoje({
               )}
             </div>
 
-            <div className="space-y-1.5 border-l border-blue-500/30 pl-3">
+            <div className="space-y-1.5 border-l border-sky-500/30 pl-3">
               <span className="text-white/70 text-[10px] block">Ganhas:</span>
               <p className="text-white text-2xl font-black leading-none">
                 {ganhasHoje.toLocaleString('pt-BR')}

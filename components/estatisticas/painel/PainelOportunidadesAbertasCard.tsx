@@ -191,7 +191,7 @@ function PainelOportunidadesAbertasCard({
   }
 
   return (
-    <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-0 rounded-2xl">
+    <Card className="bg-gradient-to-br from-primary to-primary/90 border-0 rounded-2xl">
       <CardContent className="p-4">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -202,7 +202,7 @@ function PainelOportunidadesAbertasCard({
           </div>
           
           {loading ? (
-            <Skeleton className="h-9 w-24 bg-blue-500/30" />
+            <Skeleton className="h-9 w-24 bg-primary-foreground/15" />
           ) : (
             <p className="text-white text-3xl font-black leading-none">
               {totalFormatado}

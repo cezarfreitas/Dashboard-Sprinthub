@@ -64,6 +64,10 @@ export default function GestorDashboard() {
               />
             )}
             <GestorEstatisticasCards
+            unidadeId={unidadeSelecionada}
+            dataInicio={getPeriodoDatas() ? getPeriodoDatas().dataInicio : null}
+            dataFim={getPeriodoDatas() ? getPeriodoDatas().dataFim : null}
+            funilId={funilSelecionado ? Number(funilSelecionado) : null}
             criadasHoje={cardsData?.criadasHoje || 0}
             valorCriadasHoje={cardsData?.valorCriadasHoje || 0}
             criadasOntem={cardsData?.criadasOntem || 0}

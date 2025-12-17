@@ -63,11 +63,7 @@ export const FilaLeadsCard = memo(function FilaLeadsCard({
           : 'border-gray-300 opacity-60'
       } transition-all duration-300 h-full flex flex-col overflow-hidden`}
     >
-      <div className={`${
-        fila.ativo 
-          ? 'bg-gradient-to-r from-blue-600 to-blue-700' 
-          : 'bg-gradient-to-r from-gray-400 to-gray-500'
-      } py-3 sm:py-4 px-4 sm:px-5`}>
+      <div className={fila.ativo ? "card-header-brand" : "card-header-muted"}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0 space-y-2">
             {/* Nome da Unidade */}

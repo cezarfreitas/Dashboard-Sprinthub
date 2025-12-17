@@ -1,12 +1,20 @@
-import { memo } from "react"
+import { memo, useMemo, useState } from "react"
+import { List } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 import { GestorCardHoje } from "./GestorCardHoje"
 import { GestorCardAbertas } from "./GestorCardAbertas"
 import { GestorCardPerdidas } from "./GestorCardPerdidas"
 import { GestorCardGanhos } from "./GestorCardGanhos"
 import { GestorCardTaxaConversao } from "./GestorCardTaxaConversao"
 import { GestorCardTicketMedio } from "./GestorCardTicketMedio"
+import { GestorOportunidadesListaDialog } from "./GestorOportunidadesListaDialog"
 
 interface GestorEstatisticasCardsProps {
+  unidadeId?: number | null
+  dataInicio?: string | null
+  dataFim?: string | null
+  funilId?: number | null
   // Dados do card HOJE
   criadasHoje?: number
   valorCriadasHoje?: number
@@ -48,6 +56,10 @@ interface GestorEstatisticasCardsProps {
 }
 
 export const GestorEstatisticasCards = memo(function GestorEstatisticasCards({
+  unidadeId = null,
+  dataInicio = null,
+  dataFim = null,
+  funilId = null,
   criadasHoje = 0,
   valorCriadasHoje = 0,
   criadasOntem = 0,
@@ -76,9 +88,26 @@ export const GestorEstatisticasCards = memo(function GestorEstatisticasCards({
   ticketTotalVendas = 0,
   ticketValorTotal = 0
 }: GestorEstatisticasCardsProps) {
+  const [listaOpen, setListaOpen] = useState(false)
+  const [listaTipo, setListaTipo] = useState<"ganhas" | "perdidas" | "abertas">("ganhas")
+  const [listaTitulo, setListaTitulo] = useState("Oportunidades")
+
+  const canOpenLista = Boolean(unidadeId)
+
+  const periodoLabel = useMemo(() => {
+    if (!dataInicio || !dataFim) return ""
+    return `${dataInicio} → ${dataFim}`
+  }, [dataInicio, dataFim])
+
+  const openLista = (tipo: "ganhas" | "perdidas" | "abertas", titulo: string) => {
+    setListaTipo(tipo)
+    setListaTitulo(periodoLabel ? `${titulo} (${periodoLabel})` : titulo)
+    setListaOpen(true)
+  }
+
   return (
-    <div className="flex gap-4 w-full overflow-x-auto pb-2 items-stretch">
-      <div className="min-w-[220px] flex-shrink-0">
+    <div className="flex w-full items-stretch gap-3 overflow-x-scroll pb-2 scrollbar-gutter-stable snap-x snap-mandatory">
+      <div className="relative w-[240px] flex-shrink-0 snap-start">
         <GestorCardGanhos
         valorTotal={ganhosValorTotal}
         totalOportunidades={ganhosTotalOportunidades}
@@ -87,9 +116,19 @@ export const GestorEstatisticasCards = memo(function GestorEstatisticasCards({
         criadasFora={ganhosCriadasFora}
         valorCriadasFora={ganhosValorCriadasFora}
         />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute right-2 top-2 h-8 w-8 p-0 text-white/90 hover:bg-white/10 hover:text-white"
+          aria-label="Abrir lista de oportunidades ganhas"
+          disabled={!canOpenLista}
+          onClick={() => openLista("ganhas", "Oportunidades ganhas")}
+        >
+          <List className="h-4 w-4" />
+        </Button>
       </div>
 
-      <div className="min-w-[200px] flex-shrink-0">
+      <div className="w-[240px] flex-shrink-0 snap-start">
         <GestorCardHoje
         criadasHoje={criadasHoje}
         valorCriadasHoje={valorCriadasHoje}
@@ -100,7 +139,7 @@ export const GestorEstatisticasCards = memo(function GestorEstatisticasCards({
         />
       </div>
 
-      <div className="min-w-[280px] flex-shrink-0">
+      <div className="relative w-[240px] flex-shrink-0 snap-start">
         <GestorCardAbertas
         total={abertasTotal}
         valorTotal={abertasValorTotal}
@@ -109,9 +148,19 @@ export const GestorEstatisticasCards = memo(function GestorEstatisticasCards({
         criadasOutrosPeriodos={abertasCriadasOutrosPeriodos}
         valorCriadasOutrosPeriodos={abertasValorCriadasOutrosPeriodos}
         />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute right-2 top-2 h-8 w-8 p-0 text-white/90 hover:bg-white/10 hover:text-white"
+          aria-label="Abrir lista de oportunidades abertas"
+          disabled={!canOpenLista}
+          onClick={() => openLista("abertas", "Oportunidades abertas")}
+        >
+          <List className="h-4 w-4" />
+        </Button>
       </div>
 
-      <div className="min-w-[240px] flex-shrink-0">
+      <div className="relative w-[240px] flex-shrink-0 snap-start">
         <GestorCardPerdidas
         total={perdidasTotal}
         criadasDentro={perdidasCriadasDentro}
@@ -119,21 +168,42 @@ export const GestorEstatisticasCards = memo(function GestorEstatisticasCards({
         criadasFora={perdidasCriadasFora}
         valorCriadasFora={perdidasValorCriadasFora}
         />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute right-2 top-2 h-8 w-8 p-0 text-white/90 hover:bg-white/10 hover:text-white"
+          aria-label="Abrir lista de oportunidades perdidas"
+          disabled={!canOpenLista}
+          onClick={() => openLista("perdidas", "Oportunidades perdidas")}
+        >
+          <List className="h-4 w-4" />
+        </Button>
       </div>
 
-      <div className="min-w-[200px] flex-shrink-0">
+      <div className="w-[240px] flex-shrink-0 snap-start">
         <GestorCardTaxaConversao
         criadas={taxaCriadas}
         ganhas={taxaGanhas}
         />
       </div>
 
-      <div className="min-w-[200px] flex-shrink-0">
+      <div className="w-[240px] flex-shrink-0 snap-start">
         <GestorCardTicketMedio
         totalVendas={ticketTotalVendas}
         valorTotal={ticketValorTotal}
         />
       </div>
+
+      <GestorOportunidadesListaDialog
+        open={listaOpen}
+        onOpenChange={setListaOpen}
+        tipo={listaTipo}
+        titulo={listaTitulo}
+        unidadeId={unidadeId}
+        dataInicio={dataInicio}
+        dataFim={dataFim}
+        funilId={funilId}
+      />
     </div>
   )
 })

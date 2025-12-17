@@ -1,19 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { 
   LogOut, 
-  User, 
-  Building2,
   Menu,
   X,
   Users,
-  Clock,
-  ChevronDown,
   UserCog,
   LayoutDashboard,
 } from "lucide-react"
@@ -30,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useAuthSistema } from "@/hooks/use-auth-sistema"
 import { useEmpresaConfig } from "@/hooks/use-empresa-config"
 import { EmpresaLogo } from "@/components/empresa-logo"
 
@@ -68,9 +63,8 @@ export function HeaderGestor({
   const [gestor, setGestor] = useState<GestorData | null>(null)
   const [loading, setLoading] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [lastScrollY, setLastScrollY] = useState(0)
   const [isVisible, setIsVisible] = useState(true)
+  const lastScrollYRef = useRef(0)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -83,7 +77,7 @@ export function HeaderGestor({
           setGestor(JSON.parse(savedGestor))
         }
       } catch (error) {
-        console.error('Erro ao carregar gestor:', error)
+        // Silencioso: manter o header funcionando mesmo se localStorage falhar
       } finally {
         setLoading(false)
       }
@@ -91,6 +85,11 @@ export function HeaderGestor({
 
     loadGestor()
   }, [])
+
+  // Fechar menu mobile ao trocar de rota
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [pathname])
 
   // Efeito para controlar visibilidade do header com scroll
   useEffect(() => {
@@ -101,37 +100,38 @@ export function HeaderGestor({
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY
+      const lastScrollY = lastScrollYRef.current
 
-      if (currentScrollY === 0) {
-        setIsVisible(false)
-        setIsScrolled(false)
-      } else {
-        setIsScrolled(true)
-        if (currentScrollY > lastScrollY && currentScrollY > 100) {
-          setIsVisible(false)
-        } else {
-          setIsVisible(true)
-        }
+      // No topo: sempre visível
+      if (currentScrollY <= 0) {
+        setIsVisible(true)
+        lastScrollYRef.current = 0
+        return
       }
 
-      setLastScrollY(currentScrollY)
+      const scrollingDown = currentScrollY > lastScrollY
+      if (scrollingDown && currentScrollY > 80) {
+        setIsVisible(false)
+      } else {
+        setIsVisible(true)
+      }
+
+      lastScrollYRef.current = currentScrollY
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
-    
-    if (window.scrollY === 0) {
-      setIsVisible(false)
-    }
+    // Estado inicial
+    handleScroll()
 
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [hideOnScroll, lastScrollY])
+  }, [hideOnScroll])
 
   const handleLogout = async () => {
     try {
       localStorage.removeItem('gestor')
       router.push('/gestor')
     } catch (error) {
-      console.error('Erro ao fazer logout:', error)
+      // Silencioso: forçar logout mesmo com erro
       localStorage.removeItem('gestor')
       router.push('/gestor')
     }
@@ -140,12 +140,12 @@ export function HeaderGestor({
   if (loading) {
     return (
       <header className={cn(
-        "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+        "sticky top-0 z-50 w-full border-b border-primary/20 bg-primary",
         className
       )}>
         <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 flex h-14 items-center">
           <div className="flex-1 flex justify-center">
-            <span className="text-sm text-muted-foreground">Carregando...</span>
+            <span className="text-sm text-primary-foreground/80">Carregando...</span>
           </div>
         </div>
       </header>
@@ -163,9 +163,9 @@ export function HeaderGestor({
       hideOnScroll && !isVisible && "-translate-y-full",
       className
     )}>
-      <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 flex h-14 items-center">
+      <div className="max-w-[1900px] mx-auto px-4 sm:px-6 lg:px-8 flex h-14 items-center gap-3">
         {/* Logo */}
-        <Link href="/gestor/dashboard" className="mr-4 flex items-center text-primary-foreground hover:text-primary-foreground/80">
+        <Link href="/gestor/dashboard" className="flex items-center gap-2 text-primary-foreground hover:text-primary-foreground/90">
           <EmpresaLogo
             src={empresaConfig?.logotipo}
             empresaNome={empresaConfig?.nome}
@@ -176,14 +176,14 @@ export function HeaderGestor({
 
         {/* Menu de Navegação */}
         {gestor && (
-          <div className="flex items-center space-x-2 mr-4">
+          <div className="flex items-center gap-2 min-w-0">
             {gestor.unidades.length > 1 && unidadeSelecionada !== undefined && setUnidadeSelecionada && (
               <div className="hidden md:flex">
                 <Select
                   value={unidadeSelecionada?.toString() || ''}
                   onValueChange={(value) => setUnidadeSelecionada(parseInt(value))}
                 >
-                  <SelectTrigger className="h-8 w-[200px] bg-primary-foreground/5 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
+                  <SelectTrigger className="h-9 w-[240px] bg-primary-foreground/5 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10 focus:ring-2 focus:ring-primary-foreground/30">
                     <SelectValue placeholder="Selecione a unidade" />
                   </SelectTrigger>
                   <SelectContent className="z-[100]">
@@ -196,42 +196,47 @@ export function HeaderGestor({
                 </Select>
               </div>
             )}
-            <Link href="/gestor/dashboard" className="hidden md:block">
-              <Button
-                variant="ghost"
-                className={cn(
-                  "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none",
-                  pathname === '/gestor/dashboard' && "bg-primary-foreground/10 text-primary-foreground"
-                )}
-              >
-                <LayoutDashboard className="h-4 w-4 mr-2" />
-                Dashboard
-              </Button>
-            </Link>
-            <Link href="/gestor/fila" className="hidden md:block">
-              <Button
-                variant="ghost"
-                className={cn(
-                  "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none",
-                  pathname === '/gestor/fila' && "bg-primary-foreground/10 text-primary-foreground"
-                )}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Fila de Atendimento
-              </Button>
-            </Link>
-            <Link href="/gestor/consultores" className="hidden md:block">
-              <Button
-                variant="ghost"
-                className={cn(
-                  "h-10 px-4 py-2 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus:bg-primary-foreground/10 focus:text-primary-foreground focus:outline-none",
-                  pathname === '/gestor/consultores' && "bg-primary-foreground/10 text-primary-foreground"
-                )}
-              >
-                <UserCog className="h-4 w-4 mr-2" />
-                Consultores
-              </Button>
-            </Link>
+            <nav className="hidden md:flex items-center gap-1">
+              <Link href="/gestor/dashboard">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "h-9 px-3 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/30",
+                    pathname === '/gestor/dashboard' && "bg-primary-foreground/10"
+                  )}
+                  aria-current={pathname === '/gestor/dashboard' ? 'page' : undefined}
+                >
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  Dashboard
+                </Button>
+              </Link>
+              <Link href="/gestor/fila">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "h-9 px-3 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/30",
+                    pathname === '/gestor/fila' && "bg-primary-foreground/10"
+                  )}
+                  aria-current={pathname === '/gestor/fila' ? 'page' : undefined}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Fila
+                </Button>
+              </Link>
+              <Link href="/gestor/consultores">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "h-9 px-3 text-sm font-medium transition-colors text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/30",
+                    pathname === '/gestor/consultores' && "bg-primary-foreground/10"
+                  )}
+                  aria-current={pathname === '/gestor/consultores' ? 'page' : undefined}
+                >
+                  <UserCog className="h-4 w-4 mr-2" />
+                  Consultores
+                </Button>
+              </Link>
+            </nav>
           </div>
         )}
 
@@ -241,9 +246,12 @@ export function HeaderGestor({
           {gestor && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+                <Button
+                  variant="ghost"
+                  className="relative h-9 w-9 rounded-full text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/30"
+                >
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-black text-white">
+                    <AvatarFallback className="bg-primary-foreground/15 text-white">
                       {gestorInitials}
                     </AvatarFallback>
                   </Avatar>
@@ -252,7 +260,7 @@ export function HeaderGestor({
               <PopoverContent className="w-64 p-2" align="end">
                 <div className="flex items-center gap-3 p-3 mb-2">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-black text-white text-lg">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-lg">
                       {gestorInitials}
                     </AvatarFallback>
                   </Avatar>
@@ -284,7 +292,7 @@ export function HeaderGestor({
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              className="md:hidden h-9 w-9 p-0 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/30"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? (

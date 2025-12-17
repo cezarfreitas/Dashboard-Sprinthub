@@ -324,15 +324,15 @@ export const ConsultorMatrizMotivosPerda = memo(function ConsultorMatrizMotivosP
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-4">
       {/* Card do Gráfico - Menor */}
-      <Card className="border-blue-600 border-2 shadow-lg hover:shadow-xl transition-all duration-300">
-        <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 py-3 px-4">
+      <Card className="border-primary border-2 shadow-lg hover:shadow-xl transition-all duration-300">
+        <CardHeader className="card-header-brand">
           <div className="flex items-center gap-2">
-            <TrendingDown className="h-4 w-4 text-white" />
+            <TrendingDown className="card-header-brand-icon" />
             <div>
-              <CardTitle className="text-sm font-bold text-white">
+              <CardTitle className="card-header-brand-title">
                 Distribuição
               </CardTitle>
-              <CardDescription className="text-[10px] text-blue-100">
+              <CardDescription className="card-header-brand-subtitle">
                 Motivos de Perda
               </CardDescription>
             </div>
@@ -374,29 +374,29 @@ export const ConsultorMatrizMotivosPerda = memo(function ConsultorMatrizMotivosP
       </Card>
 
       {/* Card da Tabela - Maior */}
-      <Card className="border-blue-600 border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-4 px-5">
+      <Card className="border-primary border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+        <div className="card-header-brand">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <TrendingDown className="h-5 w-5 text-white" />
+              <TrendingDown className="card-header-brand-icon" />
               <div>
-                <div className="text-base font-bold text-white tracking-wide">
+                <div className="card-header-brand-title">
                   Meus Motivos de Perda
                 </div>
-                <div className="text-xs text-blue-100 font-medium">
+                <div className="card-header-brand-subtitle">
                   Detalhamento das minhas oportunidades perdidas no período
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-3 text-xs text-primary-foreground">
               <div className="text-right">
-                <div className="text-[10px] text-blue-100 font-medium">Total</div>
-                <div className="font-bold text-sm text-white">{totalOportunidades} ops</div>
+                <div className="text-[10px] text-primary-foreground/80 font-medium">Total</div>
+                <div className="font-bold text-[12px] leading-tight">{totalOportunidades} ops</div>
               </div>
               {totalValor > 0 && (
-                <div className="text-right border-l border-blue-400 pl-3">
-                  <div className="text-[10px] text-blue-100 font-medium">Valor</div>
-                  <div className="font-bold text-sm text-white">
+                <div className="text-right border-l border-primary-foreground/30 pl-3">
+                  <div className="text-[10px] text-primary-foreground/80 font-medium">Valor</div>
+                  <div className="font-bold text-[12px] leading-tight">
                     R$ {totalValor.toLocaleString('pt-BR', {
                       minimumFractionDigits: 0,
                       maximumFractionDigits: 0

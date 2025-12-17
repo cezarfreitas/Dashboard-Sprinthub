@@ -229,54 +229,32 @@ export const GestorMatrizMotivosPerda = memo(function GestorMatrizMotivosPerda({
       {/* Cards por Vendedor - cada um formatado separadamente */}
       {todosVendedores.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <TrendingDown className="h-4 w-4" />
-                Motivos de Perda por Vendedor
-              </h3>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Distribuição de oportunidades perdidas no período
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <div className="text-right">
-                <div className="text-[10px] text-muted-foreground">Total</div>
-                <div className="font-semibold text-sm">{totalGeralOportunidades} ops</div>
-              </div>
-              {totalGeralValor > 0 && (
-                <div className="text-right border-l pl-3">
-                  <div className="text-[10px] text-muted-foreground">Valor</div>
-                  <div className="font-semibold text-sm">
-                    R$ {totalGeralValor.toLocaleString('pt-BR', {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {todosVendedores.map(vendedor => (
-              <Card key={vendedor.vendedor_id} className="border-blue-600 border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-3 px-4">
+              <Card key={vendedor.vendedor_id} className="border-primary border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div className="card-header-brand">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-bold text-white">
+                      <div className="card-header-brand-title">
                         {vendedor.vendedor_nome}
                       </div>
-                      <div className="text-[10px] text-blue-100 font-medium mt-0.5">
-                        {vendedor.total_oportunidades} oportunidades
-                        {vendedor.valor_total > 0 && (
-                          <span className="ml-2">
-                            • R$ {vendedor.valor_total.toLocaleString('pt-BR', {
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <div className="text-right">
+                        <div className="text-[10px] text-blue-100 font-medium">Total</div>
+                        <div className="font-bold text-sm text-white">{vendedor.total_oportunidades} ops</div>
+                      </div>
+                      {vendedor.valor_total > 0 && (
+                        <div className="text-right border-l border-blue-400 pl-3">
+                          <div className="text-[10px] text-blue-100 font-medium">Valor</div>
+                          <div className="font-bold text-sm text-white">
+                            R$ {vendedor.valor_total.toLocaleString('pt-BR', {
                               minimumFractionDigits: 0,
                               maximumFractionDigits: 0
                             })}
-                          </span>
-                        )}
-                      </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

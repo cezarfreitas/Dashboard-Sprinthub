@@ -28,7 +28,7 @@ export const GestorCardPerdidas = memo(function GestorCardPerdidas({
   valorCriadasFora
 }: GestorCardPerdidasProps) {
   return (
-    <Card className="bg-gradient-to-br from-red-600 to-red-700 border-0 rounded-2xl h-full flex flex-col">
+    <Card className="bg-gradient-to-br from-rose-600 to-rose-700 border-0 rounded-2xl h-full flex flex-col">
       <CardContent className="p-4 flex-1 flex flex-col justify-between">
         <div className="space-y-2 flex-1 flex flex-col">
           <div className="flex items-center gap-2">
@@ -42,7 +42,7 @@ export const GestorCardPerdidas = memo(function GestorCardPerdidas({
             {total.toLocaleString('pt-BR')}
           </p>
 
-          <Separator className="bg-red-500/30" />
+          <Separator className="bg-rose-500/30" />
 
           <div className="space-y-1 text-[10px]">
             <div className="flex items-center justify-between">
@@ -51,7 +51,7 @@ export const GestorCardPerdidas = memo(function GestorCardPerdidas({
                 {total.toLocaleString('pt-BR')}
               </span>
             </div>
-            <Separator className="bg-red-500/20 my-1" />
+            <Separator className="bg-rose-500/20 my-1" />
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-white/60">Criadas Dentro:</span>

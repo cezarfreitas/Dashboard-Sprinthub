@@ -203,8 +203,8 @@ export function ExportToExcelButton({
       size={size}
       className={`${className} ${colorScheme !== 'default' ? colorClasses[colorScheme] : ''} ${disabledClasses}`}
     >
-      <FileSpreadsheet className="h-4 w-4 mr-2" />
-      {isExporting ? 'Exportando...' : 'Exportar Excel'}
+      <FileSpreadsheet className="h-3.5 w-3.5" />
+      <span className="hidden sm:inline">{isExporting ? 'Exportando...' : 'Exportar'}</span>
     </Button>
   )
 }

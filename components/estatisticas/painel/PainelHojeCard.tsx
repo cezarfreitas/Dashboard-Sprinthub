@@ -166,7 +166,7 @@ function PainelHojeCard({
   }
 
   return (
-    <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-0 rounded-2xl">
+    <Card className="bg-gradient-to-br from-primary to-primary/90 border-0 rounded-2xl">
       <CardContent className="p-4">
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -181,21 +181,21 @@ function PainelHojeCard({
             <div className="space-y-1.5">
               <span className="text-white/70 text-[10px] block">Criadas:</span>
               {loading ? (
-                <Skeleton className="h-8 w-12 bg-blue-500/30" />
+                <Skeleton className="h-8 w-12 bg-primary-foreground/15" />
               ) : (
                 <p className="text-white text-2xl font-black leading-none">
                   {criadasHoje.toLocaleString('pt-BR')}
                 </p>
               )}
               {loading ? (
-                <Skeleton className="h-3 w-full bg-blue-500/30" />
+                <Skeleton className="h-3 w-full bg-primary-foreground/15" />
               ) : (
                 <>
                   <span className="text-white/90 text-xs font-medium block">
                     {formatCurrency(criadasHojeValor)}
                   </span>
                   {criadasOntem > 0 && (
-                    <div className="flex flex-col gap-0.5 mt-1 pt-1 border-t border-blue-500/20">
+                    <div className="flex flex-col gap-0.5 mt-1 pt-1 border-t border-primary-foreground/15">
                       <span className="text-white/50 text-[9px]">Ontem:</span>
                       <span className="text-white/70 text-[10px] font-medium">
                         {criadasOntem.toLocaleString('pt-BR')} | {formatCurrency(criadasOntemValor)}

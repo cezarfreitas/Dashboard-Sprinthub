@@ -30,7 +30,7 @@ export const GestorCardGanhos = memo(function GestorCardGanhos({
   valorCriadasFora
 }: GestorCardGanhosProps) {
   return (
-    <Card className="bg-gradient-to-br from-green-600 to-green-700 border-0 rounded-2xl h-full flex flex-col">
+    <Card className="bg-gradient-to-br from-emerald-600 to-emerald-700 border-0 rounded-2xl h-full flex flex-col">
       <CardContent className="p-4 flex-1 flex flex-col justify-between">
         <div className="space-y-2 flex-1 flex flex-col">
           <div className="flex items-center gap-2">
@@ -44,7 +44,7 @@ export const GestorCardGanhos = memo(function GestorCardGanhos({
             {formatCurrency(valorTotal)}
           </p>
 
-          <Separator className="bg-green-500/30" />
+          <Separator className="bg-emerald-500/30" />
 
           <div className="space-y-1 text-[10px]">
             <div className="flex items-center justify-between">
@@ -53,7 +53,7 @@ export const GestorCardGanhos = memo(function GestorCardGanhos({
                 {totalOportunidades.toLocaleString('pt-BR')}
               </span>
             </div>
-            <Separator className="bg-green-500/20 my-1" />
+            <Separator className="bg-emerald-500/20 my-1" />
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-white/60">Criadas Dentro:</span>

@@ -95,7 +95,7 @@ function PainelAbertasCard({ unidadesIds = [] }: PainelAbertasCardProps) {
   }
 
   return (
-    <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-0 rounded-2xl">
+    <Card className="bg-gradient-to-br from-primary to-primary/90 border-0 rounded-2xl">
       <CardContent className="p-4">
         <div className="space-y-2">
           {/* Header */}
@@ -111,7 +111,7 @@ function PainelAbertasCard({ unidadesIds = [] }: PainelAbertasCardProps) {
             {loading ? '...' : totalFormatado}
           </p>
 
-          <Separator className="bg-blue-500/30" />
+          <Separator className="bg-primary-foreground/20" />
 
           {/* Informações secundárias */}
           <div className="space-y-1 text-[10px]">
