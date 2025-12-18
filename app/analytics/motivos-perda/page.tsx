@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { useAuth } from "@/hooks/use-auth"
-import AnalyticsFilters from "@/components/filters/AnalyticsFilters"
+import PainelFiltersInline from "@/components/painel/PainelFiltersInline"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TrendingDown, Building2, Users } from "lucide-react"
+import { TrendingDown } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -16,9 +16,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 interface FiltrosType {
   unidadesSelecionadas: number[]
+  periodoTipo: string
   periodoInicio: string
   periodoFim: string
   funilSelecionado: string
@@ -33,29 +44,10 @@ interface MotivoPerda {
   lost_time: number
 }
 
-interface VendedorMotivos {
-  vendedor_id: number
-  vendedor_nome: string
-  total_oportunidades: number
-  valor_total: number
-  motivos: MotivoPerda[]
-}
-
-interface UnidadeMotivos {
-  unidade_id: number
-  unidade_nome: string
-  vendedores: VendedorMotivos[]
-}
-
 interface ApiResponse {
   success: boolean
   data?: {
     motivos_perda?: MotivoPerda[]
-    resumo_por_vendedor?: Array<{
-      unidade_id: number
-      unidade_nome: string
-      vendedores: VendedorMotivos[]
-    }>
     totais?: {
       total_oportunidades: number
       valor_total: number
@@ -65,23 +57,96 @@ interface ApiResponse {
 }
 
 export default function MotivosPerdaPage() {
-  const { user, loading: authLoading } = useAuth()
+  // Período inicial (mesmo do painel)
+  const periodoInicial = useMemo(() => {
+    const inicio = new Date()
+    const fim = new Date()
+    inicio.setDate(1)
+    inicio.setHours(0, 0, 0, 0)
+    fim.setHours(23, 59, 59, 999)
+    return {
+      inicio: inicio.toISOString().split('T')[0],
+      fim: fim.toISOString().split('T')[0]
+    }
+  }, [])
+  
   const [filtros, setFiltros] = useState<FiltrosType>({
     unidadesSelecionadas: [],
-    periodoInicio: '',
-    periodoFim: '',
+    periodoTipo: 'este-mes',
+    periodoInicio: periodoInicial.inicio,
+    periodoFim: periodoInicial.fim,
     funilSelecionado: 'todos',
     grupoSelecionado: 'todos'
   })
   
+  const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
+  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string; unidadeIds?: number[] }>>([])
+  const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
+  
+  // Função para calcular datas baseado no tipo de período
+  const calcularPeriodo = useMemo(() => {
+    return (tipo: string) => {
+      const hoje = new Date()
+      const inicio = new Date()
+      const fim = new Date()
+
+      switch (tipo) {
+        case 'este-mes':
+          inicio.setDate(1)
+          inicio.setHours(0, 0, 0, 0)
+          fim.setHours(23, 59, 59, 999)
+          break
+        case 'mes-passado':
+          inicio.setMonth(hoje.getMonth() - 1, 1)
+          inicio.setHours(0, 0, 0, 0)
+          fim.setDate(0)
+          fim.setHours(23, 59, 59, 999)
+          break
+        case 'esta-semana':
+          const diaSemana = hoje.getDay()
+          inicio.setDate(hoje.getDate() - diaSemana)
+          inicio.setHours(0, 0, 0, 0)
+          fim.setHours(23, 59, 59, 999)
+          break
+        case 'semana-passada':
+          const diaSemanaAtual = hoje.getDay()
+          inicio.setDate(hoje.getDate() - diaSemanaAtual - 7)
+          inicio.setHours(0, 0, 0, 0)
+          fim.setDate(hoje.getDate() - diaSemanaAtual - 1)
+          fim.setHours(23, 59, 59, 999)
+          break
+        case 'este-ano':
+          inicio.setMonth(0, 1)
+          inicio.setHours(0, 0, 0, 0)
+          fim.setHours(23, 59, 59, 999)
+          break
+        case 'ano-anterior':
+          inicio.setFullYear(hoje.getFullYear() - 1, 0, 1)
+          inicio.setHours(0, 0, 0, 0)
+          fim.setFullYear(hoje.getFullYear() - 1, 11, 31)
+          fim.setHours(23, 59, 59, 999)
+          break
+        default:
+          return { inicio: '', fim: '' }
+      }
+
+      return {
+        inicio: inicio.toISOString().split('T')[0],
+        fim: fim.toISOString().split('T')[0]
+      }
+    }
+  }, [])
+
+  const filtrosAtivos = useMemo(() => {
+    return filtros.unidadesSelecionadas.length > 0 ||
+           filtros.periodoTipo !== 'este-mes' ||
+           filtros.funilSelecionado !== 'todos' ||
+           filtros.grupoSelecionado !== 'todos'
+  }, [filtros])
+  
   const [loading, setLoading] = useState(false)
-  const [filtrosInicializados, setFiltrosInicializados] = useState(false)
-  const [unidades, setUnidades] = useState<UnidadeMotivos[]>([])
-  const [todosVendedores, setTodosVendedores] = useState<VendedorMotivos[]>([])
   const [motivosGerais, setMotivosGerais] = useState<MotivoPerda[]>([])
   const [totais, setTotais] = useState({ total_oportunidades: 0, valor_total: 0, total_motivos: 0 })
-  const [activeTab, setActiveTab] = useState<'unidades' | 'vendedores' | 'motivos'>('unidades')
-  const [sortField, setSortField] = useState<{ [key: number]: { field: string; direction: 'asc' | 'desc' } }>({})
 
   const formatCurrency = useCallback((value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
@@ -92,10 +157,16 @@ export default function MotivosPerdaPage() {
     }).format(value)
   }, [])
 
+  const formatPercent = useCallback((value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'percent',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    }).format(value / 100)
+  }, [])
+
   const fetchData = useCallback(async () => {
     if (!filtros.periodoInicio || !filtros.periodoFim) {
-      setUnidades([])
-      setTodosVendedores([])
       setMotivosGerais([])
       setTotais({ total_oportunidades: 0, valor_total: 0, total_motivos: 0 })
       setLoading(false)
@@ -108,7 +179,6 @@ export default function MotivosPerdaPage() {
       const params = new URLSearchParams()
       params.append('lost_date_start', filtros.periodoInicio)
       params.append('lost_date_end', filtros.periodoFim)
-      params.append('all', '1')
       
       if (filtros.unidadesSelecionadas.length > 0) {
         params.append('unidade_id', filtros.unidadesSelecionadas.join(','))
@@ -128,41 +198,6 @@ export default function MotivosPerdaPage() {
       const result: ApiResponse = await response.json()
       
       if (result.success && result.data) {
-        // Processar resumo por unidade e vendedor
-        if (result.data.resumo_por_vendedor && Array.isArray(result.data.resumo_por_vendedor)) {
-          const unidadesData: UnidadeMotivos[] = result.data.resumo_por_vendedor.map((unidade: any) => ({
-            unidade_id: unidade.unidade_id,
-            unidade_nome: unidade.unidade_nome || 'Sem unidade',
-            vendedores: (unidade.vendedores || []).map((v: any) => ({
-              vendedor_id: v.vendedor_id,
-              vendedor_nome: v.vendedor_nome || 'Desconhecido',
-              total_oportunidades: Number(v.total_oportunidades || 0),
-              valor_total: Number(v.valor_total || 0),
-              motivos: (v.motivos || []).map((m: any) => ({
-                motivo_id: m.motivo_id,
-                motivo: m.motivo || 'Sem motivo',
-                total_oportunidades: Number(m.total_oportunidades || 0),
-                valor_total: Number(m.valor_total || 0),
-                lost_time: Number(m.lost_time || 0)
-              }))
-            }))
-          }))
-          
-          setUnidades(unidadesData)
-          
-          // Flatten todos os vendedores para a aba de vendedores
-          const todosVendedoresData: VendedorMotivos[] = []
-          unidadesData.forEach(unidade => {
-            unidade.vendedores.forEach(vendedor => {
-              todosVendedoresData.push(vendedor)
-            })
-          })
-          setTodosVendedores(todosVendedoresData)
-        } else {
-          setUnidades([])
-          setTodosVendedores([])
-        }
-
         // Processar motivos gerais
         if (result.data.motivos_perda && Array.isArray(result.data.motivos_perda)) {
           setMotivosGerais(result.data.motivos_perda.map((m: any) => ({
@@ -185,14 +220,10 @@ export default function MotivosPerdaPage() {
           })
         }
       } else {
-        setUnidades([])
-        setTodosVendedores([])
         setMotivosGerais([])
         setTotais({ total_oportunidades: 0, valor_total: 0, total_motivos: 0 })
       }
-    } catch (error) {
-      setUnidades([])
-      setTodosVendedores([])
+    } catch {
       setMotivosGerais([])
       setTotais({ total_oportunidades: 0, valor_total: 0, total_motivos: 0 })
     } finally {
@@ -200,457 +231,396 @@ export default function MotivosPerdaPage() {
     }
   }, [filtros])
 
-  // Marcar filtros como inicializados quando as datas e unidades forem definidas
-  useEffect(() => {
-    if (filtros.periodoInicio && filtros.periodoFim && filtros.unidadesSelecionadas.length > 0) {
-      setFiltrosInicializados(true)
+  // Buscar funis, grupos e unidades
+  const fetchFunis = useCallback(async () => {
+    try {
+      const response = await fetch('/api/funis')
+      const data = await response.json()
+      if (data.success && data.funis) {
+        setFunis(data.funis)
+      }
+    } catch {
+      setFunis([])
     }
-  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas.length])
+  }, [])
 
+  const fetchGrupos = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades/grupos')
+      const data = await response.json()
+      if (data.success && data.grupos) {
+        setGrupos(data.grupos)
+      }
+    } catch {
+      setGrupos([])
+    }
+  }, [])
+
+  const fetchUnidadesList = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades/list')
+      const data = await response.json()
+      if (data.success && data.unidades) {
+        setUnidadesList(data.unidades)
+      }
+    } catch {
+      setUnidadesList([])
+    }
+  }, [])
+
+  // Effect: Atualizar período quando o tipo mudar
   useEffect(() => {
-    if (!authLoading && user && filtrosInicializados) {
+    if (filtros.periodoTipo !== 'personalizado') {
+      const { inicio, fim } = calcularPeriodo(filtros.periodoTipo)
+      if (filtros.periodoInicio !== inicio || filtros.periodoFim !== fim) {
+        setFiltros(prev => ({
+          ...prev,
+          periodoInicio: inicio,
+          periodoFim: fim
+        }))
+      }
+    }
+  }, [filtros.periodoTipo, filtros.periodoInicio, filtros.periodoFim, calcularPeriodo])
+
+  // Effect: Carregar dados estáticos uma vez
+  useEffect(() => {
+    fetchFunis()
+    fetchGrupos()
+    fetchUnidadesList()
+  }, [fetchFunis, fetchGrupos, fetchUnidadesList])
+
+  // Carregar dados automaticamente quando filtros de período mudarem
+  useEffect(() => {
+    if (filtros.periodoInicio && filtros.periodoFim) {
       fetchData()
     }
-  }, [authLoading, user, filtrosInicializados, fetchData])
+  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas, fetchData])
 
   const totalGeralOportunidades = useMemo(() => {
-    return totais.total_oportunidades || todosVendedores.reduce((sum, v) => sum + v.total_oportunidades, 0)
-  }, [totais, todosVendedores])
+    return totais.total_oportunidades || motivosGerais.reduce((sum, m) => sum + m.total_oportunidades, 0)
+  }, [totais, motivosGerais])
 
   const totalGeralValor = useMemo(() => {
-    return totais.valor_total || todosVendedores.reduce((sum, v) => sum + v.valor_total, 0)
-  }, [totais, todosVendedores])
+    return totais.valor_total || motivosGerais.reduce((sum, m) => sum + m.valor_total, 0)
+  }, [totais, motivosGerais])
 
-  const sortMotivos = useCallback((motivos: MotivoPerda[], vendedorId: number, totalVendedor: number) => {
-    const sort = sortField[vendedorId]
-    if (!sort) return motivos
+  // Preparar dados para o gráfico
+  const chartData = useMemo(() => {
+    return motivosGerais
+      .sort((a, b) => b.total_oportunidades - a.total_oportunidades)
+      .slice(0, 15) // Limitar a 15 motivos no gráfico
+      .map((m) => ({
+        motivo: m.motivo.length > 35 ? m.motivo.slice(0, 35) + '...' : m.motivo,
+        motivoFull: m.motivo,
+        quantidade: m.total_oportunidades,
+        valor: m.valor_total,
+        percentual: totalGeralOportunidades > 0
+          ? ((m.total_oportunidades / totalGeralOportunidades) * 100).toFixed(1)
+          : '0.0',
+      }))
+  }, [motivosGerais, totalGeralOportunidades])
 
-    const sorted = [...motivos].sort((a, b) => {
-      let aVal: number | string = 0
-      let bVal: number | string = 0
-
-      switch (sort.field) {
-        case 'motivo':
-          aVal = a.motivo.toLowerCase()
-          bVal = b.motivo.toLowerCase()
-          break
-        case 'quantidade':
-          aVal = a.total_oportunidades
-          bVal = b.total_oportunidades
-          break
-        case 'percentual':
-          aVal = (a.total_oportunidades / totalVendedor) * 100
-          bVal = (b.total_oportunidades / totalVendedor) * 100
-          break
-        case 'tempo':
-          aVal = a.lost_time
-          bVal = b.lost_time
-          break
-        case 'valor':
-          aVal = a.valor_total
-          bVal = b.valor_total
-          break
-      }
-
-      if (typeof aVal === 'string') {
-        return sort.direction === 'asc' 
-          ? aVal.localeCompare(bVal as string)
-          : (bVal as string).localeCompare(aVal)
-      }
-
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sort.direction === 'asc' ? aVal - bVal : bVal - aVal
-      }
-
-      return 0
-    })
-
-    return sorted
-  }, [sortField])
-
-  const handleSort = (vendedorId: number, field: string) => {
-    setSortField(prev => {
-      const current = prev[vendedorId]
-      if (current?.field === field) {
-        return {
-          ...prev,
-          [vendedorId]: {
-            field,
-            direction: current.direction === 'asc' ? 'desc' : 'asc'
-          }
-        }
-      }
-      return {
-        ...prev,
-        [vendedorId]: {
-          field,
-          direction: 'desc'
-        }
-      }
-    })
-  }
-
-  const SortableHeader = ({ vendedorId, field, children, align = 'center' }: {
-    vendedorId: number
-    field: string
-    children: React.ReactNode
-    align?: 'left' | 'center' | 'right'
-  }) => {
-    const sort = sortField[vendedorId]
-    const isActive = sort?.field === field
-    const direction = isActive ? sort.direction : null
-
-    return (
-      <TableHead 
-        className={`text-${align} cursor-pointer select-none hover:bg-gray-100 transition-colors`}
-        onClick={() => handleSort(vendedorId, field)}
-      >
-        <div className="flex items-center justify-center gap-1">
-          {children}
-          {isActive && (
-            <span className="text-[8px]">
-              {direction === 'asc' ? '↑' : '↓'}
-            </span>
-          )}
-        </div>
-      </TableHead>
-    )
-  }
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-gray-400">Carregando...</div>
-      </div>
-    )
-  }
+  // Cores do gráfico - gradiente de vermelho
+  const barColors = [
+    '#dc2626', '#e53e3e', '#ef4444', '#f56565', '#f87171',
+    '#fca5a5', '#fecaca', '#fee2e2', '#fef2f2', '#fff5f5',
+    '#dc2626', '#e53e3e', '#ef4444', '#f56565', '#f87171'
+  ]
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-white">
-        <div className="w-full overflow-y-auto scrollbar-hide">
-          <div className="px-6 pb-6 pt-0">
-            {/* Cabeçalho e Filtros na mesma linha */}
-            <div className="flex items-center gap-4 mb-6 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900 whitespace-nowrap">
-                Motivos de Perda
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 py-6">
+          {/* Cabeçalho */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Motivos de perda
               </h1>
-              <div className="flex-1 min-w-[300px]">
-                <AnalyticsFilters onFiltersChange={setFiltros} />
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Entenda os principais motivos de perda no período selecionado.
+              </p>
             </div>
 
-            {/* Resumo geral */}
-            {(totalGeralOportunidades > 0 || loading) && (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 text-card-foreground shadow-sm mb-6 p-4">
-                <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {filtrosAtivos ? (
+                <Badge variant="secondary" className="font-medium">
+                  Filtros ativos
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="font-medium">
+                  Sem filtros
+                </Badge>
+              )}
+
+              <Badge variant="outline" className="font-medium tabular-nums">
+                {loading ? "Atualizando..." : `${totalGeralOportunidades} perdas`}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <PainelFiltersInline
+              filtros={filtros}
+              setFiltros={setFiltros}
+              unidadesList={unidadesList}
+              funis={funis}
+              grupos={grupos}
+              periodoInicial={periodoInicial}
+              filtrosAtivos={filtrosAtivos}
+            />
+          </div>
+
+          {/* Resumo */}
+          <div className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingDown className="h-4 w-4" />
+                  Resumo
+                </CardTitle>
+                <CardDescription>
+                  Totais do período e leitura rápida dos resultados.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border bg-card p-4">
+                    <div className="text-xs text-muted-foreground">Qtd. de perdas</div>
+                    <div className="mt-1 text-2xl font-semibold tabular-nums">
+                      {loading ? <Skeleton className="h-8 w-24" /> : totalGeralOportunidades.toLocaleString("pt-BR")}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border bg-card p-4">
+                    <div className="text-xs text-muted-foreground">Valor (P&amp;S)</div>
+                    <div className="mt-1 text-2xl font-semibold tabular-nums">
+                      {loading ? <Skeleton className="h-8 w-40" /> : formatCurrency(totalGeralValor)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border bg-card p-4">
+                    <div className="text-xs text-muted-foreground">Motivos distintos</div>
+                    <div className="mt-1 text-2xl font-semibold tabular-nums">
+                      {loading ? <Skeleton className="h-8 w-16" /> : motivosGerais.length.toLocaleString("pt-BR")}
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                <p className="text-xs text-muted-foreground">
+                  Observação: “Valor de P&amp;S / Ticket de P&amp;S” usam o campo <span className="font-medium">`oportunidades.value`</span>.
+                  Campos de MRR não aparecem no schema atual da tabela.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-6 space-y-6">
+            {/* Gráfico */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold flex items-center gap-2 text-gray-900">
+                    <CardTitle className="text-base flex items-center gap-2">
                       <TrendingDown className="h-4 w-4" />
-                      Resumo Geral
-                    </h2>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      Oportunidades perdidas no período selecionado
+                      Distribuição por motivo
+                    </CardTitle>
+                    <CardDescription>
+                      Top {chartData.length} motivos por quantidade (com valor total em tooltip).
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="w-fit tabular-nums">
+                    {loading ? "Carregando" : `Top ${chartData.length}`}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {loading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-6 w-56" />
+                    <Skeleton className="h-[320px] w-full" />
+                  </div>
+                ) : chartData.length > 0 ? (
+                  <div className="h-[420px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={chartData}
+                        layout="vertical"
+                        margin={{ top: 8, right: 48, left: 16, bottom: 8 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                          axisLine={{ stroke: "hsl(var(--border))" }}
+                          tickLine={{ stroke: "hsl(var(--border))" }}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="motivo"
+                          width={240}
+                          tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
+                          axisLine={{ stroke: "hsl(var(--border))" }}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--popover))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "10px",
+                            boxShadow: "0 10px 20px -12px rgba(0,0,0,0.35)",
+                            fontSize: "12px",
+                          }}
+                          formatter={(value, _name, props) => {
+                            const payload = props?.payload as { percentual?: string; valor?: number } | undefined
+                            const percentual = payload?.percentual || "0"
+                            const valor = payload?.valor || 0
+                            return [`${value} ops (${percentual}%) • ${formatCurrency(valor)}`, "Perdas"]
+                          }}
+                          labelFormatter={(label, payload) => {
+                            const item = payload?.[0]?.payload as { motivoFull?: string } | undefined
+                            return item?.motivoFull || String(label)
+                          }}
+                        />
+                        <Bar dataKey="quantidade" radius={[0, 6, 6, 0]} maxBarSize={34}>
+                          {chartData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={barColors[index % barColors.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="py-10 text-sm text-muted-foreground">
+                    Nenhum dado para gerar o gráfico.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Tabela */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base">Tabela detalhada</CardTitle>
+                    <CardDescription>
+                      Ordenação visual e leitura rápida (números com alinhamento tabular).
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="w-fit tabular-nums">
+                    {loading ? "Carregando" : `${motivosGerais.length} linhas`}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {loading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ) : motivosGerais.length > 0 ? (
+                  <div className="rounded-lg border bg-card">
+                    <div className="max-h-[520px] overflow-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 z-10 bg-card">
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="text-left">
+                              <span className="text-xs font-semibold text-muted-foreground">Motivo</span>
+                            </TableHead>
+                            <TableHead className="text-right whitespace-nowrap tabular-nums">
+                              <span className="text-xs font-semibold text-muted-foreground">Qtd.</span>
+                            </TableHead>
+                            <TableHead className="text-center whitespace-nowrap">
+                              <span className="text-xs font-semibold text-muted-foreground">Taxa</span>
+                            </TableHead>
+                            <TableHead className="text-right whitespace-nowrap tabular-nums">
+                              <span className="text-xs font-semibold text-muted-foreground">Lead time</span>
+                            </TableHead>
+                            <TableHead className="text-right whitespace-nowrap tabular-nums">
+                              <span className="text-xs font-semibold text-muted-foreground">Valor de P&amp;S</span>
+                            </TableHead>
+                            <TableHead className="text-right whitespace-nowrap tabular-nums">
+                              <span className="text-xs font-semibold text-muted-foreground">Ticket de P&amp;S</span>
+                            </TableHead>
+                            <TableHead className="text-right whitespace-nowrap tabular-nums">
+                              <span className="text-xs font-semibold text-muted-foreground">Valor de MRR</span>
+                            </TableHead>
+                            <TableHead className="text-right whitespace-nowrap tabular-nums">
+                              <span className="text-xs font-semibold text-muted-foreground">Ticket de MRR</span>
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {motivosGerais.map((motivo, idx) => {
+                            const taxa =
+                              totalGeralOportunidades > 0
+                                ? (motivo.total_oportunidades / totalGeralOportunidades) * 100
+                                : 0
+
+                            const ticketPS =
+                              motivo.total_oportunidades > 0 && motivo.valor_total > 0
+                                ? motivo.valor_total / motivo.total_oportunidades
+                                : 0
+
+                            return (
+                              <TableRow
+                                key={motivo.motivo_id || `motivo-${idx}`}
+                                className={[
+                                  idx % 2 === 0 ? "bg-muted/20" : "",
+                                  "hover:bg-muted/40"
+                                ].join(" ")}
+                              >
+                                <TableCell className="py-2 px-3">
+                                  <div className="text-sm font-medium text-foreground truncate max-w-[520px]" title={motivo.motivo}>
+                                    {motivo.motivo}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums font-semibold">
+                                  {motivo.total_oportunidades.toLocaleString("pt-BR")}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <span className="inline-flex items-center rounded-md bg-red-500/10 text-red-600 px-2 py-1 text-xs font-medium tabular-nums">
+                                    {formatPercent(taxa)}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums text-muted-foreground">
+                                  {motivo.lost_time}d
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums font-medium whitespace-nowrap">
+                                  {motivo.valor_total > 0 ? formatCurrency(motivo.valor_total) : <span className="text-muted-foreground">—</span>}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums whitespace-nowrap">
+                                  {ticketPS > 0 ? formatCurrency(ticketPS) : <span className="text-muted-foreground">—</span>}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums whitespace-nowrap">
+                                  <span className="text-muted-foreground">—</span>
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums whitespace-nowrap">
+                                  <span className="text-muted-foreground">—</span>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border bg-card p-10 text-center">
+                    <TrendingDown className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-sm font-medium">Nenhum motivo de perda encontrado</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Não há oportunidades perdidas no período selecionado.
                     </p>
                   </div>
-                  <div className="flex items-center gap-6 text-xs">
-                    <div className="text-right">
-                      <div className="text-[10px] text-gray-600">Total Perdidas</div>
-                      <div className="font-semibold text-lg text-gray-900">{totalGeralOportunidades}</div>
-                      <div className="text-[10px] text-gray-500">oportunidades</div>
-                    </div>
-                    {totalGeralValor > 0 && (
-                      <div className="text-right border-l border-gray-300 pl-6">
-                        <div className="text-[10px] text-gray-600">Valor Total</div>
-                        <div className="font-semibold text-lg text-gray-900">
-                          {formatCurrency(totalGeralValor)}
-                        </div>
-                        <div className="text-[10px] text-gray-500">perdido</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                  <p className="text-sm text-gray-600">Carregando dados...</p>
-                </div>
-              </div>
-            ) : totalGeralOportunidades > 0 ? (
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
-                <TabsList className="grid w-full max-w-md grid-cols-3 mb-6">
-                  <TabsTrigger value="unidades" className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Unidades
-                  </TabsTrigger>
-                  <TabsTrigger value="vendedores" className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Vendedores
-                  </TabsTrigger>
-                  <TabsTrigger value="motivos" className="flex items-center gap-2">
-                    <TrendingDown className="h-4 w-4" />
-                    Motivos
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* Análise por Unidades */}
-                <TabsContent value="unidades" className="space-y-4">
-                  {unidades.map(unidade => {
-                    const totalUnidade = unidade.vendedores.reduce((sum, v) => sum + v.total_oportunidades, 0)
-                    const valorUnidade = unidade.vendedores.reduce((sum, v) => sum + v.valor_total, 0)
-                    return (
-                      <Card key={unidade.unidade_id} className="border-gray-200 bg-white">
-                        <CardHeader className="pb-3 px-4 pt-4 bg-gray-50 border-b border-gray-200">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                                <Building2 className="h-4 w-4" />
-                                {unidade.unidade_nome}
-                              </CardTitle>
-                              <div className="flex items-center gap-4 text-xs text-gray-600 mt-1">
-                                <span>{unidade.vendedores.length} vendedor{unidade.vendedores.length !== 1 ? 'es' : ''}</span>
-                                <span>{totalUnidade} oportunidades</span>
-                                {valorUnidade > 0 && <span>{formatCurrency(valorUnidade)}</span>}
-                              </div>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pt-4 px-4 pb-4">
-                          <div className="space-y-4">
-                            {unidade.vendedores.map(vendedor => (
-                              <div key={vendedor.vendedor_id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                                <div className="flex items-center justify-between mb-3">
-                                  <h4 className="text-sm font-semibold text-gray-900">{vendedor.vendedor_nome}</h4>
-                                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                                    <span>{vendedor.total_oportunidades} ops</span>
-                                    {vendedor.valor_total > 0 && <span>{formatCurrency(vendedor.valor_total)}</span>}
-                                  </div>
-                                </div>
-                                {vendedor.motivos.length > 0 ? (
-                                  <div className="overflow-x-auto">
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow className="hover:bg-transparent border-gray-200">
-                                          <SortableHeader vendedorId={vendedor.vendedor_id} field="motivo" align="left">
-                                            <span className="text-xs text-gray-600">Motivo</span>
-                                          </SortableHeader>
-                                          <SortableHeader vendedorId={vendedor.vendedor_id} field="quantidade">
-                                            <span className="text-xs text-gray-600">Qtd</span>
-                                          </SortableHeader>
-                                          <SortableHeader vendedorId={vendedor.vendedor_id} field="percentual">
-                                            <span className="text-xs text-gray-600">%</span>
-                                          </SortableHeader>
-                                          <SortableHeader vendedorId={vendedor.vendedor_id} field="tempo">
-                                            <span className="text-xs text-gray-600">Tempo</span>
-                                          </SortableHeader>
-                                          <SortableHeader vendedorId={vendedor.vendedor_id} field="valor" align="right">
-                                            <span className="text-xs text-gray-600">Valor</span>
-                                          </SortableHeader>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {sortMotivos(vendedor.motivos, vendedor.vendedor_id, vendedor.total_oportunidades)
-                                          .map((motivo, idx) => (
-                                            <TableRow key={motivo.motivo_id || `vendedor-${vendedor.vendedor_id}-motivo-${idx}`} className="hover:bg-gray-50 border-gray-200">
-                                              <TableCell className="text-xs py-1.5 px-3 text-gray-900">
-                                                <div className="truncate max-w-[200px]" title={motivo.motivo}>
-                                                  {motivo.motivo}
-                                                </div>
-                                              </TableCell>
-                                              <TableCell className="text-center text-xs font-semibold py-1.5 px-1 text-gray-900">
-                                                {motivo.total_oportunidades}
-                                              </TableCell>
-                                              <TableCell className="text-center py-1.5 px-1">
-                                                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-medium">
-                                                  {((motivo.total_oportunidades / vendedor.total_oportunidades) * 100).toFixed(1)}%
-                                                </span>
-                                              </TableCell>
-                                              <TableCell className="text-center text-xs text-gray-600 py-1.5 px-1">
-                                                {motivo.lost_time}d
-                                              </TableCell>
-                                              <TableCell className="text-right text-xs font-medium py-1.5 px-3 text-gray-900">
-                                                {motivo.valor_total > 0 ? formatCurrency(motivo.valor_total) : <span className="text-gray-400">-</span>}
-                                              </TableCell>
-                                            </TableRow>
-                                          ))}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-gray-600 text-center py-4">
-                                    Nenhum motivo registrado
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </TabsContent>
-
-                {/* Análise por Vendedores */}
-                <TabsContent value="vendedores" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {todosVendedores.map(vendedor => (
-                      <Card key={vendedor.vendedor_id} className="border-gray-200 bg-white">
-                        <CardHeader className="pb-2 px-3 pt-3 bg-gray-50">
-                          <CardTitle className="text-sm font-semibold text-gray-900">
-                            {vendedor.vendedor_nome}
-                          </CardTitle>
-                          <div className="flex items-center gap-3 text-xs text-gray-600 mt-0.5">
-                            <span>{vendedor.total_oportunidades} oportunidades</span>
-                            {vendedor.valor_total > 0 && (
-                              <span>{formatCurrency(vendedor.valor_total)}</span>
-                            )}
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pt-0 px-0">
-                          {vendedor.motivos.length > 0 ? (
-                            <div className="overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="hover:bg-transparent border-gray-200">
-                                    <SortableHeader vendedorId={vendedor.vendedor_id} field="motivo" align="left">
-                                      <span className="text-xs text-gray-600">Motivo</span>
-                                    </SortableHeader>
-                                    <SortableHeader vendedorId={vendedor.vendedor_id} field="quantidade">
-                                      <span className="text-xs text-gray-600">Qtd</span>
-                                    </SortableHeader>
-                                    <SortableHeader vendedorId={vendedor.vendedor_id} field="percentual">
-                                      <span className="text-xs text-gray-600">%</span>
-                                    </SortableHeader>
-                                    <SortableHeader vendedorId={vendedor.vendedor_id} field="tempo">
-                                      <span className="text-xs text-gray-600">Tempo</span>
-                                    </SortableHeader>
-                                    <SortableHeader vendedorId={vendedor.vendedor_id} field="valor" align="right">
-                                      <span className="text-xs text-gray-600">Valor</span>
-                                    </SortableHeader>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {sortMotivos(vendedor.motivos, vendedor.vendedor_id, vendedor.total_oportunidades)
-                                    .map((motivo, idx) => (
-                                      <TableRow key={motivo.motivo_id || `vendedor-${vendedor.vendedor_id}-motivo-${idx}`} className="hover:bg-gray-50 border-gray-200">
-                                        <TableCell className="text-xs py-1.5 px-3 text-gray-900">
-                                          <div className="truncate max-w-[200px]" title={motivo.motivo}>
-                                            {motivo.motivo}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="text-center text-xs font-semibold py-1.5 px-1 text-gray-900">
-                                          {motivo.total_oportunidades}
-                                        </TableCell>
-                                        <TableCell className="text-center py-1.5 px-1">
-                                          <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-medium">
-                                            {((motivo.total_oportunidades / vendedor.total_oportunidades) * 100).toFixed(1)}%
-                                          </span>
-                                        </TableCell>
-                                        <TableCell className="text-center text-xs text-gray-600 py-1.5 px-1">
-                                          {motivo.lost_time}d
-                                        </TableCell>
-                                        <TableCell className="text-right text-xs font-medium py-1.5 px-3 text-gray-900">
-                                          {motivo.valor_total > 0 ? formatCurrency(motivo.valor_total) : <span className="text-gray-400">-</span>}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-600 text-center py-4">
-                              Nenhum motivo registrado
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </TabsContent>
-
-                {/* Análise por Motivos Gerais */}
-                <TabsContent value="motivos" className="space-y-4">
-                  <Card className="border-gray-200 bg-white">
-                    <CardHeader className="pb-3 px-4 pt-4 bg-gray-50 border-b border-gray-200">
-                      <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                        <TrendingDown className="h-4 w-4" />
-                        Motivos de Perda - Visão Geral
-                      </CardTitle>
-                      <CardDescription className="text-xs text-gray-600 mt-1">
-                        Distribuição geral de motivos de perda no período
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-4 px-4 pb-4">
-                      {motivosGerais.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="hover:bg-transparent border-gray-200">
-                                <TableHead className="text-left">
-                                  <span className="text-xs font-semibold text-gray-700">Motivo</span>
-                                </TableHead>
-                                <TableHead className="text-center">
-                                  <span className="text-xs font-semibold text-gray-700">Quantidade</span>
-                                </TableHead>
-                                <TableHead className="text-center">
-                                  <span className="text-xs font-semibold text-gray-700">%</span>
-                                </TableHead>
-                                <TableHead className="text-center">
-                                  <span className="text-xs font-semibold text-gray-700">Tempo Médio</span>
-                                </TableHead>
-                                <TableHead className="text-right">
-                                  <span className="text-xs font-semibold text-gray-700">Valor Total</span>
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {motivosGerais.map((motivo, idx) => (
-                                <TableRow key={motivo.motivo_id || `motivo-${idx}`} className="hover:bg-gray-50 border-gray-200">
-                                  <TableCell className="text-xs py-2 px-3 text-gray-900">
-                                    <div className="truncate max-w-[300px]" title={motivo.motivo}>
-                                      {motivo.motivo}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-center text-xs font-semibold py-2 px-1 text-gray-900">
-                                    {motivo.total_oportunidades}
-                                  </TableCell>
-                                  <TableCell className="text-center py-2 px-1">
-                                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
-                                      {totalGeralOportunidades > 0 
-                                        ? ((motivo.total_oportunidades / totalGeralOportunidades) * 100).toFixed(1)
-                                        : '0.0'}%
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="text-center text-xs text-gray-600 py-2 px-1">
-                                    {motivo.lost_time}d
-                                  </TableCell>
-                                  <TableCell className="text-right text-xs font-medium py-2 px-3 text-gray-900">
-                                    {motivo.valor_total > 0 ? formatCurrency(motivo.valor_total) : <span className="text-gray-400">-</span>}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-gray-600 text-center py-8">
-                          Nenhum motivo de perda encontrado
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-600">Nenhum dado encontrado para o período selecionado</p>
-                <p className="text-sm text-gray-500 mt-2">Selecione um período para visualizar os dados</p>
-              </div>
-            )}
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

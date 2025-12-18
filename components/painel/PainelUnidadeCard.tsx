@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingUp, CheckCircle, XCircle, Target, FileSpreadsheet, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -73,7 +73,10 @@ const cardColors = [
 ]
 
 export function getCardColor(id: number) {
-  return cardColors[id % cardColors.length]
+  // Hash simples para melhorar alternância/distribuição sem mudar o padrão (paleta fixa)
+  // Evita clusters quando ids são sequenciais ou seguem padrões por módulo.
+  const idx = Math.abs((id * 2654435761) % cardColors.length)
+  return cardColors[idx]
 }
 
 export const PainelUnidadeCard = memo(function PainelUnidadeCard({
@@ -112,6 +115,86 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
   const percentualMeta = unidade.meta_valor > 0 
     ? Math.min(100, (unidade.valor_ganho / unidade.meta_valor) * 100)
     : 0
+
+  const smartMeta = useMemo(() => {
+    if (!unidade.meta_valor || unidade.meta_valor <= 0) {
+      return {
+        expectedPercent: 0,
+        deviationPp: 0,
+        status: 'no-meta' as const,
+        statusLabel: 'Sem meta',
+        fillClass: 'bg-white/35',
+        expectedMarkerPercent: null as number | null,
+      }
+    }
+
+    // Período vindo do grid (filtros do painel). Se não existir, não calculamos "esperado".
+    if (!filtros?.periodoInicio || !filtros?.periodoFim) {
+      return {
+        expectedPercent: 0,
+        deviationPp: 0,
+        status: 'unknown' as const,
+        statusLabel: 'Atingido',
+        fillClass: 'bg-gradient-to-r from-green-400 to-green-500',
+        expectedMarkerPercent: null as number | null,
+      }
+    }
+
+    const start = new Date(`${filtros.periodoInicio}T00:00:00`)
+    const end = new Date(`${filtros.periodoFim}T23:59:59`)
+    const now = new Date()
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end.getTime() <= start.getTime()) {
+      return {
+        expectedPercent: 0,
+        deviationPp: 0,
+        status: 'unknown' as const,
+        statusLabel: 'Atingido',
+        fillClass: 'bg-gradient-to-r from-green-400 to-green-500',
+        expectedMarkerPercent: null as number | null,
+      }
+    }
+
+    const rangeMs = end.getTime() - start.getTime()
+    const clampedNowMs = Math.min(end.getTime(), Math.max(start.getTime(), now.getTime()))
+    const elapsed = (clampedNowMs - start.getTime()) / rangeMs
+
+    const expectedPercent = Math.min(100, Math.max(0, elapsed * 100))
+    const deviationPpRaw = percentualMeta - expectedPercent
+    const deviationPp = Math.round(deviationPpRaw * 10) / 10
+
+    // Tolerâncias: dentro de -5pp = "no ritmo"; abaixo disso começa alertar
+    if (deviationPp >= -5) {
+      return {
+        expectedPercent,
+        deviationPp,
+        status: 'on-track' as const,
+        statusLabel: deviationPp >= 0 ? 'Acima do ritmo' : 'No ritmo',
+        fillClass: 'bg-gradient-to-r from-green-400 to-green-500',
+        expectedMarkerPercent: expectedPercent,
+      }
+    }
+
+    if (deviationPp >= -15) {
+      return {
+        expectedPercent,
+        deviationPp,
+        status: 'warning' as const,
+        statusLabel: 'Um pouco abaixo',
+        fillClass: 'bg-gradient-to-r from-yellow-300 to-amber-400',
+        expectedMarkerPercent: expectedPercent,
+      }
+    }
+
+    return {
+      expectedPercent,
+      deviationPp,
+      status: 'off-track' as const,
+      statusLabel: 'Fora do ritmo',
+      fillClass: 'bg-gradient-to-r from-red-400 to-rose-500',
+      expectedMarkerPercent: expectedPercent,
+    }
+  }, [filtros?.periodoInicio, filtros?.periodoFim, percentualMeta, unidade.meta_valor])
 
   const handleExportToExcel = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -260,7 +343,6 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
         description: `${data.oportunidades.length} oportunidade(s) exportada(s) com sucesso`,
       })
     } catch (error) {
-      console.error('Erro ao exportar oportunidades:', error)
       toast({
         title: 'Erro ao exportar',
         description: error instanceof Error ? error.message : 'Erro desconhecido ao exportar oportunidades',
@@ -275,13 +357,18 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
     <Card 
       className={cn(
         "unidade-card hover:shadow-xl border-0 overflow-hidden animate-card-appear",
+        // Contraste consistente em qualquer cor da paleta
+        "shadow-md ring-1 ring-black/10",
         color.bg
       )}
       style={{
         animationDelay: `${posicao * 0.05}s`
       }}
     >
-      <CardContent className={cn("p-4", color.text)}>
+      <CardContent className={cn("relative p-4", color.text)}>
+        {/* Overlay sutil para melhorar contraste sem alterar a paleta */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/10" />
+        <div className="relative">
         <div className="mb-3 flex items-start justify-between gap-2">
           <span className="font-black text-lg uppercase tracking-wide truncate flex-1">
             {nomeExibicao}
@@ -374,23 +461,50 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
             </div>
 
             {/* Barra */}
-            <div className="relative h-3 bg-white/20 rounded-full overflow-hidden">
+            <div
+              className="relative h-3 bg-white/20 rounded-full overflow-hidden"
+              title={
+                smartMeta.status === 'no-meta' || smartMeta.status === 'unknown'
+                  ? undefined
+                  : `Esperado: ${smartMeta.expectedPercent.toFixed(1)}% · Desvio: ${smartMeta.deviationPp >= 0 ? '+' : ''}${smartMeta.deviationPp.toFixed(1)}pp`
+              }
+            >
               <div 
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 to-green-500 transition-all duration-500 rounded-full"
+                className={cn(
+                  "absolute inset-y-0 left-0 transition-all duration-500 rounded-full",
+                  smartMeta.fillClass
+                )}
                 style={{ width: `${percentualMeta}%` }}
               />
+
+              {smartMeta.expectedMarkerPercent !== null && (
+                <div
+                  className="absolute top-0 bottom-0 w-[2px] bg-white/85"
+                  style={{ left: `calc(${smartMeta.expectedMarkerPercent}% - 1px)` }}
+                />
+              )}
             </div>
 
             {/* Percentual e Total */}
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs opacity-90">
                 Atingido: <span className="font-bold">{percentualMeta.toFixed(1)}%</span>
+                {smartMeta.status !== 'no-meta' && smartMeta.status !== 'unknown' && (
+                  <span className="ml-2 inline-flex items-center gap-2">
+                    <span className="text-white/60">•</span>
+                    <span className="font-semibold">{smartMeta.statusLabel}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20">
+                      {smartMeta.deviationPp >= 0 ? '+' : ''}{smartMeta.deviationPp.toFixed(1)}pp
+                    </span>
+                  </span>
+                )}
               </span>
               <span className="text-sm font-bold text-white">
                 {valorFormatado}
               </span>
             </div>
           </div>
+        </div>
         </div>
       </CardContent>
     </Card>

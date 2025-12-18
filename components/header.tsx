@@ -52,6 +52,10 @@ const menuItems = [
       {
         title: "Motivos de Perda",
         href: "/analytics/motivos-perda"
+      },
+      {
+        title: "Resultados / Meta",
+        href: "/analytics/resultados-meta"
       }
     ]
   },
@@ -286,6 +290,7 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                               isExactRoute(subItem.href) && "bg-primary-foreground/10 text-primary-foreground"
                             )}
                           >
+                            {subItem.icon ? <subItem.icon className="h-4 w-4 mr-2" /> : null}
                             {subItem.title}
                           </Link>
                         ))}
@@ -409,7 +414,10 @@ export function Header({ className, hideOnScroll = false }: HeaderProps) {
                             )}
                             onClick={() => setIsMobileMenuOpen(false)}
                           >
-                            {subItem.title}
+                            <span className="inline-flex items-center gap-2">
+                              {subItem.icon ? <subItem.icon className="h-4 w-4" /> : null}
+                              {subItem.title}
+                            </span>
                           </Link>
                         ))}
                       </div>

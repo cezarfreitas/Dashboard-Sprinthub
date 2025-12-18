@@ -10,6 +10,7 @@ interface PainelBarraProgressoMetaProps {
   unidadesIds?: number[]
   periodoInicio?: string
   periodoFim?: string
+  funilId?: string
 }
 
 const formatCurrency = (value: number): string => {
@@ -24,7 +25,8 @@ const formatCurrency = (value: number): string => {
 function PainelBarraProgressoMeta({
   unidadesIds = [],
   periodoInicio,
-  periodoFim
+  periodoFim,
+  funilId
 }: PainelBarraProgressoMetaProps) {
   const { user, loading: authLoading } = useAuthSistema()
   const [loading, setLoading] = useState(true)
@@ -38,6 +40,8 @@ function PainelBarraProgressoMeta({
   const periodoKey = useMemo(() => {
     return `${periodoInicio || ''}-${periodoFim || ''}`
   }, [periodoInicio, periodoFim])
+
+  const funilKey = useMemo(() => funilId || '', [funilId])
 
   useEffect(() => {
     if (authLoading || !user || !periodoInicio || !periodoFim) {
@@ -59,6 +63,10 @@ function PainelBarraProgressoMeta({
         
         if (unidadesIds.length > 0) {
           paramsGanhos.append('unidade_id', unidadesIds.join(','))
+        }
+        
+        if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+          paramsGanhos.append('funil_id', String(funilId))
         }
 
         // Buscar meta do período
@@ -113,12 +121,85 @@ function PainelBarraProgressoMeta({
     }
 
     fetchMetaData()
-  }, [authLoading, user, unidadesIdsKey, periodoKey])
+  }, [authLoading, user, unidadesIdsKey, periodoKey, funilKey])
 
   const percentualMeta = useMemo(() => {
     if (meta === 0) return 0
     return Math.min(100, (valorAtual / meta) * 100)
   }, [valorAtual, meta])
+
+  const smartMeta = useMemo(() => {
+    if (!periodoInicio || !periodoFim || meta <= 0) {
+      return {
+        expectedPercent: null as number | null,
+        deviationPp: null as number | null,
+        fillClass: "bg-gradient-to-r from-green-500 to-green-600",
+        statusLabel: null as string | null,
+        expectedMarkerPercent: null as number | null,
+        projectedPercent: null as number | null,
+        projectedValor: null as number | null,
+      }
+    }
+
+    const start = new Date(`${periodoInicio}T00:00:00`)
+    const end = new Date(`${periodoFim}T23:59:59`)
+    const now = new Date()
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end.getTime() <= start.getTime()) {
+      return {
+        expectedPercent: null,
+        deviationPp: null,
+        fillClass: "bg-gradient-to-r from-green-500 to-green-600",
+        statusLabel: null,
+        expectedMarkerPercent: null,
+        projectedPercent: null,
+        projectedValor: null,
+      }
+    }
+
+    const rangeMs = end.getTime() - start.getTime()
+    const clampedNowMs = Math.min(end.getTime(), Math.max(start.getTime(), now.getTime()))
+    const elapsed = (clampedNowMs - start.getTime()) / rangeMs
+
+    const expectedPercent = Math.min(100, Math.max(0, elapsed * 100))
+    const deviationPpRaw = percentualMeta - expectedPercent
+    const deviationPp = Math.round(deviationPpRaw * 10) / 10
+
+    // Projeção (mantendo ritmo atual): percentual atual / fração de tempo transcorrida
+    const projectedPercent =
+      elapsed > 0 ? Math.max(0, Math.min(200, (percentualMeta / elapsed))) : null
+    const projectedValor =
+      elapsed > 0 ? Math.max(0, Math.min(meta * 2, (valorAtual / elapsed))) : null
+
+    // Cores por ritmo (mesma escala do card)
+    // Dentro de -5pp = ok; -5pp a -15pp = atenção; abaixo disso = fora do ritmo
+    let fillClass = "bg-gradient-to-r from-green-500 to-green-600"
+    let statusLabel: string | null = null
+
+    if (percentualMeta >= 100) {
+      fillClass = "bg-gradient-to-r from-yellow-500 to-yellow-600"
+      statusLabel = "Meta batida"
+    } else if (deviationPp >= -5) {
+      fillClass = "bg-gradient-to-r from-green-500 to-green-600"
+      statusLabel = deviationPp >= 0 ? "Acima do ritmo" : "No ritmo"
+    } else if (deviationPp >= -15) {
+      fillClass = "bg-gradient-to-r from-yellow-300 to-amber-400"
+      statusLabel = "Um pouco abaixo"
+    } else {
+      fillClass = "bg-gradient-to-r from-red-400 to-rose-500"
+      statusLabel = "Fora do ritmo"
+    }
+
+    return {
+      expectedPercent,
+      deviationPp,
+      fillClass,
+      statusLabel,
+      expectedMarkerPercent: expectedPercent,
+      projectedPercent,
+      projectedValor,
+    }
+  }, [periodoInicio, periodoFim, meta, percentualMeta, valorAtual])
 
   if (authLoading || !user) {
     return null
@@ -153,9 +234,7 @@ function PainelBarraProgressoMeta({
           <div 
             className={cn(
               "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-3",
-              percentualMeta >= 100 
-                ? "bg-gradient-to-r from-yellow-500 to-yellow-600" 
-                : "bg-gradient-to-r from-green-500 to-green-600"
+              smartMeta.fillClass
             )}
             style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
           >
@@ -165,6 +244,16 @@ function PainelBarraProgressoMeta({
               </span>
             )}
           </div>
+
+          {/* Marcador do esperado (ritmo) */}
+          {smartMeta.expectedMarkerPercent !== null && (
+            <div
+              className="absolute top-0 bottom-0 w-[2px] bg-white/70"
+              style={{ left: `calc(${smartMeta.expectedMarkerPercent}% - 1px)` }}
+              title={`Esperado hoje: ${smartMeta.expectedMarkerPercent.toFixed(1)}%`}
+            />
+          )}
+
           {percentualMeta <= 15 && percentualMeta > 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-gray-400 text-xs font-bold">
@@ -192,6 +281,37 @@ function PainelBarraProgressoMeta({
               {percentualMeta.toFixed(1)}%
             </span>
           </div>
+
+          {(smartMeta.statusLabel || smartMeta.deviationPp !== null || smartMeta.projectedPercent !== null) && (
+            <div className="hidden lg:flex flex-col items-end gap-0.5 min-w-[140px]">
+              {smartMeta.statusLabel && (
+                <span className={cn(
+                  "text-[11px] font-semibold",
+                  smartMeta.deviationPp !== null && smartMeta.deviationPp < -15
+                    ? "text-rose-300"
+                    : smartMeta.deviationPp !== null && smartMeta.deviationPp < -5
+                      ? "text-amber-200"
+                      : percentualMeta >= 100
+                        ? "text-yellow-300"
+                        : "text-emerald-200"
+                )}>
+                  {smartMeta.statusLabel}
+                  {smartMeta.deviationPp !== null && percentualMeta < 100 && (
+                    <span className="text-white/60 font-bold">
+                      {' '}({smartMeta.deviationPp >= 0 ? '+' : ''}{smartMeta.deviationPp.toFixed(1)}pp)
+                    </span>
+                  )}
+                </span>
+              )}
+
+              {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
+                <span className="text-[11px] text-white/75">
+                  Proj.: <span className="font-bold text-white">{Math.min(200, smartMeta.projectedPercent).toFixed(0)}%</span>
+                  {' '}({formatCurrency(smartMeta.projectedValor)})
+                </span>
+              )}
+            </div>
+          )}
         </div>
           </>
         ) : (

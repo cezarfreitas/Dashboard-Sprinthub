@@ -48,7 +48,7 @@ export default function PainelPage() {
   }))
   
   const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
-  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string }>>([])
+  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string; unidadeIds?: number[] }>>([])
   const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
   
   const { mesAtual, anoAtual } = useMemo(() => {
@@ -296,11 +296,36 @@ export default function PainelPage() {
             filtrosAtivos={filtrosAtivos}
           />
           
-          <PainelBarraProgressoMeta
-            unidadesIds={filtros.unidadesSelecionadas}
-            periodoInicio={filtros.periodoInicio}
-            periodoFim={filtros.periodoFim}
-          />
+          {(() => {
+            // Aplicar filtro de grupo (se houver) sobre o multi-select de unidades.
+            const grupoSelecionadoId =
+              filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos' && filtros.grupoSelecionado !== 'undefined'
+                ? Number(filtros.grupoSelecionado)
+                : null
+
+            const unidadesDoGrupo =
+              grupoSelecionadoId != null
+                ? (grupos.find(g => Number(g.id) === grupoSelecionadoId)?.unidadeIds || [])
+                : null
+
+            const unidadesSelecionadas = filtros.unidadesSelecionadas || []
+
+            const unidadesIdsAplicadas =
+              unidadesDoGrupo
+                ? (unidadesSelecionadas.length > 0
+                    ? unidadesSelecionadas.filter(id => unidadesDoGrupo.includes(id))
+                    : unidadesDoGrupo)
+                : unidadesSelecionadas
+
+            return (
+              <PainelBarraProgressoMeta
+                unidadesIds={unidadesIdsAplicadas}
+                periodoInicio={filtros.periodoInicio}
+                periodoFim={filtros.periodoFim}
+                funilId={filtros.funilSelecionado}
+              />
+            )
+          })()}
           
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
             <PainelHojeCard 

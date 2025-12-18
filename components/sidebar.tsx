@@ -58,6 +58,10 @@ const menuItems = [
       {
         title: "Motivos de Perda",
         href: "/analytics/motivos-perda"
+      },
+      {
+        title: "Resultados / Meta",
+        href: "/analytics/resultados-meta"
       }
     ]
   },

@@ -33,7 +33,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       <Header />
       
       {/* Main Content */}
-      <main className="container mx-auto p-6 flex-1">
+      <main className="w-full px-6 py-6 flex-1">
         {children}
       </main>
 
