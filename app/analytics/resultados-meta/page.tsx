@@ -5,8 +5,32 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { UnidadeMetaCard } from "@/components/analytics/UnidadeMetaCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building2, Target, TrendingUp } from "lucide-react"
+import { Building2, Target, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+type SortField = 'percentual' | 'valor_vendido' | 'meta' | 'faltante' | 'nome'
+type SortDirection = 'asc' | 'desc'
+
+interface SortOption {
+  field: SortField
+  label: string
+  defaultDirection: SortDirection
+}
+
+const SORT_OPTIONS: SortOption[] = [
+  { field: 'percentual', label: '% Atingido', defaultDirection: 'desc' },
+  { field: 'valor_vendido', label: 'Valor Vendido', defaultDirection: 'desc' },
+  { field: 'meta', label: 'Meta', defaultDirection: 'desc' },
+  { field: 'faltante', label: 'Faltante', defaultDirection: 'asc' },
+  { field: 'nome', label: 'Nome', defaultDirection: 'asc' },
+]
 
 interface VendedorMeta {
   vendedor_id: number
@@ -40,6 +64,20 @@ export default function ResultadosMetaPage() {
   const [error, setError] = useState<string>('')
   const [mesAtual, setMesAtual] = useState(new Date().getMonth() + 1)
   const [anoAtual, setAnoAtual] = useState(new Date().getFullYear())
+  const [sortField, setSortField] = useState<SortField>('percentual')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+
+  const handleChangeSort = (field: SortField) => {
+    if (field === sortField) {
+      setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc')
+    } else {
+      const option = SORT_OPTIONS.find(o => o.field === field)
+      setSortField(field)
+      setSortDirection(option?.defaultDirection || 'desc')
+    }
+  }
+
+  const currentSortLabel = SORT_OPTIONS.find(o => o.field === sortField)?.label || 'Ordenar'
 
   const fetchUnidadesMetas = async () => {
     try {
@@ -213,8 +251,49 @@ export default function ResultadosMetaPage() {
   }, [totalMeta, totalVendido])
 
   const unidadesComMeta = useMemo(() => {
-    return unidadesData.filter(u => u.meta > 0)
-  }, [unidadesData])
+    const filtered = unidadesData.filter(u => u.meta > 0)
+    
+    return filtered.sort((a, b) => {
+      let valueA: number | string
+      let valueB: number | string
+
+      switch (sortField) {
+        case 'percentual':
+          valueA = a.meta > 0 ? (a.valorVendido / a.meta) * 100 : 0
+          valueB = b.meta > 0 ? (b.valorVendido / b.meta) * 100 : 0
+          break
+        case 'valor_vendido':
+          valueA = a.valorVendido
+          valueB = b.valorVendido
+          break
+        case 'meta':
+          valueA = a.meta
+          valueB = b.meta
+          break
+        case 'faltante':
+          valueA = Math.max(0, a.meta - a.valorVendido)
+          valueB = Math.max(0, b.meta - b.valorVendido)
+          break
+        case 'nome':
+          valueA = a.nome.toLowerCase()
+          valueB = b.nome.toLowerCase()
+          break
+        default:
+          valueA = a.valorVendido
+          valueB = b.valorVendido
+      }
+
+      if (typeof valueA === 'string' && typeof valueB === 'string') {
+        return sortDirection === 'asc' 
+          ? valueA.localeCompare(valueB)
+          : valueB.localeCompare(valueA)
+      }
+
+      return sortDirection === 'asc' 
+        ? (valueA as number) - (valueB as number)
+        : (valueB as number) - (valueA as number)
+    })
+  }, [unidadesData, sortField, sortDirection])
 
   const unidadesSemMeta = useMemo(() => {
     return unidadesData.filter(u => u.meta === 0)
@@ -242,6 +321,39 @@ export default function ResultadosMetaPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* Ordenação */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8">
+                    <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+                    {currentSortLabel}
+                    {sortDirection === 'desc' ? (
+                      <ArrowDown className="h-3 w-3 ml-1 text-muted-foreground" />
+                    ) : (
+                      <ArrowUp className="h-3 w-3 ml-1 text-muted-foreground" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {SORT_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                      key={option.field}
+                      onClick={() => handleChangeSort(option.field)}
+                      className={sortField === option.field ? 'bg-accent' : ''}
+                    >
+                      <span className="flex-1">{option.label}</span>
+                      {sortField === option.field && (
+                        sortDirection === 'desc' ? (
+                          <ArrowDown className="h-3 w-3 ml-2" />
+                        ) : (
+                          <ArrowUp className="h-3 w-3 ml-2" />
+                        )
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Badge variant="outline" className="font-medium tabular-nums">
                 {mesAtual}/{anoAtual}
               </Badge>
@@ -303,7 +415,7 @@ export default function ResultadosMetaPage() {
             <>
               {/* Cards das Unidades com Meta */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {unidadesComMeta.map((unidade) => (
+                {unidadesComMeta.map((unidade, index) => (
                   <UnidadeMetaCard
                     key={unidade.id}
                     unidadeId={unidade.id}
@@ -313,6 +425,7 @@ export default function ResultadosMetaPage() {
                     mes={mesAtual}
                     ano={anoAtual}
                     vendedores={unidade.vendedores}
+                    posicao={index + 1}
                   />
                 ))}
               </div>

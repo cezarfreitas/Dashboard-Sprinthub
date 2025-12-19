@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useEffect, useMemo, memo } from 'react'
+import dynamic from 'next/dynamic'
 import { Target } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthSistema } from '@/hooks/use-auth-sistema'
 import { cn } from '@/lib/utils'
+
+// Lazy load do componente de celebração (só carrega quando necessário)
+const MetaCelebration = dynamic(() => import('./MetaCelebration'), { ssr: false })
 
 interface PainelBarraProgressoMetaProps {
   unidadesIds?: number[]
@@ -176,9 +180,13 @@ function PainelBarraProgressoMeta({
     let fillClass = "bg-gradient-to-r from-green-500 to-green-600"
     let statusLabel: string | null = null
 
-    if (percentualMeta >= 100) {
-      fillClass = "bg-gradient-to-r from-yellow-500 to-yellow-600"
-      statusLabel = "Meta batida"
+    // Calcular percentual real (sem limite de 100%)
+    const percentualReal = meta > 0 ? (valorAtual / meta) * 100 : 0
+
+    if (percentualReal >= 100) {
+      // Meta batida - usar verde vibrante para celebrar
+      fillClass = "bg-gradient-to-r from-green-400 to-emerald-500"
+      statusLabel = "Meta batida! 🎉"
     } else if (deviationPp >= -5) {
       fillClass = "bg-gradient-to-r from-green-500 to-green-600"
       statusLabel = deviationPp >= 0 ? "Acima do ritmo" : "No ritmo"
@@ -217,8 +225,23 @@ function PainelBarraProgressoMeta({
     return null
   }
 
+  // Calcular se meta foi batida (para celebração)
+  // Suporta ?testCelebration=true na URL para testar
+  const isTestMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('testCelebration') === 'true'
+  const isMetaBatida = isTestMode || (meta > 0 && valorAtual >= meta)
+
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
+    <>
+      {/* Componente de celebração */}
+      <MetaCelebration
+        isMetaBatida={isMetaBatida}
+        percentualAtingido={percentualMeta}
+        valorAtingido={valorAtual}
+        meta={meta}
+        periodoLabel="do período"
+      />
+
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 flex-shrink-0">
           <Target className="w-5 h-5 text-white/90" />
@@ -276,7 +299,7 @@ function PainelBarraProgressoMeta({
           <div className="text-right min-w-[60px]">
             <span className={cn(
               "text-sm font-bold",
-              percentualMeta >= 100 ? "text-yellow-400" : "text-green-400"
+              percentualMeta >= 100 ? "text-emerald-400" : "text-green-400"
             )}>
               {percentualMeta.toFixed(1)}%
             </span>
@@ -292,7 +315,7 @@ function PainelBarraProgressoMeta({
                     : smartMeta.deviationPp !== null && smartMeta.deviationPp < -5
                       ? "text-amber-200"
                       : percentualMeta >= 100
-                        ? "text-yellow-300"
+                        ? "text-emerald-300"
                         : "text-emerald-200"
                 )}>
                   {smartMeta.statusLabel}
@@ -327,6 +350,7 @@ function PainelBarraProgressoMeta({
         )}
       </div>
     </div>
+    </>
   )
 }
 

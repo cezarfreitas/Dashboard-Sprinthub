@@ -51,6 +51,10 @@ export async function GET(request: NextRequest) {
     const grupoIdParam = searchParams.get('grupo_id') // Filtrar por grupo(s) de unidades
     const funilIdParam = searchParams.get('funil_id') // Filtrar por funil(is)
     
+    // Filtro específico para data de ganho (gain_date) - opcional, sobrescreve dateStart/dateEnd para ganhas
+    const gainDateStart = searchParams.get('gain_date_start') // formato: YYYY-MM-DD
+    const gainDateEnd = searchParams.get('gain_date_end') // formato: YYYY-MM-DD
+    
     // Buscar todas as unidades ativas
     let queryUnidades = `
       SELECT 
@@ -183,10 +187,21 @@ export async function GET(request: NextRequest) {
           ${funilFilter}
       `
       let paramsGanhas: (string | number)[] = [...vendedoresAtivosIds, ...funilIds]
-      if (dateStart && dateEnd) {
+      
+      // Usar gain_date_start/gain_date_end se fornecidos, senão usar dateStart/dateEnd
+      const gainStart = gainDateStart || dateStart
+      const gainEnd = gainDateEnd || dateEnd
+      
+      if (gainStart && gainEnd) {
         // Filtrar por gain_date (quando foi ganha) no período
         queryGanhas += ` AND o.gain_date >= ? AND o.gain_date <= ?`
-        paramsGanhas.push(dateStart + ' 00:00:00', dateEnd + ' 23:59:59')
+        paramsGanhas.push(gainStart + ' 00:00:00', gainEnd + ' 23:59:59')
+      } else if (gainStart) {
+        queryGanhas += ` AND o.gain_date >= ?`
+        paramsGanhas.push(gainStart + ' 00:00:00')
+      } else if (gainEnd) {
+        queryGanhas += ` AND o.gain_date <= ?`
+        paramsGanhas.push(gainEnd + ' 23:59:59')
       }
       
       // Query para oportunidades PERDIDAS (filtradas por lost_date no período, se fornecido)

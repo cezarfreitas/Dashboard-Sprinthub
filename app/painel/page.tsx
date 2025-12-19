@@ -44,7 +44,9 @@ export default function PainelPage() {
     periodoInicio: periodoInicial.inicio,
     periodoFim: periodoInicial.fim,
     funilSelecionado: 'todos',
-    grupoSelecionado: 'todos'
+    grupoSelecionado: 'todos',
+    gainDateInicio: undefined as string | undefined,
+    gainDateFim: undefined as string | undefined
   }))
   
   const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])

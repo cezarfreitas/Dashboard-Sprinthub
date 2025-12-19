@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import PainelUnidadeMultiSelect from './PainelUnidadeMultiSelect'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -11,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { X } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { X, Calendar } from 'lucide-react'
 
 interface PainelFiltersInlineProps {
   filtros: {
@@ -21,6 +23,8 @@ interface PainelFiltersInlineProps {
     periodoFim: string
     funilSelecionado: string
     grupoSelecionado: string
+    gainDateInicio?: string
+    gainDateFim?: string
   }
   setFiltros: (filtros: any) => void
   unidadesList: Array<{ id: number; nome: string }>
@@ -147,6 +151,40 @@ export default function PainelFiltersInline({
         </Select>
       </div>
 
+      {/* Filtro de Data de Ganho */}
+      <div className="flex flex-col gap-2 min-w-[280px]">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-3 w-3 text-green-400" />
+          <Label className="text-xs font-medium text-gray-400">Data de Ganho</Label>
+          {(filtros.gainDateInicio || filtros.gainDateFim) && (
+            <button
+              onClick={() => setFiltros({ ...filtros, gainDateInicio: undefined, gainDateFim: undefined })}
+              className="text-xs text-gray-500 hover:text-red-400 ml-auto"
+              title="Limpar filtro de data de ganho"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="date"
+            value={filtros.gainDateInicio || ''}
+            onChange={(e) => setFiltros({ ...filtros, gainDateInicio: e.target.value || undefined })}
+            placeholder="De"
+            className="h-9 text-xs bg-gray-800 border-gray-700 text-white flex-1"
+          />
+          <span className="text-gray-500 text-xs">até</span>
+          <Input
+            type="date"
+            value={filtros.gainDateFim || ''}
+            onChange={(e) => setFiltros({ ...filtros, gainDateFim: e.target.value || undefined })}
+            placeholder="Até"
+            className="h-9 text-xs bg-gray-800 border-gray-700 text-white flex-1"
+          />
+        </div>
+      </div>
+
       {/* Botão Limpar Filtros */}
       {filtrosAtivos && (
         <div className="flex flex-col gap-2 min-w-[100px]">
@@ -160,7 +198,9 @@ export default function PainelFiltersInline({
               periodoInicio: periodoInicial.inicio,
               periodoFim: periodoInicial.fim,
               funilSelecionado: 'todos',
-              grupoSelecionado: 'todos'
+              grupoSelecionado: 'todos',
+              gainDateInicio: undefined,
+              gainDateFim: undefined
             })}
             className="h-9 text-xs gap-1"
           >

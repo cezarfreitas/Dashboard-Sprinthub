@@ -27,14 +27,18 @@ export function usePainelUnidades(
       periodoFim: filtros.periodoFim,
       unidades: filtros.unidadesSelecionadas?.sort().join(',') || '',
       grupo: filtros.grupoSelecionado,
-      funil: filtros.funilSelecionado
+      funil: filtros.funilSelecionado,
+      gainDateInicio: filtros.gainDateInicio || '',
+      gainDateFim: filtros.gainDateFim || ''
     })
   }, [
     filtros.periodoInicio,
     filtros.periodoFim,
     filtros.unidadesSelecionadas?.join(','),
     filtros.grupoSelecionado,
-    filtros.funilSelecionado
+    filtros.funilSelecionado,
+    filtros.gainDateInicio,
+    filtros.gainDateFim
   ])
 
   const fetchUnidades = useCallback(async (signal: AbortSignal) => {
@@ -67,6 +71,14 @@ export function usePainelUnidades(
 
       if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos' && filtros.funilSelecionado !== 'undefined') {
         params.append('funil_id', String(filtros.funilSelecionado))
+      }
+
+      // Filtro por data de ganho (gain_date)
+      if (filtros.gainDateInicio) {
+        params.append('gain_date_start', filtros.gainDateInicio)
+      }
+      if (filtros.gainDateFim) {
+        params.append('gain_date_end', filtros.gainDateFim)
       }
 
       const response = await fetch(

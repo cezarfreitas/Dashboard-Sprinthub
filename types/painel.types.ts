@@ -20,6 +20,9 @@ export interface PainelFiltros {
   periodoFim: string
   funilSelecionado: string
   grupoSelecionado: string
+  // Filtro opcional por data de ganho (gain_date)
+  gainDateInicio?: string
+  gainDateFim?: string
 }
 
 // Tipos adicionais para usePainelData

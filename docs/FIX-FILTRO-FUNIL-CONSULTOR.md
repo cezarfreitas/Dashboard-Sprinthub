@@ -246,3 +246,5 @@ O problema era **apenas nos componentes de tabelas/gráficos** que estavam hardc
 
 
 
+
+

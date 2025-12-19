@@ -1,8 +1,8 @@
 "use client"
 
 import { memo, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Building2, Target } from "lucide-react"
+import { Card, CardContent, CardTitle } from "@/components/ui/card"
+import { Target } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -30,6 +30,7 @@ interface UnidadeMetaCardProps {
   mes?: number
   ano?: number
   vendedores?: VendedorMeta[]
+  posicao?: number
 }
 
 const formatCurrency = (value: number): string => {
@@ -75,18 +76,21 @@ const getPrimeiroNome = (nomeCompleto: string): string => {
 }
 
 export const UnidadeMetaCard = memo(function UnidadeMetaCard({
-  unidadeId,
   unidadeNome,
   valorAtual,
   meta,
   mes,
   ano,
-  vendedores = []
+  vendedores = [],
+  posicao
 }: UnidadeMetaCardProps) {
-  const { percentualMeta, projecao, projecaoValor, corBarra, statusProjecao } = useMemo(() => {
-    if (meta === 0) return { percentualMeta: 0, projecao: 0, projecaoValor: 0, corBarra: 'blue', statusProjecao: 'sem-meta' }
+  const { percentualMeta, percentualReal, projecao, projecaoValor, corBarra, statusProjecao } = useMemo(() => {
+    if (meta === 0) return { percentualMeta: 0, percentualReal: 0, projecao: 0, projecaoValor: 0, corBarra: 'blue', statusProjecao: 'sem-meta' }
     
-    const percentual = Math.min(100, (valorAtual / meta) * 100)
+    // Percentual real (pode ser > 100%)
+    const percentualRealCalc = (valorAtual / meta) * 100
+    // Percentual para exibição no velocímetro (limitado a 100%)
+    const percentual = Math.min(100, percentualRealCalc)
     
     // Calcular projeção baseada no dia do mês
     const now = new Date()
@@ -95,12 +99,31 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
     
     // Se for mês diferente do atual, não faz projeção
     if (targetMes !== now.getMonth() + 1 || targetAno !== now.getFullYear()) {
+      // Determinar cor baseado no percentual real
+      let cor: string
+      let status: string
+      
+      if (percentualRealCalc >= 100) {
+        cor = 'gold'
+        status = 'atingido'
+      } else if (percentualRealCalc >= 90) {
+        cor = 'green'
+        status = 'quase-la'
+      } else if (percentualRealCalc >= 70) {
+        cor = 'yellow'
+        status = 'atencao'
+      } else {
+        cor = 'red'
+        status = 'abaixo'
+      }
+      
       return {
         percentualMeta: percentual,
-        projecao: percentual,
+        percentualReal: percentualRealCalc,
+        projecao: percentualRealCalc,
         projecaoValor: valorAtual,
-        corBarra: percentual >= 100 ? 'gold' : 'blue',
-        statusProjecao: 'fora-periodo'
+        corBarra: cor,
+        statusProjecao: status
       }
     }
     
@@ -113,13 +136,17 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
     const projecaoVal = diasDecorridos > 0 ? (valorAtual / diasDecorridos) * ultimoDiaMes : 0
     const projecaoPercentual = (projecaoVal / meta) * 100
     
-    // Determinar cor da barra baseado na projeção
+    // Determinar cor da barra baseado no percentual REAL (não na projeção)
     let cor: string
     let status: string
     
-    if (percentual >= 100) {
+    if (percentualRealCalc >= 100) {
       cor = 'gold'
       status = 'atingido'
+    } else if (percentualRealCalc >= 95) {
+      // Muito perto de bater (falta menos de 5%)
+      cor = 'green'
+      status = 'quase-la'
     } else if (projecaoPercentual >= 100) {
       cor = 'green'
       status = 'no-caminho'
@@ -133,6 +160,7 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
     
     return {
       percentualMeta: percentual,
+      percentualReal: percentualRealCalc,
       projecao: projecaoPercentual,
       projecaoValor: projecaoVal,
       corBarra: cor,
@@ -188,47 +216,65 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
 
   const statusLabel =
     statusProjecao === 'atingido'
-      ? 'Meta atingida'
+      ? '🎉 Meta atingida!'
+      : statusProjecao === 'quase-la'
+      ? '🔥 Quase lá!'
       : statusProjecao === 'no-caminho'
-      ? 'No caminho'
+      ? '✅ No caminho'
       : statusProjecao === 'atencao'
-      ? 'Atenção'
+      ? '⚠️ Atenção'
       : statusProjecao === 'risco'
-      ? 'Em risco'
-      : statusProjecao === 'fora-periodo'
-      ? 'Fora do período'
+      ? '❌ Em risco'
+      : statusProjecao === 'abaixo'
+      ? '📉 Abaixo'
       : 'Sem meta'
 
-  return (
-    <Card className="relative h-full overflow-hidden">
-      {/* Acento de cor do status */}
-      <div className="h-1 w-full" style={{ backgroundColor: cores.primaria }} />
+  const isTop3 = posicao !== undefined && posicao <= 3
 
-      <CardHeader className="px-4 py-3 bg-muted/10 border-b">
+  // Determinar gradiente baseado no status
+  const getStatusGradient = () => {
+    switch (statusProjecao) {
+      case 'atingido':
+        return 'from-yellow-500 to-amber-600' // Dourado para meta batida
+      case 'quase-la':
+        return 'from-green-500 to-emerald-600' // Verde para quase lá
+      case 'no-caminho':
+        return 'from-teal-500 to-cyan-600' // Teal para no caminho
+      case 'atencao':
+        return 'from-orange-500 to-amber-600' // Laranja para atenção
+      case 'risco':
+      case 'abaixo':
+        return 'from-red-500 to-rose-600' // Vermelho para risco
+      default:
+        return 'from-gray-500 to-slate-600'
+    }
+  }
+
+  const headerGradient = getStatusGradient()
+
+  return (
+    <Card className={`relative h-full overflow-hidden border-0 shadow-lg`}>
+      {/* Header com gradiente de cor baseado no STATUS */}
+      <div className={`bg-gradient-to-r ${headerGradient} px-4 py-3`}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate" title={unidadeNome}>{unidadeNome}</span>
+            <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
+              {posicao && (
+                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${isTop3 ? 'bg-yellow-400 text-black' : 'bg-white/20 text-white'}`}>
+                  {posicao}
+                </span>
+              )}
+              <span className="truncate uppercase tracking-wide" title={unidadeNome}>{unidadeNome}</span>
             </CardTitle>
-            <div className="mt-0.5 text-[11px] text-muted-foreground">
-              Unidade #{unidadeId}
-            </div>
           </div>
 
           <Badge
-            variant="secondary"
-            className="shrink-0 text-[11px] font-semibold rounded-full px-2 py-0.5"
-            style={{
-              backgroundColor: `${cores.bg}`,
-              color: `${cores.texto}`,
-              border: `1px solid rgba(0,0,0,0.06)`,
-            }}
+            className="shrink-0 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-white/20 text-white border-white/30"
           >
             {statusLabel}
           </Badge>
         </div>
-      </CardHeader>
+      </div>
 
       <CardContent className="px-4 py-3">
         <div className="space-y-3">
@@ -324,9 +370,9 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
                   y="118"
                   textAnchor="middle"
                   className="text-2xl font-bold"
-                  fill="#1e40af"
+                  fill={percentualReal >= 100 ? "#ca8a04" : percentualReal >= 95 ? "#16a34a" : "#1e40af"}
                 >
-                  {Math.round(percentualMeta)}%
+                  {percentualReal >= 100 ? Math.round(percentualReal) : Math.round(percentualMeta)}%
                 </text>
                 
                 {/* Mensagem motivacional */}
@@ -337,11 +383,11 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
                   className="text-[10px] font-medium"
                   fill="#6b7280"
                 >
-                  {percentualMeta >= 100 ? 'Meta atingida' : 
-                   percentualMeta >= 75 ? 'Quase lá' :
-                   percentualMeta >= 50 ? 'Continue assim' :
-                   percentualMeta >= 25 ? 'Acelere' :
-                   'Vamos lá'}
+                  {percentualReal >= 100 ? '🎉 Meta batida!' : 
+                   percentualReal >= 95 ? '🔥 Quase lá!' :
+                   percentualReal >= 75 ? 'Continue assim!' :
+                   percentualReal >= 50 ? 'Acelere!' :
+                   'Vamos lá!'}
                 </text>
                 </svg>
               </div>
