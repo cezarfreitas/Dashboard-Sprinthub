@@ -192,3 +192,4 @@ O filtro de funil também é respeitado corretamente. A API aplica o filtro de f
 
 
 
+

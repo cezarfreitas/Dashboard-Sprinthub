@@ -202,6 +202,44 @@ export async function GET(request: NextRequest) {
     console.log(`[API meta.png] ${unidadesComVendas.length} unidades com vendas`)
     console.log(`[API meta.png] Total: ${totalOportunidades} oportunidades, R$ ${valorTotal.toFixed(2)}`)
 
+    // 6. Buscar vendas de ontem (usando fuso horário de São Paulo)
+    // Calcular ontem em São Paulo
+    const agora = new Date()
+    const agoraSP = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+    const ontemSP = new Date(agoraSP)
+    ontemSP.setDate(ontemSP.getDate() - 1)
+    
+    const ontemAno = ontemSP.getFullYear()
+    const ontemMes = ontemSP.getMonth() + 1
+    const ontemDia = ontemSP.getDate()
+    const ontemStr = `${ontemAno}-${String(ontemMes).padStart(2, '0')}-${String(ontemDia).padStart(2, '0')}`
+    
+    console.log(`[API meta.png] Buscando vendas de ontem: ${ontemStr}`)
+    console.log(`[API meta.png] Hoje em SP: ${agoraSP.getFullYear()}-${String(agoraSP.getMonth() + 1).padStart(2, '0')}-${String(agoraSP.getDate()).padStart(2, '0')}`)
+    
+    // Query para buscar vendas de ontem
+    // Usando YEAR, MONTH, DAY para extrair a data no timezone de São Paulo
+    const vendasOntem = await executeQuery(`
+      SELECT 
+        COUNT(*) as quantidade,
+        COALESCE(SUM(CAST(o.value AS DECIMAL(15,2))), 0) as valor_total
+      FROM oportunidades o
+      WHERE o.status = 'gain'
+        AND o.gain_date IS NOT NULL
+        AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
+        AND MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
+        AND DAY(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
+        AND o.archived = 0
+    `, [ontemAno, ontemMes, ontemDia]) as any[]
+    
+    console.log(`[API meta.png] Query ontem - Params: ${ontemAno}, ${ontemMes}, ${ontemDia}`)
+    console.log(`[API meta.png] Resultado query ontem:`, vendasOntem)
+    
+    const valorOntem = vendasOntem.length > 0 ? parseFloat(vendasOntem[0].valor_total || 0) : 0
+    const quantidadeOntem = vendasOntem.length > 0 ? parseInt(vendasOntem[0].quantidade || 0) : 0
+    
+    console.log(`[API meta.png] Vendas ontem (${ontemStr}): ${quantidadeOntem} ops, R$ ${valorOntem.toFixed(2)}`)
+
     // Gerar SVG
     const svg = gerarSVG(
       mes,
@@ -213,7 +251,10 @@ export async function GET(request: NextRequest) {
       ticketMedioGeral,
       percentualMetaGeral,
       dataInicio,
-      dataFim
+      dataFim,
+      valorOntem,
+      quantidadeOntem,
+      ontemStr
     )
 
     // Converter SVG para PNG usando sharp
@@ -285,7 +326,10 @@ function gerarSVG(
   ticketMedioGeral: number,
   percentualMetaGeral: number,
   dataInicio: string, 
-  dataFim: string
+  dataFim: string,
+  valorOntem: number,
+  quantidadeOntem: number,
+  dataOntem: string
 ): string {
   const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
   const mesNome = meses[mes - 1]
@@ -318,7 +362,7 @@ function gerarSVG(
   }
 
   const width = 1200
-  const headerHeight = 220
+  const headerHeight = 300 // Aumentado para acomodar card de ontem
   const rowHeight = 46
   const footerHeight = 110
   const tableHeaderHeight = 40
@@ -333,6 +377,11 @@ function gerarSVG(
   const cardCol3X = cardX + (2 * cardW) / 3 + 30
   const cardDiv1X = cardX + cardW / 3
   const cardDiv2X = cardX + (2 * cardW) / 3
+  
+  // Card de ontem
+  const cardOntemY = cardY + cardH + 15
+  const cardOntemW = cardW
+  const cardOntemH = 55
 
   const colMetaX = width - 540
   const colPercentX = width - 420
@@ -402,8 +451,13 @@ function gerarSVG(
   <text x="${cardCol3X}" y="${cardY + 23}" class="cardLabel">Ticket médio</text>
   <text x="${cardCol3X}" y="${cardY + 47}" class="cardValue">${formatCurrency(ticketMedioGeral)}</text>
   
+  <!-- Card de vendas de ontem -->
+  <rect x="${cardX}" y="${cardOntemY}" width="${cardOntemW}" height="${cardOntemH}" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+  <text x="${cardCol1X}" y="${cardOntemY + 23}" class="cardLabel" fill="#047857">📊 Vendas de Ontem (${formatDate(dataOntem)})</text>
+  <text x="${cardCol1X}" y="${cardOntemY + 47}" class="cardValueGreen" fill="#047857">${formatCurrency(valorOntem)} • ${quantidadeOntem} oportunidades</text>
+  
   <!-- Linha separadora -->
-  <line x1="60" y1="222" x2="${width - 60}" y2="222" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="60" y1="${headerHeight - 8}" x2="${width - 60}" y2="${headerHeight - 8}" stroke="#d1d5db" stroke-width="2"/>
   
   <!-- Table Header -->
   <rect y="${headerHeight}" width="${width}" height="${tableHeaderHeight}" fill="#f3f4f6"/>

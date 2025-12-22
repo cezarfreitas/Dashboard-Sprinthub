@@ -720,7 +720,7 @@ export async function GET(request: NextRequest) {
         FROM metas_mensais
         WHERE unidade_id = ? 
           AND mes = ? 
-          AND ano = ?
+          AND ano = ? 
       `, [unidade.id, mesFinal, anoFinal]) as any[]
 
       // Comparação mockada (será implementada com dados reais depois)
