@@ -440,14 +440,14 @@ function gerarSVG(
   svg += `
   <!-- Footer -->
   <rect y="${yPos}" width="${width}" height="${footerHeight}" fill="#1f2937"/>
-  <text x="150" y="${yPos + 40}" class="footer-text" fill="#ffffff">TOTAL GERAL</text>
+  <text x="150" y="${yPos + 40}" class="footer-text" fill="#22c55e">TOTAL GERAL</text>
   <text x="${colMetaX}" y="${yPos + 40}" class="footer-number" text-anchor="end" fill="#22c55e">${formatCurrency(metaTotal)}</text>
   <text x="${colPercentX}" y="${yPos + 40}" class="footer-number" text-anchor="end" fill="#22c55e">${formatPercent(percentualMetaGeral)}</text>
   <text x="${colTicketX}" y="${yPos + 40}" class="footer-number" text-anchor="end" fill="#22c55e">${formatCurrency(ticketMedioGeral)}</text>
   <text x="${colOpsX}" y="${yPos + 40}" class="footer-number" text-anchor="end" fill="#22c55e">${totalOportunidades}</text>
   <text x="${colReceitaX}" y="${yPos + 40}" class="footer-number" text-anchor="end" fill="#22c55e">${formatCurrency(valorTotal)}</text>
   
-  <text x="${width / 2}" y="${yPos + 75}" class="footer-small" text-anchor="middle" fill="#9ca3af">Grupo Inteli • Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</text>
+  <text x="${width / 2}" y="${yPos + 75}" class="footer-small" text-anchor="middle" fill="#9ca3af">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</text>
   
 </svg>`
 
