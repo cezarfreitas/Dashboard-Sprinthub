@@ -344,18 +344,18 @@ function gerarSVG(
 <svg width="${width}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
-      .title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 42px; font-weight: 900; fill: #111827; }
-      .subtitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 18px; font-weight: 600; fill: #6b7280; }
-      .cardLabel { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 12px; font-weight: 800; fill: #6b7280; letter-spacing: 0.6px; text-transform: uppercase; }
-      .cardValue { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 22px; font-weight: 900; fill: #111827; }
-      .cardValueGreen { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 22px; font-weight: 900; fill: #059669; }
-      .header-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 700; fill: #374151; text-transform: uppercase; letter-spacing: 0.5px; }
-      .cell-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 15px; font-weight: 600; fill: #1f2937; }
-      .cell-number { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 15px; font-weight: 700; fill: #059669; }
-      .cell-muted { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: 700; fill: #111827; }
-      .footer-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 20px; font-weight: 900; fill: #111827; }
-      .footer-number { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 22px; font-weight: 900; fill: #059669; }
-      .footer-small { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 500; fill: #9ca3af; }
+      .title { font-family: Arial, Helvetica, sans-serif; font-size: 42px; font-weight: bold; fill: #111827; }
+      .subtitle { font-family: Arial, Helvetica, sans-serif; font-size: 18px; font-weight: bold; fill: #6b7280; }
+      .cardLabel { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: bold; fill: #6b7280; letter-spacing: 0.6px; text-transform: uppercase; }
+      .cardValue { font-family: Arial, Helvetica, sans-serif; font-size: 22px; font-weight: bold; fill: #111827; }
+      .cardValueGreen { font-family: Arial, Helvetica, sans-serif; font-size: 22px; font-weight: bold; fill: #059669; }
+      .header-text { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; fill: #374151; text-transform: uppercase; letter-spacing: 0.5px; }
+      .cell-text { font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: bold; fill: #1f2937; }
+      .cell-number { font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: bold; fill: #059669; }
+      .cell-muted { font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: bold; fill: #111827; }
+      .footer-text { font-family: Arial, Helvetica, sans-serif; font-size: 20px; font-weight: bold; fill: #111827; }
+      .footer-number { font-family: Arial, Helvetica, sans-serif; font-size: 22px; font-weight: bold; fill: #059669; }
+      .footer-small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: normal; fill: #9ca3af; }
     </style>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#f0fdf4;stop-opacity:1" />
