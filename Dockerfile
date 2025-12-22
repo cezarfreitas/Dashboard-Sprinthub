@@ -20,12 +20,15 @@ LABEL description="Dashboard Inteligente - Ultra Optimized"
 ARG NODE_ENV=production
 ARG NEXT_TELEMETRY_DISABLED=1
 
-# Instalar dependências do sistema otimizadas
+# Instalar dependências do sistema otimizadas + fontes para sharp
 RUN --mount=type=cache,target=/var/cache/apk \
     apk add --no-cache \
     libc6-compat \
     dumb-init \
-    curl
+    curl \
+    fontconfig \
+    ttf-dejavu \
+    font-noto
 
 # Configurar timezone
 ENV TZ=America/Sao_Paulo
@@ -129,6 +132,11 @@ ENV HOSTNAME="0.0.0.0"
 # Criar usuário não-privilegiado
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
+
+# Copiar fontes customizadas para o sistema (antes de trocar para nextjs user)
+USER root
+COPY --from=builder /app/public/fonts/*.woff2 /usr/share/fonts/truetype/
+RUN fc-cache -f -v
 
 # Copiar arquivos necessários para produção
 # Se usar standalone, copiar do .next/standalone
