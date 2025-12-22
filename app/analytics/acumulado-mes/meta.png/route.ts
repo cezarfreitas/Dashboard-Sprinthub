@@ -29,30 +29,112 @@ function formatDateSaoPauloToUTC(dateStr: string, isEnd: boolean = false): strin
   return `${yearUTC}-${monthUTC}-${dayUTC} ${hours}:${minutes}:${seconds}`
 }
 
+function formatDateYMDInTimeZone(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date)
+
+  const year = parts.find((p) => p.type === 'year')?.value ?? '1970'
+  const month = parts.find((p) => p.type === 'month')?.value ?? '01'
+  const day = parts.find((p) => p.type === 'day')?.value ?? '01'
+
+  return `${year}-${month}-${day}`
+}
+
+function pickBestAgg(
+  candidates: Array<{ method: string; quantidade: number; valor_total: number }>
+): { method: string; quantidade: number; valor_total: number } {
+  return candidates
+    .slice()
+    .sort((a, b) => {
+      if (b.quantidade !== a.quantidade) return b.quantidade - a.quantidade
+      return b.valor_total - a.valor_total
+    })[0]
+}
+
+type DateMode = 'utc_range' | 'local_range'
+
+function makeRangeBounds(dateStartYMD: string, dateEndYMD: string, mode: DateMode) {
+  const startLocal = `${dateStartYMD} 00:00:00`
+  const endLocal = `${dateEndYMD} 23:59:59`
+
+  if (mode === 'local_range') {
+    return { start: startLocal, end: endLocal }
+  }
+
+  return {
+    start: formatDateSaoPauloToUTC(dateStartYMD, false),
+    end: formatDateSaoPauloToUTC(dateEndYMD, true)
+  }
+}
+
+async function fetchAggByRange(
+  dateStartYMD: string,
+  dateEndYMD: string,
+  mode: DateMode
+): Promise<{ quantidade: number; valor_total: number }> {
+  const { start, end } = makeRangeBounds(dateStartYMD, dateEndYMD, mode)
+
+  const rows = (await executeQuery(
+    `
+      SELECT 
+        COUNT(*) as quantidade,
+        COALESCE(SUM(CAST(o.value AS DECIMAL(15,2))), 0) as valor_total
+      FROM oportunidades o
+      WHERE o.status = 'gain'
+        AND o.gain_date IS NOT NULL
+        AND o.gain_date >= ?
+        AND o.gain_date <= ?
+        AND o.archived = 0
+    `,
+    [start, end]
+  )) as any[]
+
+  return {
+    quantidade: parseInt(rows?.[0]?.quantidade || 0),
+    valor_total: parseFloat(rows?.[0]?.valor_total || 0)
+  }
+}
+
+function calcGrowth(current: number, previous: number): { delta: number; pct: number } {
+  const delta = current - previous
+  const pct = previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0
+  return { delta, pct }
+}
+
 /**
  * GET - Retorna imagem PNG com soma total de oportunidades ganhas no período
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    
+    const debug = searchParams.get('debug') === '1'
+    const format = (searchParams.get('format') || 'png').toLowerCase()
+    const debugLog: string[] = []
+
+    const log = (...args: Array<string | number | boolean | null | undefined>) => {
+      if (!debug) return
+      debugLog.push(args.map((a) => String(a)).join(' '))
+    }
+
     const currentDate = new Date()
     const mes = parseInt(searchParams.get('mes') || String(currentDate.getMonth() + 1))
     const ano = parseInt(searchParams.get('ano') || String(currentDate.getFullYear()))
 
-    console.log(`[API meta.png] Gerando imagem PNG para ${mes}/${ano}`)
+    log('[meta.png]', 'Gerando', `${mes}/${ano}`)
 
     // Calcular período
     const dataInicio = `${ano}-${String(mes).padStart(2, '0')}-01`
     const ultimoDia = new Date(ano, mes, 0).getDate()
     const dataFim = `${ano}-${String(mes).padStart(2, '0')}-${ultimoDia}`
-
-    console.log(`[API meta.png] Período: ${dataInicio} até ${dataFim}`)
     
     const dataInicioUTC = formatDateSaoPauloToUTC(dataInicio, false)
     const dataFimUTC = formatDateSaoPauloToUTC(dataFim, true)
-    
-    console.log(`[API meta.png] Datas UTC: ${dataInicioUTC} até ${dataFimUTC}`)
+    log('[meta.png]', 'Período SP:', dataInicio, '→', dataFim)
+    log('[meta.png]', 'Período UTC:', dataInicioUTC, '→', dataFimUTC)
     
     // 1. Buscar todas as unidades ativas
     const unidades = await executeQuery(`
@@ -61,8 +143,7 @@ export async function GET(request: NextRequest) {
       WHERE ativo = 1
       ORDER BY COALESCE(nome, name)
     `) as any[]
-    
-    console.log(`[API meta.png] ${unidades.length} unidades ativas encontradas`)
+    log('[meta.png]', 'Unidades ativas:', unidades.length)
 
     // 1.1 Buscar metas do mês por unidade (soma)
     const metasPorUnidade = await executeQuery(
@@ -88,8 +169,7 @@ export async function GET(request: NextRequest) {
     `) as any[]
     
     const vendedoresAtivosSet = new Set(todosVendedores.map(v => v.id))
-    
-    console.log(`[API meta.png] ${todosVendedores.length} vendedores ativos encontrados`)
+    log('[meta.png]', 'Vendedores ativos:', todosVendedores.length)
     
     // 3. Criar mapa de vendedor_id -> unidade_id
     const vendedorIdToUnidade = new Map<number, number>()
@@ -130,7 +210,7 @@ export async function GET(request: NextRequest) {
       })
     })
     
-    console.log(`[API meta.png] ${vendedorIdToUnidade.size} vendedores mapeados para unidades`)
+    log('[meta.png]', 'Vendedores mapeados p/ unidades:', vendedorIdToUnidade.size)
     
     // 4. Buscar oportunidades ganhas no período
     const oportunidades = await executeQuery(`
@@ -146,8 +226,7 @@ export async function GET(request: NextRequest) {
         AND o.archived = 0
       GROUP BY o.user
     `, [dataInicioUTC, dataFimUTC]) as any[]
-    
-    console.log(`[API meta.png] ${oportunidades.length} vendedores com vendas no período`)
+    log('[meta.png]', 'Vendedores com vendas no período:', oportunidades.length)
     
     // 5. Agrupar por unidade
     const unidadesMap = new Map<number, { nome: string, valor: number, quantidade: number, meta: number }>()
@@ -168,14 +247,14 @@ export async function GET(request: NextRequest) {
         unidade.quantidade += parseInt(op.quantidade || 0)
       } else {
         vendedoresNaoMapeados++
-        if (vendedoresNaoMapeados <= 5) {
-          console.log(`[API meta.png] Vendedor não mapeado: ID ${op.user}`)
+        if (debug && vendedoresNaoMapeados <= 10) {
+          log('[meta.png]', 'Vendedor não mapeado:', op.user)
         }
       }
     })
     
     if (vendedoresNaoMapeados > 0) {
-      console.log(`[API meta.png] Total de vendedores não mapeados: ${vendedoresNaoMapeados}`)
+      log('[meta.png]', 'Total vendedores não mapeados:', vendedoresNaoMapeados)
     }
     
     // Converter para array e ordenar por valor (maior primeiro)
@@ -199,46 +278,105 @@ export async function GET(request: NextRequest) {
     const ticketMedioGeral = totalOportunidades > 0 ? valorTotal / totalOportunidades : 0
     const percentualMetaGeral = metaTotal > 0 ? (valorTotal / metaTotal) * 100 : 0
     
-    console.log(`[API meta.png] ${unidadesComVendas.length} unidades com vendas`)
-    console.log(`[API meta.png] Total: ${totalOportunidades} oportunidades, R$ ${valorTotal.toFixed(2)}`)
+    log('[meta.png]', 'Unidades listadas:', unidadesComVendas.length)
+    log('[meta.png]', 'Total mês:', totalOportunidades, 'ops', `R$ ${valorTotal.toFixed(2)}`)
 
-    // 6. Buscar vendas de ontem (usando fuso horário de São Paulo)
-    // Calcular ontem em São Paulo
-    const agora = new Date()
-    const agoraSP = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
-    const ontemSP = new Date(agoraSP)
-    ontemSP.setDate(ontemSP.getDate() - 1)
-    
-    const ontemAno = ontemSP.getFullYear()
-    const ontemMes = ontemSP.getMonth() + 1
-    const ontemDia = ontemSP.getDate()
-    const ontemStr = `${ontemAno}-${String(ontemMes).padStart(2, '0')}-${String(ontemDia).padStart(2, '0')}`
-    
-    console.log(`[API meta.png] Buscando vendas de ontem: ${ontemStr}`)
-    console.log(`[API meta.png] Hoje em SP: ${agoraSP.getFullYear()}-${String(agoraSP.getMonth() + 1).padStart(2, '0')}-${String(agoraSP.getDate()).padStart(2, '0')}`)
-    
-    // Query para buscar vendas de ontem
-    // Usando YEAR, MONTH, DAY para extrair a data no timezone de São Paulo
-    const vendasOntem = await executeQuery(`
-      SELECT 
-        COUNT(*) as quantidade,
-        COALESCE(SUM(CAST(o.value AS DECIMAL(15,2))), 0) as valor_total
-      FROM oportunidades o
-      WHERE o.status = 'gain'
-        AND o.gain_date IS NOT NULL
-        AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
-        AND MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
-        AND DAY(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?
-        AND o.archived = 0
-    `, [ontemAno, ontemMes, ontemDia]) as any[]
-    
-    console.log(`[API meta.png] Query ontem - Params: ${ontemAno}, ${ontemMes}, ${ontemDia}`)
-    console.log(`[API meta.png] Resultado query ontem:`, vendasOntem)
-    
-    const valorOntem = vendasOntem.length > 0 ? parseFloat(vendasOntem[0].valor_total || 0) : 0
-    const quantidadeOntem = vendasOntem.length > 0 ? parseInt(vendasOntem[0].quantidade || 0) : 0
-    
-    console.log(`[API meta.png] Vendas ontem (${ontemStr}): ${quantidadeOntem} ops, R$ ${valorOntem.toFixed(2)}`)
+    // 6. Detectar modo de data (gain_date pode estar gravado como UTC ou local; escolhemos 1 modo para manter comparações consistentes)
+    const tz = 'America/Sao_Paulo'
+    const hojeSpStr = formatDateYMDInTimeZone(new Date(), tz)
+    const ontemSpStr = formatDateYMDInTimeZone(new Date(Date.now() - 24 * 60 * 60 * 1000), tz)
+    const seteDiasAtrasSpStr = formatDateYMDInTimeZone(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), tz)
+
+    const agg7Utc = await fetchAggByRange(seteDiasAtrasSpStr, hojeSpStr, 'utc_range')
+    const agg7Local = await fetchAggByRange(seteDiasAtrasSpStr, hojeSpStr, 'local_range')
+
+    const dateMode: DateMode = pickBestAgg([
+      { method: 'utc_range', quantidade: agg7Utc.quantidade, valor_total: agg7Utc.valor_total },
+      { method: 'local_range', quantidade: agg7Local.quantidade, valor_total: agg7Local.valor_total }
+    ]).method as DateMode
+
+    log('[meta.png]', 'Hoje SP:', hojeSpStr)
+    log('[meta.png]', 'Modo data escolhido:', dateMode)
+
+    // 7. Vendas de ontem e anteontem (usando o modo escolhido)
+    const anteOntemSpStr = formatDateYMDInTimeZone(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), tz)
+    const aggOntem = await fetchAggByRange(ontemSpStr, ontemSpStr, dateMode)
+    const aggAnteOntem = await fetchAggByRange(anteOntemSpStr, anteOntemSpStr, dateMode)
+
+    const valorOntem = aggOntem.valor_total
+    const quantidadeOntem = aggOntem.quantidade
+    const growthOntem = calcGrowth(aggOntem.valor_total, aggAnteOntem.valor_total)
+
+    // 7. Insights (ritmo e projeção) — só faz sentido no mês atual (SP)
+    const [hojeAno, hojeMes, hojeDia] = hojeSpStr.split('-').map((n) => parseInt(n))
+    const diasNoMes = ultimoDia
+    const isMesAtualSp = hojeAno === ano && hojeMes === mes
+    const diaDoMes = isMesAtualSp ? Math.min(Math.max(hojeDia, 1), diasNoMes) : diasNoMes
+    const diasDecorridos = isMesAtualSp ? diaDoMes : diasNoMes
+    const diasRestantes = isMesAtualSp ? Math.max(0, diasNoMes - diaDoMes) : 0
+
+    const mediaDiaria = diasDecorridos > 0 ? valorTotal / diasDecorridos : 0
+    const projecaoMes = isMesAtualSp ? mediaDiaria * diasNoMes : valorTotal
+    const restanteMeta = Math.max(0, metaTotal - valorTotal)
+    const necessarioPorDia = diasRestantes > 0 ? restanteMeta / diasRestantes : 0
+
+    // 8. Crescimento vs período anterior do mês (MTD vs MTD do mês anterior)
+    const mtdEndStr = isMesAtualSp ? hojeSpStr : dataFim
+    const mtdStartStr = `${ano}-${String(mes).padStart(2, '0')}-01`
+
+    const prevMonthDate = new Date(ano, mes - 2, 1) // JS: mes-1 é 0-based; aqui mes-2 = mês anterior
+    const prevAno = prevMonthDate.getFullYear()
+    const prevMes = prevMonthDate.getMonth() + 1
+    const prevUltimoDia = new Date(prevAno, prevMes, 0).getDate()
+    const cutoffDia = isMesAtualSp ? diaDoMes : ultimoDia
+    const prevCutoffDia = Math.min(cutoffDia, prevUltimoDia)
+    const prevStartStr = `${prevAno}-${String(prevMes).padStart(2, '0')}-01`
+    const prevEndStr = `${prevAno}-${String(prevMes).padStart(2, '0')}-${String(prevCutoffDia).padStart(2, '0')}`
+
+    const aggMtdAtual = await fetchAggByRange(mtdStartStr, mtdEndStr, dateMode)
+    const aggMtdPrev = await fetchAggByRange(prevStartStr, prevEndStr, dateMode)
+
+    const growthMtd = calcGrowth(aggMtdAtual.valor_total, aggMtdPrev.valor_total)
+
+    if (debug && format === 'json') {
+      return NextResponse.json({
+        success: true,
+        periodo: { mes, ano, dataInicio, dataFim, dataInicioUTC, dataFimUTC },
+        hojeSp: hojeSpStr,
+        dateMode,
+        ranges: {
+          last7Days: { start: seteDiasAtrasSpStr, end: hojeSpStr, agg7Utc, agg7Local },
+          ontem: { ontemSpStr, anteOntemSpStr, aggOntem, aggAnteOntem }
+        },
+        totais: {
+          totalOportunidades,
+          valorTotal,
+          metaTotal,
+          ticketMedioGeral,
+          percentualMetaGeral
+        },
+        insights: {
+          diasNoMes,
+          isMesAtualSp,
+          diaDoMes,
+          diasDecorridos,
+          diasRestantes,
+          mediaDiaria,
+          projecaoMes,
+          restanteMeta,
+          necessarioPorDia,
+          crescimento: {
+            ontemVsAnteontem: growthOntem,
+            mtdVsMesAnterior: {
+              atual: { start: mtdStartStr, end: mtdEndStr, ...aggMtdAtual },
+              anterior: { start: prevStartStr, end: prevEndStr, ...aggMtdPrev },
+              growth: growthMtd
+            }
+          }
+        },
+        debugLog
+      })
+    }
 
     // Gerar SVG
     const svg = gerarSVG(
@@ -254,7 +392,16 @@ export async function GET(request: NextRequest) {
       dataFim,
       valorOntem,
       quantidadeOntem,
-      ontemStr
+      ontemSpStr,
+      mediaDiaria,
+      projecaoMes,
+      restanteMeta,
+      necessarioPorDia,
+      diaDoMes,
+      diasNoMes,
+      diasRestantes,
+      growthOntem.pct,
+      growthMtd.pct
     )
 
     // Converter SVG para PNG usando sharp
@@ -264,8 +411,6 @@ export async function GET(request: NextRequest) {
         compressionLevel: 6
       })
       .toBuffer()
-
-    console.log(`[API meta.png] PNG gerado com sucesso (${pngBuffer.length} bytes)`)
 
     // Retornar PNG
     return new NextResponse(pngBuffer as unknown as BodyInit, {
@@ -279,8 +424,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('[API meta.png] Erro:', error)
-    
     // Retornar imagem de erro
     const errorSvg = `
       <svg width="800" height="200" xmlns="http://www.w3.org/2000/svg">
@@ -329,7 +472,16 @@ function gerarSVG(
   dataFim: string,
   valorOntem: number,
   quantidadeOntem: number,
-  dataOntem: string
+  dataOntem: string,
+  mediaDiaria: number,
+  projecaoMes: number,
+  restanteMeta: number,
+  necessarioPorDia: number,
+  diaDoMes: number,
+  diasNoMes: number,
+  diasRestantes: number,
+  crescimentoOntemPct: number,
+  crescimentoMtdPct: number
 ): string {
   const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
   const mesNome = meses[mes - 1]
@@ -348,6 +500,17 @@ function gerarSVG(
     return `${safe.toFixed(0)}%`
   }
 
+  const formatSignedPercent = (value: number) => {
+    const safe = Number.isFinite(value) ? value : 0
+    const sign = safe > 0 ? '+' : safe < 0 ? '' : ''
+    return `${sign}${safe.toFixed(0)}%`
+  }
+
+  const getTrendColor = (pct: number) => {
+    if (!Number.isFinite(pct) || pct === 0) return '#6b7280'
+    return pct > 0 ? '#16a34a' : '#dc2626'
+  }
+
   const getPercentColor = (p: number) => {
     if (!Number.isFinite(p) || p <= 0) return '#9ca3af'
     if (p >= 100) return '#16a34a'
@@ -362,26 +525,28 @@ function gerarSVG(
   }
 
   const width = 1200
-  const headerHeight = 300 // Aumentado para acomodar card de ontem
   const rowHeight = 46
   const footerHeight = 110
   const tableHeaderHeight = 40
 
   // Layout helpers (para manter alinhado quando mudar a largura)
   const cardX = 80
-  const cardY = 155
+  const cardY = 150
   const cardW = width - 160
-  const cardH = 55
-  const cardCol1X = cardX + 30
-  const cardCol2X = cardX + cardW / 3 + 30
-  const cardCol3X = cardX + (2 * cardW) / 3 + 30
-  const cardDiv1X = cardX + cardW / 3
-  const cardDiv2X = cardX + (2 * cardW) / 3
-  
-  // Card de ontem
-  const cardOntemY = cardY + cardH + 15
-  const cardOntemW = cardW
-  const cardOntemH = 55
+  const cardH = 78
+  const cardGap = 16
+  const cardSingleW = (cardW - 2 * cardGap) / 3
+  const card1X = cardX
+  const card2X = cardX + cardSingleW + cardGap
+  const card3X = cardX + 2 * (cardSingleW + cardGap)
+  const cardPadX = 22
+
+  // Linha 2 de cards
+  const card2Y = cardY + cardH + 12
+  const card2H = cardH
+
+  // Table start (abaixo dos cards)
+  const headerHeight = card2Y + card2H + 30
 
   const colMetaX = width - 540
   const colPercentX = width - 420
@@ -416,9 +581,12 @@ function gerarSVG(
       }
       .title { font-family: 'Roboto', sans-serif; font-size: 42px; font-weight: 700; fill: #111827; }
       .subtitle { font-family: 'Roboto', sans-serif; font-size: 18px; font-weight: 700; fill: #6b7280; }
-      .cardLabel { font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 700; fill: #6b7280; letter-spacing: 0.6px; text-transform: uppercase; }
-      .cardValue { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 700; fill: #111827; }
-      .cardValueGreen { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 700; fill: #059669; }
+      .cardLabel { font-family: 'Roboto', sans-serif; font-size: 11px; font-weight: 700; fill: #6b7280; letter-spacing: 0.7px; text-transform: uppercase; }
+      .cardValue { font-family: 'Roboto', sans-serif; font-size: 24px; font-weight: 700; fill: #111827; }
+      .cardValueGreen { font-family: 'Roboto', sans-serif; font-size: 24px; font-weight: 700; fill: #059669; }
+      .cardSub { font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 400; fill: #6b7280; }
+      .cardLabelGreen { font-family: 'Roboto', sans-serif; font-size: 11px; font-weight: 700; fill: #047857; letter-spacing: 0.7px; text-transform: uppercase; }
+      .cardSubGreen { font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 400; fill: #065f46; }
       .header-text { font-family: 'Roboto', sans-serif; font-size: 13px; font-weight: 700; fill: #374151; text-transform: uppercase; letter-spacing: 0.5px; }
       .cell-text { font-family: 'Roboto', sans-serif; font-size: 15px; font-weight: 700; fill: #1f2937; }
       .cell-number { font-family: 'Roboto', sans-serif; font-size: 15px; font-weight: 700; fill: #059669; }
@@ -427,6 +595,9 @@ function gerarSVG(
       .footer-number { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 700; fill: #059669; }
       .footer-small { font-family: 'Roboto', sans-serif; font-size: 13px; font-weight: 400; fill: #9ca3af; }
     </style>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#111827" flood-opacity="0.10"/>
+    </filter>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#f0fdf4;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
@@ -440,21 +611,37 @@ function gerarSVG(
   <text x="${width / 2}" y="60" class="title" text-anchor="middle">💰 Vendas ${mesNome}/${ano}</text>
   <text x="${width / 2}" y="95" class="subtitle" text-anchor="middle">Oportunidades Ganhas • ${formatDate(dataInicio)} a ${formatDate(dataFim)}</text>
 
-  <!-- Cards de resumo -->
-  <rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" rx="12" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
-  <line x1="${cardDiv1X}" y1="${cardY}" x2="${cardDiv1X}" y2="${cardY + cardH}" stroke="#e5e7eb" stroke-width="2"/>
-  <line x1="${cardDiv2X}" y1="${cardY}" x2="${cardDiv2X}" y2="${cardY + cardH}" stroke="#e5e7eb" stroke-width="2"/>
-  <text x="${cardCol1X}" y="${cardY + 23}" class="cardLabel">Receita</text>
-  <text x="${cardCol1X}" y="${cardY + 47}" class="cardValueGreen">${formatCurrency(valorTotal)}</text>
-  <text x="${cardCol2X}" y="${cardY + 23}" class="cardLabel">Meta / %</text>
-  <text x="${cardCol2X}" y="${cardY + 47}" class="cardValue">${formatCurrency(metaTotal)} (${formatPercent(percentualMetaGeral)})</text>
-  <text x="${cardCol3X}" y="${cardY + 23}" class="cardLabel">Ticket médio</text>
-  <text x="${cardCol3X}" y="${cardY + 47}" class="cardValue">${formatCurrency(ticketMedioGeral)}</text>
-  
-  <!-- Card de vendas de ontem -->
-  <rect x="${cardX}" y="${cardOntemY}" width="${cardOntemW}" height="${cardOntemH}" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
-  <text x="${cardCol1X}" y="${cardOntemY + 23}" class="cardLabel" fill="#047857">📊 Vendas de Ontem (${formatDate(dataOntem)})</text>
-  <text x="${cardCol1X}" y="${cardOntemY + 47}" class="cardValueGreen" fill="#047857">${formatCurrency(valorOntem)} • ${quantidadeOntem} oportunidades</text>
+  <!-- Cards (linha 1) -->
+  <rect x="${card1X}" y="${cardY}" width="${cardSingleW}" height="${cardH}" rx="14" fill="#ffffff" stroke="#e5e7eb" stroke-width="2" filter="url(#cardShadow)"/>
+  <text x="${card1X + cardPadX}" y="${cardY + 24}" class="cardLabel">Receita (mês)</text>
+  <text x="${card1X + cardPadX}" y="${cardY + 54}" class="cardValueGreen">${formatCurrency(valorTotal)}</text>
+  <text x="${card1X + cardPadX}" y="${cardY + 70}" class="cardSub">vs mês ant. (mesmo período): <tspan fill="${getTrendColor(crescimentoMtdPct)}">${formatSignedPercent(crescimentoMtdPct)}</tspan></text>
+
+  <rect x="${card2X}" y="${cardY}" width="${cardSingleW}" height="${cardH}" rx="14" fill="#ffffff" stroke="#e5e7eb" stroke-width="2" filter="url(#cardShadow)"/>
+  <text x="${card2X + cardPadX}" y="${cardY + 24}" class="cardLabel">Meta / % atingida</text>
+  <text x="${card2X + cardPadX}" y="${cardY + 54}" class="cardValue">${formatCurrency(metaTotal)} (${formatPercent(percentualMetaGeral)})</text>
+  <text x="${card2X + cardPadX}" y="${cardY + 70}" class="cardSub">Restante: ${formatCurrency(restanteMeta)} • Nec./dia: ${formatCurrency(necessarioPorDia)}</text>
+
+  <rect x="${card3X}" y="${cardY}" width="${cardSingleW}" height="${cardH}" rx="14" fill="#ffffff" stroke="#e5e7eb" stroke-width="2" filter="url(#cardShadow)"/>
+  <text x="${card3X + cardPadX}" y="${cardY + 24}" class="cardLabel">Ticket / Oportunidades</text>
+  <text x="${card3X + cardPadX}" y="${cardY + 54}" class="cardValue">${formatCurrency(ticketMedioGeral)} • ${totalOportunidades}</text>
+  <text x="${card3X + cardPadX}" y="${cardY + 70}" class="cardSub">Dia ${diaDoMes}/${diasNoMes} • Restam ${diasRestantes}</text>
+
+  <!-- Cards (linha 2) -->
+  <rect x="${card1X}" y="${card2Y}" width="${cardSingleW}" height="${card2H}" rx="14" fill="#ecfdf5" stroke="#10b981" stroke-width="2" filter="url(#cardShadow)"/>
+  <text x="${card1X + cardPadX}" y="${card2Y + 24}" class="cardLabelGreen">Vendas ontem (${formatDate(dataOntem)})</text>
+  <text x="${card1X + cardPadX}" y="${card2Y + 54}" class="cardValueGreen" fill="#047857">${formatCurrency(valorOntem)}</text>
+  <text x="${card1X + cardPadX}" y="${card2Y + 70}" class="cardSubGreen">${quantidadeOntem} oportunidades • <tspan fill="${getTrendColor(crescimentoOntemPct)}">vs anteontem: ${formatSignedPercent(crescimentoOntemPct)}</tspan></text>
+
+  <rect x="${card2X}" y="${card2Y}" width="${cardSingleW}" height="${card2H}" rx="14" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2" filter="url(#cardShadow)"/>
+  <text x="${card2X + cardPadX}" y="${card2Y + 24}" class="cardLabel">Projeção (mês)</text>
+  <text x="${card2X + cardPadX}" y="${card2Y + 54}" class="cardValue">${formatCurrency(projecaoMes)}</text>
+  <text x="${card2X + cardPadX}" y="${card2Y + 70}" class="cardSub">Média/dia: ${formatCurrency(mediaDiaria)}</text>
+
+  <rect x="${card3X}" y="${card2Y}" width="${cardSingleW}" height="${card2H}" rx="14" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2" filter="url(#cardShadow)"/>
+  <text x="${card3X + cardPadX}" y="${card2Y + 24}" class="cardLabel">Ritmo p/ bater a meta</text>
+  <text x="${card3X + cardPadX}" y="${card2Y + 54}" class="cardValue">${formatCurrency(necessarioPorDia)}</text>
+  <text x="${card3X + cardPadX}" y="${card2Y + 70}" class="cardSub">por dia até o fim do mês</text>
   
   <!-- Linha separadora -->
   <line x1="60" y1="${headerHeight - 8}" x2="${width - 60}" y2="${headerHeight - 8}" stroke="#d1d5db" stroke-width="2"/>
@@ -501,7 +688,7 @@ function gerarSVG(
   <text x="${colOpsX}" y="${yPos + 40}" class="footer-number" text-anchor="end" fill="#111827">${totalOportunidades}</text>
   <text x="${colReceitaX}" y="${yPos + 40}" class="footer-number" text-anchor="end" fill="#059669">${formatCurrency(valorTotal)}</text>
   
-  <text x="${width / 2}" y="${yPos + 75}" class="footer-small" text-anchor="middle" fill="#6b7280">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</text>
+  <text x="${width / 2}" y="${yPos + 75}" class="footer-small" text-anchor="middle" fill="#6b7280">Gerado em ${new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short' }).format(new Date())} às ${new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', timeStyle: 'medium' }).format(new Date())} (SP)</text>
   
 </svg>`
 
