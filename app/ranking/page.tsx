@@ -1,15 +1,9 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -18,7 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Calendar } from 'lucide-react'
 import { 
   FaMedal,
   FaTrophy,
@@ -27,6 +20,7 @@ import {
   FaCalendarAlt
 } from 'react-icons/fa'
 import { HiRefresh } from 'react-icons/hi'
+import PainelFiltersInline from '@/components/painel/PainelFiltersInline'
 
 interface RankingVendedor {
   vendedor_id: number
@@ -55,15 +49,211 @@ export default function RankingPage() {
   const [mesAtual, setMesAtual] = useState(new Date().getMonth() + 1)
   const [anoAtual, setAnoAtual] = useState(new Date().getFullYear())
 
+  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false)
+  
+  // Estados para PainelFiltersInline
+  const periodoInicial = useMemo(() => {
+    const inicio = new Date()
+    const fim = new Date()
+    inicio.setDate(1)
+    inicio.setHours(0, 0, 0, 0)
+    fim.setHours(23, 59, 59, 999)
+    return {
+      inicio: inicio.toISOString().split('T')[0],
+      fim: fim.toISOString().split('T')[0]
+    }
+  }, [])
+  
+  const [filtrosPainel, setFiltrosPainel] = useState(() => ({
+    unidadesSelecionadas: [] as number[],
+    periodoTipo: 'este-mes' as string,
+    periodoInicio: periodoInicial.inicio,
+    periodoFim: periodoInicial.fim,
+    funilSelecionado: 'todos',
+    grupoSelecionado: 'todos',
+    gainDateInicio: undefined as string | undefined,
+    gainDateFim: undefined as string | undefined
+  }))
+  
+  const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
+  const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
+  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string; unidadeIds?: number[] }>>([])
+  
+  const filtrosAtivos = useMemo(() => {
+    return filtrosPainel.unidadesSelecionadas.length > 0 ||
+           filtrosPainel.periodoTipo !== 'este-mes' ||
+           filtrosPainel.funilSelecionado !== 'todos' ||
+           filtrosPainel.grupoSelecionado !== 'todos' ||
+           filtrosPainel.gainDateInicio !== undefined ||
+           filtrosPainel.gainDateFim !== undefined
+  }, [filtrosPainel])
+  
+  // Formatar título do período
+  const tituloPeriodo = useMemo(() => {
+    const formatDate = (dateStr: string) => {
+      const [year, month, day] = dateStr.split('-')
+      return `${day}/${month}/${year}`
+    }
+    
+    if (filtrosPainel.periodoInicio && filtrosPainel.periodoFim) {
+      return `${formatDate(filtrosPainel.periodoInicio)} a ${formatDate(filtrosPainel.periodoFim)}`
+    }
+    
+    return `${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`
+  }, [filtrosPainel.periodoInicio, filtrosPainel.periodoFim, mesAtual, anoAtual])
+  
+  // Buscar unidades, funis e grupos
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [unidadesRes, funisRes, gruposRes] = await Promise.all([
+          fetch('/api/unidades'),
+          fetch('/api/funis'),
+          fetch('/api/unidades/grupos')
+        ])
+        
+        if (unidadesRes.ok) {
+          const unidadesData = await unidadesRes.json()
+          setUnidadesList(unidadesData.unidades?.map((u: any) => ({
+            id: u.id,
+            nome: u.nome || u.name || 'Sem nome'
+          })) || [])
+        }
+        
+        if (funisRes.ok) {
+          const funisData = await funisRes.json()
+          setFunis(funisData.funis || [])
+        }
+        
+        if (gruposRes.ok) {
+          const gruposData = await gruposRes.json()
+          setGrupos(gruposData.grupos || [])
+        }
+      } catch (err) {
+        setUnidadesList([])
+        setFunis([])
+        setGrupos([])
+      }
+    }
+    
+    fetchData()
+  }, [])
+  
+  // Função para calcular período baseado no tipo
+  const calcularPeriodo = useCallback((tipo: string) => {
+    const hoje = new Date()
+    const inicio = new Date()
+    const fim = new Date()
+
+    switch (tipo) {
+      case 'este-mes':
+        inicio.setDate(1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'mes-passado':
+        inicio.setMonth(hoje.getMonth() - 1, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setDate(0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'esta-semana':
+        const diaSemana = hoje.getDay()
+        inicio.setDate(hoje.getDate() - diaSemana)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'semana-passada':
+        const diaSemanaAtual = hoje.getDay()
+        inicio.setDate(hoje.getDate() - diaSemanaAtual - 7)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setDate(hoje.getDate() - diaSemanaAtual - 1)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'este-ano':
+        inicio.setMonth(0, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setHours(23, 59, 59, 999)
+        break
+      case 'ano-anterior':
+        inicio.setFullYear(hoje.getFullYear() - 1, 0, 1)
+        inicio.setHours(0, 0, 0, 0)
+        fim.setFullYear(hoje.getFullYear() - 1, 11, 31)
+        fim.setHours(23, 59, 59, 999)
+        break
+      default:
+        return { inicio: '', fim: '' }
+    }
+
+    return {
+      inicio: inicio.toISOString().split('T')[0],
+      fim: fim.toISOString().split('T')[0]
+    }
+  }, [])
+
+  // Atualizar datas quando o tipo de período mudar
+  useEffect(() => {
+    if (filtrosPainel.periodoTipo !== 'personalizado') {
+      const { inicio, fim } = calcularPeriodo(filtrosPainel.periodoTipo)
+      if (inicio && fim) {
+        setFiltrosPainel(prev => ({
+          ...prev,
+          periodoInicio: inicio,
+          periodoFim: fim
+        }))
+      }
+    }
+  }, [filtrosPainel.periodoTipo, calcularPeriodo])
+
   const fetchData = async () => {
     setLoading(true)
     setError('')
     
     try {
-      // Buscar rankings mensal e anual em paralelo
+      // Preparar parâmetros da URL
+      const params = new URLSearchParams()
+      
+      // Período
+      if (filtrosPainel.periodoInicio && filtrosPainel.periodoFim) {
+        params.set('dataInicio', filtrosPainel.periodoInicio)
+        params.set('dataFim', filtrosPainel.periodoFim)
+        
+        // Calcular mês/ano para exibição
+        const dataInicio = new Date(filtrosPainel.periodoInicio)
+        setMesAtual(dataInicio.getMonth() + 1)
+        setAnoAtual(dataInicio.getFullYear())
+      }
+      
+      // Unidades
+      if (filtrosPainel.unidadesSelecionadas.length > 0) {
+        params.set('unidades', filtrosPainel.unidadesSelecionadas.join(','))
+      }
+      
+      // Funil
+      if (filtrosPainel.funilSelecionado && filtrosPainel.funilSelecionado !== 'todos') {
+        params.set('funil', filtrosPainel.funilSelecionado)
+      }
+      
+      // Grupo
+      if (filtrosPainel.grupoSelecionado && filtrosPainel.grupoSelecionado !== 'todos') {
+        params.set('grupo', filtrosPainel.grupoSelecionado)
+      }
+      
+      // Data de Ganho
+      if (filtrosPainel.gainDateInicio) {
+        params.set('gainDateInicio', filtrosPainel.gainDateInicio)
+      }
+      if (filtrosPainel.gainDateFim) {
+        params.set('gainDateFim', filtrosPainel.gainDateFim)
+      }
+      
+      const anoAtualParaAnual = new Date().getFullYear()
+      
+      // Buscar rankings com filtros
+      const queryString = params.toString()
       const [rankingMensalResponse, rankingAnualResponse] = await Promise.all([
-        fetch(`/api/ranking/vendedores?tipo=mensal&mes=${mesAtual}&ano=${anoAtual}`),
-        fetch(`/api/ranking/vendedores?tipo=anual&ano=${anoAtual}`)
+        fetch(`/api/ranking/vendedores?tipo=personalizado&${queryString}`),
+        fetch(`/api/ranking/vendedores?tipo=anual&ano=${anoAtualParaAnual}&${queryString}`)
       ])
 
       const [rankingMensalData, rankingAnualData] = await Promise.all([
@@ -72,7 +262,7 @@ export default function RankingPage() {
       ])
 
       if (!rankingMensalResponse.ok) {
-        throw new Error(rankingMensalData.message || 'Erro ao carregar ranking mensal')
+        throw new Error(rankingMensalData.message || 'Erro ao carregar ranking do período')
       }
 
       if (!rankingAnualResponse.ok) {
@@ -104,7 +294,7 @@ export default function RankingPage() {
     }
   }
 
-  const renderPodio = (ranking: RankingVendedor[], titulo: string, icon?: React.ReactNode) => {
+  const renderPodio = (ranking: RankingVendedor[]) => {
     const top3 = ranking.slice(0, 3)
     
     if (top3.length === 0) {
@@ -113,16 +303,12 @@ export default function RankingPage() {
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          {icon}
-          <h3 className="text-lg font-semibold">{titulo}</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           {top3.map((vendedor, index) => (
             <div 
-              key={`${titulo}-podio-${vendedor.vendedor_id}`}
+              key={`podio-${vendedor.vendedor_id}`}
               className={`
-                text-center p-4 rounded-lg border-2 shadow-lg transition-all duration-300 hover:scale-105
+                text-center p-3 sm:p-4 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-md
                 ${index === 0 ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20' : 
                   index === 1 ? 'border-gray-400 bg-gray-50 dark:bg-gray-950/20' : 
                   'border-orange-600 bg-orange-50 dark:bg-orange-950/20'}
@@ -136,9 +322,6 @@ export default function RankingPage() {
                   <h4 className="font-bold text-sm">
                     {vendedor.name} {vendedor.lastName}
                   </h4>
-                  <p className="text-xs text-muted-foreground">
-                    @{vendedor.username}
-                  </p>
                   <div className="space-y-1">
                     <div className="text-lg font-bold text-green-600">
                       {formatCurrency(vendedor.total_realizado)}
@@ -159,72 +342,121 @@ export default function RankingPage() {
   const renderTabelaRanking = (ranking: RankingVendedor[], titulo: string, icon?: React.ReactNode) => {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
           {icon}
-          <h3 className="text-lg font-semibold">{titulo}</h3>
+          <h3 className="text-base font-semibold text-gray-900">{titulo}</h3>
+          </div>
+          <Badge variant="secondary" className="hidden sm:inline-flex">
+            {ranking.length} vendedor{ranking.length !== 1 ? 'es' : ''}
+          </Badge>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-center w-16">Pos</TableHead>
-              <TableHead>Vendedor</TableHead>
-              <TableHead className="text-right">Total Vendas</TableHead>
-              <TableHead className="text-center">Oportunidades</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ranking.map((vendedor) => (
-              <TableRow 
-                key={`${titulo}-table-${vendedor.vendedor_id}`}
-                className={vendedor.posicao <= 3 ? 'bg-muted/50' : ''}
-              >
-                <TableCell className="text-center">
-                  <div className="flex items-center justify-center">
-                    {vendedor.posicao <= 3 ? (
-                      getMedalIcon(vendedor.medalha)
-                    ) : (
-                      <span className="font-bold text-muted-foreground">
-                        #{vendedor.posicao}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <div className="font-medium text-sm">
+        <div className="rounded-xl border bg-white overflow-x-auto">
+          <Table className="min-w-[640px]">
+            <TableHeader className="bg-gray-50">
+              <TableRow>
+                <TableHead className="text-center w-16">Pos</TableHead>
+                <TableHead>Vendedor</TableHead>
+                <TableHead className="text-right">Total Vendas</TableHead>
+                <TableHead className="text-center">Ops</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ranking.map((vendedor, idx) => (
+                <TableRow 
+                  key={`${titulo}-table-${vendedor.vendedor_id}`}
+                  className={[
+                    'hover:bg-gray-50',
+                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40',
+                    vendedor.posicao <= 3 ? 'bg-amber-50/40' : ''
+                  ].join(' ')}
+                >
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center">
+                      {vendedor.posicao <= 3 ? (
+                        getMedalIcon(vendedor.medalha)
+                      ) : (
+                        <span className="font-semibold text-gray-600">
+                          #{vendedor.posicao}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium text-sm text-gray-900">
                       {vendedor.name} {vendedor.lastName}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {vendedor.email}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm font-bold text-green-600">
-                  {formatCurrency(vendedor.total_realizado)}
-                </TableCell>
-                <TableCell className="text-center">
-                  <div className="flex items-center justify-center gap-1">
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm font-bold text-green-700">
+                    {formatCurrency(vendedor.total_realizado)}
+                  </TableCell>
+                  <TableCell className="text-center">
                     <span className="font-semibold">{vendedor.total_oportunidades}</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     )
   }
 
   useEffect(() => {
     fetchData()
-  }, [mesAtual, anoAtual])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    filtrosPainel.periodoInicio, 
+    filtrosPainel.periodoFim,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(filtrosPainel.unidadesSelecionadas),
+    filtrosPainel.funilSelecionado,
+    filtrosPainel.grupoSelecionado,
+    filtrosPainel.gainDateInicio,
+    filtrosPainel.gainDateFim
+  ])
+
+  const funilNomeSelecionado = useMemo(() => {
+    if (!filtrosPainel.funilSelecionado || filtrosPainel.funilSelecionado === 'todos') return null
+    const id = Number(filtrosPainel.funilSelecionado)
+    const found = funis.find((f) => Number(f.id) === id)
+    return found?.funil_nome || `Funil ${filtrosPainel.funilSelecionado}`
+  }, [filtrosPainel.funilSelecionado, funis])
+
+  const grupoNomeSelecionado = useMemo(() => {
+    if (!filtrosPainel.grupoSelecionado || filtrosPainel.grupoSelecionado === 'todos') return null
+    const id = Number(filtrosPainel.grupoSelecionado)
+    const found = grupos.find((g) => Number(g.id) === id)
+    return found?.nome || `Grupo ${filtrosPainel.grupoSelecionado}`
+  }, [filtrosPainel.grupoSelecionado, grupos])
+
+  const dataGanhoLabel = useMemo(() => {
+    if (!filtrosPainel.gainDateInicio && !filtrosPainel.gainDateFim) return null
+    const inicio = filtrosPainel.gainDateInicio ? filtrosPainel.gainDateInicio.split('-').reverse().join('/') : '...'
+    const fim = filtrosPainel.gainDateFim ? filtrosPainel.gainDateFim.split('-').reverse().join('/') : '...'
+    return `Ganho: ${inicio} a ${fim}`
+  }, [filtrosPainel.gainDateInicio, filtrosPainel.gainDateFim])
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <HiRefresh className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2">Carregando ranking...</span>
+      <div className="w-full space-y-6">
+        <div className="rounded-xl border bg-white">
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="h-7 w-64 bg-gray-100 rounded" />
+                <div className="h-4 w-80 bg-gray-100 rounded" />
+              </div>
+              <div className="h-10 w-28 bg-gray-100 rounded" />
+            </div>
+          </div>
+          <div className="border-t px-6 pt-4">
+            <div className="h-20 bg-gray-100 rounded-xl mb-6" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="h-[420px] bg-gray-100 rounded-xl" />
+          <div className="h-[420px] bg-gray-100 rounded-xl" />
         </div>
       </div>
     )
@@ -232,7 +464,24 @@ export default function RankingPage() {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="w-full space-y-6">
+        <div className="rounded-xl border bg-white">
+          <div className="p-6">
+            <h1 className="text-2xl font-bold text-gray-900">Ranking de Vendedores</h1>
+            <p className="text-sm text-muted-foreground">Selecione os filtros e tente novamente.</p>
+          </div>
+          <div className="border-t px-6 pt-4">
+            <PainelFiltersInline
+              filtros={filtrosPainel}
+              setFiltros={setFiltrosPainel}
+              unidadesList={unidadesList}
+              funis={funis}
+              grupos={grupos}
+              periodoInicial={periodoInicial}
+              filtrosAtivos={filtrosAtivos}
+            />
+          </div>
+        </div>
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-6">
             <div className="text-center">
@@ -250,120 +499,105 @@ export default function RankingPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Ranking de Vendedores</h1>
-          <p className="text-muted-foreground">
-            Rankings mensal e anual baseados em vendas concluídas (status: gain)
+    <div className="w-full space-y-4 sm:space-y-6">
+      {/* Topo */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Ranking de Vendedores</h1>
+          <span className="hidden sm:inline text-gray-300">•</span>
+          <p className="text-sm text-muted-foreground">
+            Rankings baseados em oportunidades com <span className="font-semibold">status gain</span>.
           </p>
         </div>
-        <Button onClick={fetchData} variant="outline">
-          <HiRefresh className="h-4 w-4 mr-2" />
-          Atualizar
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">Período: {tituloPeriodo}</Badge>
+          {filtrosPainel.unidadesSelecionadas.length > 0 && (
+            <Badge variant="secondary">Unidades: {filtrosPainel.unidadesSelecionadas.length}</Badge>
+          )}
+          {grupoNomeSelecionado && <Badge variant="secondary">{grupoNomeSelecionado}</Badge>}
+          {funilNomeSelecionado && <Badge variant="secondary">{funilNomeSelecionado}</Badge>}
+          {dataGanhoLabel && <Badge variant="secondary">{dataGanhoLabel}</Badge>}
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div>
+        {/* Toggle mobile */}
+        <div className="sm:hidden flex items-center justify-between pb-2">
+          <span className="text-sm font-semibold text-gray-900">Filtros</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 px-3"
+            onClick={() => setFiltersOpenMobile((v) => !v)}
+          >
+            {filtersOpenMobile ? 'Ocultar' : 'Mostrar'}
+          </Button>
+        </div>
+
+        <div className={`${filtersOpenMobile ? 'block' : 'hidden'} sm:block`}>
+          <PainelFiltersInline
+            filtros={filtrosPainel}
+            setFiltros={setFiltrosPainel}
+            unidadesList={unidadesList}
+            funis={funis}
+            grupos={grupos}
+            periodoInicial={periodoInicial}
+            filtrosAtivos={filtrosAtivos}
+          />
+        </div>
       </div>
 
       {/* Rankings */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 xl:divide-x xl:divide-gray-200">
-        {/* Ranking Mensal */}
-        <div className="space-y-6">
-          {/* Filtro Mensal */}
-          <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Filtro Mensal:</span>
-            </div>
-            
-            {/* Filtro de Mês */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-blue-700 dark:text-blue-300">Mês:</span>
-              <Select value={mesAtual.toString()} onValueChange={(value) => setMesAtual(parseInt(value))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => (
-                    <SelectItem key={mes} value={mes.toString()}>
-                      {new Date(2024, mes - 1).toLocaleString('pt-BR', { month: 'long' })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-gray-50/60">
+            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+              <FaChartLine className="h-4 w-4 text-blue-600" />
+              Ranking do período • {tituloPeriodo}
+              <span className="text-gray-300">•</span>
+              <FaTrophy className="h-4 w-4 text-yellow-500" />
+              <span>Pódio</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 space-y-5 sm:space-y-6">
+            {rankingMensal.length > 0 ? (
+              <>
+                {renderPodio(rankingMensal)}
+                {renderTabelaRanking(rankingMensal, 'Ranking completo', <FaChartLine className="h-5 w-5 text-blue-500" />)}
+              </>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-muted-foreground">Nenhum dado encontrado para {tituloPeriodo}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-            {/* Filtro de Ano */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-blue-700 dark:text-blue-300">Ano:</span>
-              <Select value={anoAtual.toString()} onValueChange={(value) => setAnoAtual(parseInt(value))}>
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((ano) => (
-                    <SelectItem key={ano} value={ano.toString()}>
-                      {ano}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {rankingMensal.length > 0 ? (
-            <>
-              {renderPodio(rankingMensal, `Pódio - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
-              {renderTabelaRanking(rankingMensal, `Ranking Completo - ${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`, <FaChartLine className="h-5 w-5 text-blue-500" />)}
-            </>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">Nenhum dado encontrado para {new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/{anoAtual}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Separador para telas menores */}
-        <div className="xl:hidden border-t border-gray-200 my-8"></div>
-
-        {/* Ranking Anual */}
-        <div className="space-y-6 xl:pl-8">
-          {/* Filtro Anual */}
-          <div className="flex items-center gap-4 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium text-green-800 dark:text-green-200">Filtro Anual:</span>
-            </div>
-            
-            {/* Filtro de Ano */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-green-700 dark:text-green-300">Ano:</span>
-              <Select value={anoAtual.toString()} onValueChange={(value) => setAnoAtual(parseInt(value))}>
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((ano) => (
-                    <SelectItem key={ano} value={ano.toString()}>
-                      {ano}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {rankingAnual.length > 0 ? (
-            <>
-              {renderPodio(rankingAnual, `Pódio - ${anoAtual}`, <FaTrophy className="h-5 w-5 text-yellow-500" />)}
-              {renderTabelaRanking(rankingAnual, `Ranking Completo - ${anoAtual}`, <FaCalendarAlt className="h-5 w-5 text-green-500" />)}
-            </>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">Nenhum dado encontrado para o ano {anoAtual}</p>
-            </div>
-          )}
-        </div>
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-gray-50/60">
+            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+              <FaCalendarAlt className="h-4 w-4 text-emerald-600" />
+              Ranking anual • {anoAtual}
+              <span className="text-gray-300">•</span>
+              <FaTrophy className="h-4 w-4 text-yellow-500" />
+              <span>Pódio</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 space-y-5 sm:space-y-6">
+            {rankingAnual.length > 0 ? (
+              <>
+                {renderPodio(rankingAnual)}
+                {renderTabelaRanking(rankingAnual, 'Ranking completo', <FaCalendarAlt className="h-5 w-5 text-emerald-600" />)}
+              </>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-muted-foreground">Nenhum dado encontrado para o ano {anoAtual}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

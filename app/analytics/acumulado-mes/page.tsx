@@ -5,6 +5,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 import PainelFiltersInline from "@/components/painel/PainelFiltersInline"
 import { PainelUnidadesGrid } from "@/components/painel/PainelUnidadesGrid"
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BarChart3, Calendar } from "lucide-react"
 import { 
@@ -28,6 +29,7 @@ interface AcumuladoDiario {
 
 export default function AcumuladoMesPage() {
   const abortControllerRef = useRef<AbortController | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   // Período inicial (mês atual)
   const periodoInicial = useMemo(() => {
@@ -314,18 +316,78 @@ export default function AcumuladoMesPage() {
     }
   }, [dadosAcumulados])
 
+  const handleExportExcel = useCallback(async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const periodoInicio = filtros.periodoInicio || periodoInicial.inicio
+      const periodoFim = filtros.periodoFim || periodoInicial.fim
+
+      const unidadesParam = filtrosParaGrid.unidadesSelecionadas.length > 0
+        ? filtrosParaGrid.unidadesSelecionadas.join(',')
+        : ''
+
+      const params = new URLSearchParams()
+      params.set('data_inicio', periodoInicio)
+      params.set('data_fim', periodoFim)
+
+      if (unidadesParam) params.set('unidade_id', unidadesParam)
+
+      if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos') {
+        params.set('funil_id', filtros.funilSelecionado)
+      }
+
+      if (filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos') {
+        params.set('grupo_id', filtros.grupoSelecionado)
+      }
+
+      const res = await fetch(`/api/analytics/acumulado-mes/export?${params.toString()}`, { cache: 'no-store' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.message || 'Falha ao exportar Excel')
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `acumulado_${periodoInicio}_a_${periodoFim}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Evitar console.*; falha silenciosa (página já mostra dados sem bloquear)
+    } finally {
+      setExporting(false)
+    }
+  }, [exporting, filtros, filtrosParaGrid.unidadesSelecionadas, periodoInicial.fim, periodoInicial.inicio])
+
   return (
     <ProtectedRoute>
       <div className="w-full">
         {/* Cabeçalho */}
         <div className="flex flex-col gap-2 mb-6">
-          <div className="flex items-center gap-3">
-            <BarChart3 className="h-7 w-7 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Acumulado do Período</h1>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Calendar className="h-4 w-4" />
-            <span>{periodoLabel}</span>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="h-7 w-7 text-blue-600" />
+                <h1 className="text-2xl font-bold text-gray-900">Acumulado do Período</h1>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Calendar className="h-4 w-4" />
+                <span>{periodoLabel}</span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleExportExcel}
+              disabled={exporting || !filtros.periodoInicio || !filtros.periodoFim}
+            >
+              {exporting ? 'Exportando...' : 'Exportar Excel'}
+            </Button>
           </div>
         </div>
 
