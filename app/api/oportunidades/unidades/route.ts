@@ -263,7 +263,6 @@ export async function GET(request: NextRequest) {
         WHERE unidade_id = ? 
           AND mes = ? 
           AND ano = ?
-          AND status = 'ativa'
       `
       const resultMeta = await executeQuery(queryMeta, [unidade.id, mesMeta, anoMeta]) as any[]
       const metaValor = Number(resultMeta[0]?.meta_total || 0)

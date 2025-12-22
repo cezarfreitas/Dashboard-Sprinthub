@@ -20,25 +20,38 @@ CREATE TABLE colunas_funil (
 
 CREATE TABLE configuracoes (
   id int NOT NULL,
-  chave varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  valor text COLLATE utf8mb4_unicode_ci,
-  descricao varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  tipo enum('string','number','boolean','json') COLLATE utf8mb4_unicode_ci DEFAULT 'string',
+  chave varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  valor text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  descricao varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  tipo enum('string','number','boolean','json') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'string',
   created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE contatos_whatsapp (
+  id_contato varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ID único do contato (ex: sistema CRM) - Chave Primária',
+  wpp_filial varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Telefone WhatsApp da filial (formato: 5527981920127)',
+  wpp_contato varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Telefone WhatsApp do contato (formato: 5511989882867)',
+  vendedor varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nome completo do vendedor',
+  vendedor_id int NOT NULL COMMENT 'ID do vendedor na tabela vendedores',
+  nome varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nome do contato',
+  ativo tinyint(1) DEFAULT '1' COMMENT 'Contato ativo (1) ou inativo (0)',
+  observacoes text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Observações sobre o contato',
+  created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Contatos WhatsApp vinculados a vendedores e filiais';
+
 CREATE TABLE cron_sync_history (
   id int NOT NULL,
-  job_name varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  job_name varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   started_at datetime NOT NULL,
   completed_at datetime DEFAULT NULL,
-  status enum('running','success','error') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'running',
-  type enum('manual','scheduled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'scheduled',
+  status enum('running','success','error') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'running',
+  type enum('manual','scheduled') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'scheduled',
   records_inserted int DEFAULT NULL,
   records_updated int DEFAULT NULL,
   records_errors int DEFAULT NULL,
-  error_message text COLLATE utf8mb4_unicode_ci,
+  error_message text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   duration_seconds decimal(10,2) DEFAULT NULL,
   created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -51,8 +64,8 @@ CREATE TABLE fila_leads_log (
   posicao_fila tinyint UNSIGNED NOT NULL COMMENT 'Posição do vendedor na fila (normalmente 1)',
   total_fila tinyint UNSIGNED NOT NULL COMMENT 'Total de vendedores na fila no momento',
   owner_anterior int UNSIGNED DEFAULT NULL COMMENT 'ID do owner anterior do lead',
-  user_access_anterior text COLLATE utf8mb4_unicode_ci COMMENT 'userAccess anterior do lead em JSON',
-  department_access_anterior text COLLATE utf8mb4_unicode_ci COMMENT 'departmentAccess anterior do lead em JSON',
+  user_access_anterior text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'userAccess anterior do lead em JSON',
+  department_access_anterior text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'departmentAccess anterior do lead em JSON',
   distribuido_em timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Data/hora da distribuição'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Log de distribuição de leads via fila rotativa com histórico antes/depois';
 
@@ -70,11 +83,10 @@ CREATE TABLE metas_mensais (
   mes int NOT NULL,
   ano int NOT NULL,
   meta_valor decimal(12,2) NOT NULL DEFAULT '0.00',
-  meta_descricao varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  status enum('ativa','pausada','cancelada') COLLATE utf8mb4_unicode_ci DEFAULT 'ativa',
+  meta_descricao varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE motivos_de_perda (
   id int NOT NULL,
@@ -86,13 +98,13 @@ CREATE TABLE motivos_de_perda (
 CREATE TABLE notificacao_oportunidades (
   id int NOT NULL,
   oportunidade_id bigint UNSIGNED NOT NULL,
-  nome varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  nome varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   valor decimal(15,2) DEFAULT '0.00',
-  status varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'open',
+  status varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'open',
   data_criacao datetime NOT NULL,
-  vendedor varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  unidade varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  cor varchar(7) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Cor customizada em formato hex (#RRGGBB)',
+  vendedor varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  unidade varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  cor varchar(7) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Cor customizada em formato hex (#RRGGBB)',
   consultado_em timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -130,11 +142,25 @@ CREATE TABLE oportunidades (
   coluna_funil_id int DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE otp_codes (
+  id int UNSIGNED NOT NULL,
+  email varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Email do vendedor/consultor',
+  code varchar(6) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Código OTP de 6 dígitos',
+  vendedor_id int NOT NULL COMMENT 'ID do vendedor associado',
+  expires_at datetime NOT NULL COMMENT 'Data/hora de expiração do código',
+  verified tinyint(1) DEFAULT '0' COMMENT 'Se o código já foi usado (0 = não, 1 = sim)',
+  verified_at datetime DEFAULT NULL COMMENT 'Data/hora da verificação',
+  attempts int DEFAULT '0' COMMENT 'Número de tentativas de verificação',
+  ip_address varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'IP de origem da solicitação',
+  user_agent text COLLATE utf8mb4_unicode_ci COMMENT 'User agent do navegador',
+  created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Códigos OTP para autenticação de consultores';
+
 CREATE TABLE unidades (
   id int NOT NULL,
-  nome varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  responsavel varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  name varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  nome varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  responsavel varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  name varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   grupo_id int DEFAULT NULL,
   department_id int DEFAULT NULL,
   show_sac360 tinyint DEFAULT '0',
@@ -149,7 +175,7 @@ CREATE TABLE unidades (
   accs json DEFAULT NULL,
   google_business_messages json DEFAULT NULL,
   dpto_gestao int DEFAULT NULL COMMENT 'ID do sub-departamento de gestão',
-  user_gestao int DEFAULT NULL COMMENT 'ID do usuário do sub-departamento de gestão',
+  user_gestao json DEFAULT NULL COMMENT 'IDs dos usuários gestores do sub-departamento de gestão (array JSON)',
   ativo tinyint DEFAULT '1',
   synced_at timestamp NULL DEFAULT NULL,
   created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
@@ -168,38 +194,38 @@ CREATE TABLE unidade_grupos (
 
 CREATE TABLE usuarios_sistema (
   id int NOT NULL,
-  nome varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  email varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  whatsapp varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  senha varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  nome varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  email varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  whatsapp varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  senha varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   permissoes json DEFAULT NULL,
   ativo tinyint(1) DEFAULT '1',
   created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  reset_token varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  reset_token varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   reset_token_expires datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE vendedores (
   id int NOT NULL,
-  name varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  lastName varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  email varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  cpf varchar(14) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  username varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  name varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  lastName varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  email varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  cpf varchar(14) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  username varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   birthDate date NOT NULL,
-  telephone varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  photo text COLLATE utf8mb4_unicode_ci,
+  telephone varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  photo text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   admin tinyint DEFAULT '0',
-  branch varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  position_company varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  skills text COLLATE utf8mb4_unicode_ci,
-  state varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  city varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  whatsapp_automation varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  branch varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  position_company varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  skills text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  state varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  city varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  whatsapp_automation varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   last_login datetime DEFAULT NULL,
   last_action datetime DEFAULT NULL,
-  status enum('active','inactive','blocked') COLLATE utf8mb4_unicode_ci DEFAULT 'active',
+  status enum('active','inactive','blocked') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'active',
   synced_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -219,19 +245,6 @@ CREATE TABLE vendedores_ausencias (
   created_by int DEFAULT NULL COMMENT 'ID do usuário que criou a ausência'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE contatos_whatsapp (
-  id_contato varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ID único do contato - Chave Primária',
-  wpp_filial varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Telefone WhatsApp da filial',
-  wpp_contato varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Telefone WhatsApp do contato',
-  vendedor varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nome completo do vendedor',
-  vendedor_id int NOT NULL COMMENT 'ID do vendedor na tabela vendedores',
-  nome varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nome do contato',
-  ativo tinyint(1) DEFAULT '1' COMMENT 'Contato ativo (1) ou inativo (0)',
-  observacoes text COLLATE utf8mb4_unicode_ci COMMENT 'Observações sobre o contato',
-  created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Contatos WhatsApp vinculados a vendedores e filiais';
-
 
 ALTER TABLE colunas_funil
   ADD PRIMARY KEY (id),
@@ -243,6 +256,15 @@ ALTER TABLE colunas_funil
 ALTER TABLE configuracoes
   ADD PRIMARY KEY (id),
   ADD UNIQUE KEY chave (chave);
+
+ALTER TABLE contatos_whatsapp
+  ADD PRIMARY KEY (id_contato),
+  ADD KEY idx_vendedor_id (vendedor_id),
+  ADD KEY idx_wpp_filial (wpp_filial),
+  ADD KEY idx_wpp_contato (wpp_contato),
+  ADD KEY idx_nome (nome),
+  ADD KEY idx_ativo (ativo),
+  ADD KEY idx_created_at (created_at);
 
 ALTER TABLE cron_sync_history
   ADD PRIMARY KEY (id),
@@ -271,8 +293,7 @@ ALTER TABLE metas_mensais
   ADD KEY idx_vendedor_id (vendedor_id),
   ADD KEY idx_unidade_id (unidade_id),
   ADD KEY idx_mes_ano (mes,ano),
-  ADD KEY idx_vendedor_unidade_mes (vendedor_id,unidade_id,mes,ano),
-  ADD KEY idx_status (status);
+  ADD KEY idx_vendedor_unidade_mes (vendedor_id,unidade_id,mes,ano);
 
 ALTER TABLE motivos_de_perda
   ADD PRIMARY KEY (id),
@@ -289,6 +310,15 @@ ALTER TABLE oportunidades
   ADD KEY idx_created_at (created_at),
   ADD KEY idx_coluna_funil_id (coluna_funil_id);
 
+ALTER TABLE otp_codes
+  ADD PRIMARY KEY (id),
+  ADD KEY idx_email (email),
+  ADD KEY idx_code (code),
+  ADD KEY idx_vendedor_id (vendedor_id),
+  ADD KEY idx_expires_at (expires_at),
+  ADD KEY idx_verified (verified),
+  ADD KEY idx_email_code_valid (email,code,verified,expires_at);
+
 ALTER TABLE unidades
   ADD PRIMARY KEY (id),
   ADD KEY idx_nome (nome),
@@ -297,7 +327,6 @@ ALTER TABLE unidades
   ADD KEY idx_ativo (ativo),
   ADD KEY idx_synced_at (synced_at),
   ADD KEY idx_dpto_gestao (dpto_gestao),
-  ADD KEY idx_user_gestao (user_gestao),
   ADD KEY idx_grupo_id (grupo_id);
 
 ALTER TABLE unidade_grupos
@@ -329,16 +358,7 @@ ALTER TABLE vendedores_ausencias
   ADD KEY idx_vendedor_id (vendedor_id),
   ADD KEY idx_data_inicio (data_inicio),
   ADD KEY idx_data_fim (data_fim),
-  ADD KEY idx_unidade_vendedor (unidade_id, vendedor_id);
-
-ALTER TABLE contatos_whatsapp
-  ADD PRIMARY KEY (id_contato),
-  ADD KEY idx_vendedor_id (vendedor_id),
-  ADD KEY idx_wpp_filial (wpp_filial),
-  ADD KEY idx_wpp_contato (wpp_contato),
-  ADD KEY idx_nome (nome),
-  ADD KEY idx_ativo (ativo),
-  ADD KEY idx_created_at (created_at);
+  ADD KEY idx_periodo_ausencia (vendedor_id,data_inicio,data_fim);
 
 
 ALTER TABLE configuracoes
@@ -356,6 +376,9 @@ ALTER TABLE metas_mensais
 ALTER TABLE notificacao_oportunidades
   MODIFY id int NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE otp_codes
+  MODIFY id int UNSIGNED NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE unidades
   MODIFY id int NOT NULL AUTO_INCREMENT;
 
@@ -372,8 +395,9 @@ ALTER TABLE vendedores_ausencias
 ALTER TABLE colunas_funil
   ADD CONSTRAINT colunas_funil_ibfk_1 FOREIGN KEY (id_funil) REFERENCES funis (id) ON DELETE CASCADE;
 
-ALTER TABLE notificacao_oportunidades
-  ADD CONSTRAINT fk_notificacao_oportunidades_oportunidade FOREIGN KEY (oportunidade_id) REFERENCES oportunidades (id) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE vendedores_ausencias
+  ADD CONSTRAINT fk_ausencias_unidade FOREIGN KEY (unidade_id) REFERENCES unidades (id) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT fk_ausencias_vendedor FOREIGN KEY (vendedor_id) REFERENCES vendedores (id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

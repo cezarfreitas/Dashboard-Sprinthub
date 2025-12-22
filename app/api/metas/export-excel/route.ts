@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       FROM metas_mensais m
       JOIN vendedores v ON m.vendedor_id = v.id
       JOIN unidades u ON m.unidade_id = u.id
-      WHERE m.ano = ? AND m.status = 'ativa'
+      WHERE m.ano = ?
       ORDER BY u.nome, v.name, m.mes
     `, [parseInt(ano)]) as any[]
 

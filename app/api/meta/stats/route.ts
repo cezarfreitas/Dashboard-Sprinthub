@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
         m.ano,
         m.meta_valor,
         m.meta_descricao,
-        m.status,
         v.name as vendedor_nome,
         v.lastName as vendedor_lastName,
         u.nome as unidade_nome
@@ -51,7 +50,6 @@ export async function GET(request: NextRequest) {
       JOIN unidades u ON m.unidade_id = u.id
       WHERE m.mes = ? 
         AND m.ano = ? 
-        AND m.status = 'ativa'
     `
     
     const params: any[] = [targetMes, targetAno]
@@ -83,7 +81,6 @@ export async function GET(request: NextRequest) {
       ano: number
       meta_valor: number
       meta_descricao: string | null
-      status: string
       vendedor_nome: string
       vendedor_lastName: string
       unidade_nome: string

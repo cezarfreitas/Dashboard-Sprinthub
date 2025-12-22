@@ -168,23 +168,23 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
           <Button 
             variant="outline" 
             size="sm"
-            className="bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+            className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900"
           >
             <ArrowUpDown className="h-4 w-4 mr-2" />
             {currentSortLabel}
             {sortDirection === 'desc' ? (
-              <ArrowDown className="h-3 w-3 ml-1.5 text-gray-500" />
+              <ArrowDown className="h-3 w-3 ml-1.5 text-gray-400" />
             ) : (
-              <ArrowUp className="h-3 w-3 ml-1.5 text-gray-500" />
+              <ArrowUp className="h-3 w-3 ml-1.5 text-gray-400" />
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="bg-gray-900 border-gray-700">
+        <DropdownMenuContent align="start" className="bg-white border-gray-200 shadow-lg">
           {SORT_OPTIONS.map((option) => (
             <DropdownMenuItem
               key={option.field}
               onClick={() => handleChangeSort(option.field)}
-              className={`cursor-pointer ${sortField === option.field ? 'bg-gray-800 text-white' : 'text-gray-300'}`}
+              className={`cursor-pointer ${sortField === option.field ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}`}
             >
               <span className="flex-1">{option.label}</span>
               {sortField === option.field && (
@@ -200,9 +200,9 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
       </DropdownMenu>
 
       {/* Modo de visualização */}
-      <TabsList className="bg-gray-900 border border-gray-700">
-        <TabsTrigger value="cards" className="data-[state=active]:bg-gray-700">Cards</TabsTrigger>
-        <TabsTrigger value="tabela" className="data-[state=active]:bg-gray-700">Tabela</TabsTrigger>
+      <TabsList className="bg-gray-100 border border-gray-200">
+        <TabsTrigger value="cards" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">Cards</TabsTrigger>
+        <TabsTrigger value="tabela" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">Tabela</TabsTrigger>
       </TabsList>
     </div>
   )
@@ -215,16 +215,16 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
         <TabsContent value="cards" className="mt-0">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 4k:grid-cols-8 gap-4">
             {Array.from({ length: 10 }).map((_, i) => (
-              <Skeleton key={i} className="h-[200px] w-full bg-gray-800 rounded-lg" />
+              <Skeleton key={i} className="h-[200px] w-full bg-gray-100 rounded-lg" />
             ))}
           </div>
         </TabsContent>
 
         <TabsContent value="tabela" className="mt-0">
-          <div className="rounded-lg border border-gray-800 bg-gray-900">
+          <div className="rounded-lg border border-gray-200 bg-white">
             <div className="p-4 space-y-3">
               {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full bg-gray-800/80" />
+                <Skeleton key={i} className="h-10 w-full bg-gray-100" />
               ))}
             </div>
           </div>
@@ -236,7 +236,7 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-red-500">Erro: {error}</div>
+        <div className="text-red-600">Erro: {error}</div>
       </div>
     )
   }
@@ -244,7 +244,7 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
   if (unidadesFiltradas.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-gray-400">Nenhuma unidade encontrada com os filtros aplicados</div>
+        <div className="text-gray-500">Nenhuma unidade encontrada com os filtros aplicados</div>
       </div>
     )
   }

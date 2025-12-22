@@ -283,7 +283,7 @@ export default function PainelPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-black flex flex-col">
+      <div className="min-h-screen bg-white flex flex-col">
         <Header />
         
         <div className="w-full overflow-y-auto scrollbar-hide">
@@ -368,34 +368,35 @@ export default function PainelPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-white border-gray-200 shadow-sm">
               <CardContent className="p-3">
-                <h3 className="text-white font-bold text-sm uppercase mb-2">Oportunidades Criadas Dia a Dia</h3>
+                <h3 className="text-gray-900 font-bold text-sm uppercase mb-2">Oportunidades Criadas Dia a Dia</h3>
                 {loadingGraficos ? (
                   <div className="space-y-2">
-                    <Skeleton className="h-[150px] w-full bg-gray-800" />
+                    <Skeleton className="h-[150px] w-full bg-gray-100" />
                   </div>
                 ) : (
                   <div className="h-[150px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={oportunidadesCriadas} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis 
                           dataKey="dia" 
-                          tick={{ fill: '#9ca3af', fontSize: 10 }}
-                          stroke="#4b5563"
+                          tick={{ fill: '#6b7280', fontSize: 10 }}
+                          stroke="#d1d5db"
                         />
                         <YAxis 
-                          tick={{ fill: '#9ca3af', fontSize: 10 }}
-                          stroke="#4b5563"
+                          tick={{ fill: '#6b7280', fontSize: 10 }}
+                          stroke="#d1d5db"
                         />
                         <Tooltip 
                           contentStyle={{
-                            backgroundColor: '#1f2937',
-                            border: '1px solid #374151',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid #e5e7eb',
                             borderRadius: '8px',
-                            color: '#fff',
-                            fontSize: '12px'
+                            color: '#111827',
+                            fontSize: '12px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                           }}
                           formatter={(value: number) => [value, 'Oportunidades']}
                           labelFormatter={(label) => `Dia ${label}`}
@@ -413,7 +414,7 @@ export default function PainelPage() {
                           <LabelList 
                             dataKey="total_criadas" 
                             position="top" 
-                            style={{ fill: '#9ca3af', fontSize: '10px' }}
+                            style={{ fill: '#6b7280', fontSize: '10px' }}
                             formatter={(value: any) => value === 0 ? '' : String(value)}
                           />
                         </Line>
@@ -424,35 +425,36 @@ export default function PainelPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-white border-gray-200 shadow-sm">
               <CardContent className="p-3">
-                <h3 className="text-white font-bold text-sm uppercase mb-2">Receita Dia a Dia</h3>
+                <h3 className="text-gray-900 font-bold text-sm uppercase mb-2">Receita Dia a Dia</h3>
                 {loadingGraficos ? (
                   <div className="space-y-2">
-                    <Skeleton className="h-[150px] w-full bg-gray-800" />
+                    <Skeleton className="h-[150px] w-full bg-gray-100" />
                   </div>
                 ) : (
                   <div className="h-[150px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={receitaDiaria} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis 
                           dataKey="dia" 
-                          tick={{ fill: '#9ca3af', fontSize: 10 }}
-                          stroke="#4b5563"
+                          tick={{ fill: '#6b7280', fontSize: 10 }}
+                          stroke="#d1d5db"
                         />
                         <YAxis 
-                          tick={{ fill: '#9ca3af', fontSize: 10 }}
-                          stroke="#4b5563"
+                          tick={{ fill: '#6b7280', fontSize: 10 }}
+                          stroke="#d1d5db"
                           tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
                         />
                         <Tooltip 
                           contentStyle={{
-                            backgroundColor: '#1f2937',
-                            border: '1px solid #374151',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid #e5e7eb',
                             borderRadius: '8px',
-                            color: '#fff',
-                            fontSize: '12px'
+                            color: '#111827',
+                            fontSize: '12px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                           }}
                           formatter={(value: number) => [formatCurrency(value), 'Receita']}
                           labelFormatter={(label) => `Dia ${label}`}
@@ -470,7 +472,7 @@ export default function PainelPage() {
                           <LabelList 
                             dataKey="valor_total" 
                             position="top" 
-                            style={{ fill: '#9ca3af', fontSize: '10px' }}
+                            style={{ fill: '#6b7280', fontSize: '10px' }}
                             formatter={(value: any) => value === 0 ? '' : `R$ ${(Number(value) / 1000).toFixed(0)}k`}
                           />
                         </Line>

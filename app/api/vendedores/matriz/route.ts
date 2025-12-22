@@ -157,7 +157,6 @@ export async function GET(request: NextRequest) {
           AND unidade_id = ?
           AND mes = ?
           AND ano = ?
-          AND status = 'ativa'
       `
       metasParams = [...vendedorIds, parseInt(unidadeId), mes, ano]
     } else {
@@ -169,7 +168,6 @@ export async function GET(request: NextRequest) {
         WHERE vendedor_id IN (${placeholders})
           AND mes = ?
           AND ano = ?
-          AND status = 'ativa'
         GROUP BY vendedor_id
       `
       metasParams = [...vendedorIds, mes, ano]

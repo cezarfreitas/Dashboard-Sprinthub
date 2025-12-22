@@ -108,16 +108,16 @@ function computeSmartMeta({
 function getStatusBadgeClass(statusKey: "no-meta" | "unknown" | "on-track" | "warning" | "off-track") {
   switch (statusKey) {
     case "on-track":
-      return "bg-emerald-500/15 text-emerald-200 border-emerald-500/30"
+      return "bg-emerald-100 text-emerald-700 border-emerald-200"
     case "warning":
-      return "bg-amber-500/15 text-amber-200 border-amber-500/30"
+      return "bg-amber-100 text-amber-700 border-amber-200"
     case "off-track":
-      return "bg-rose-500/15 text-rose-200 border-rose-500/30"
+      return "bg-rose-100 text-rose-700 border-rose-200"
     case "no-meta":
-      return "bg-slate-500/15 text-slate-200 border-slate-500/30"
+      return "bg-slate-100 text-slate-600 border-slate-200"
     case "unknown":
     default:
-      return "bg-blue-500/15 text-blue-200 border-blue-500/30"
+      return "bg-blue-100 text-blue-700 border-blue-200"
   }
 }
 
@@ -142,19 +142,19 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
   }, [])
 
   return (
-    <div className="rounded-lg bg-gray-900 border border-gray-800 overflow-hidden">
+    <div className="rounded-lg bg-white border border-gray-200 overflow-hidden shadow-sm">
       <TooltipProvider delayDuration={200}>
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-800/50 hover:bg-gray-800/50 border-b border-gray-800">
-              <TableHead className="w-10 py-3 text-gray-400 font-semibold text-xs">#</TableHead>
-              <TableHead className="py-3 text-gray-400 font-semibold text-xs">Unidade</TableHead>
-              <TableHead className="py-3 text-center text-gray-400 font-semibold text-xs">Abertas</TableHead>
-              <TableHead className="py-3 text-center text-gray-400 font-semibold text-xs">Ganhas</TableHead>
-              <TableHead className="py-3 text-center text-gray-400 font-semibold text-xs">Perdidas</TableHead>
-              <TableHead className="py-3 text-right text-gray-400 font-semibold text-xs">Meta</TableHead>
-              <TableHead className="py-3 text-right text-gray-400 font-semibold text-xs">Falta</TableHead>
-              <TableHead className="py-3 text-right text-gray-400 font-semibold text-xs">Progresso</TableHead>
+            <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+              <TableHead className="w-10 py-3 text-gray-600 font-semibold text-xs">#</TableHead>
+              <TableHead className="py-3 text-gray-600 font-semibold text-xs">Unidade</TableHead>
+              <TableHead className="py-3 text-center text-gray-600 font-semibold text-xs">Abertas</TableHead>
+              <TableHead className="py-3 text-center text-gray-600 font-semibold text-xs">Ganhas</TableHead>
+              <TableHead className="py-3 text-center text-gray-600 font-semibold text-xs">Perdidas</TableHead>
+              <TableHead className="py-3 text-right text-gray-600 font-semibold text-xs">Meta</TableHead>
+              <TableHead className="py-3 text-right text-gray-600 font-semibold text-xs">Falta</TableHead>
+              <TableHead className="py-3 text-right text-gray-600 font-semibold text-xs">Progresso</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -172,16 +172,16 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
               const faltante = Math.max(0, unidade.meta_valor - unidade.valor_ganho)
               const topRank = posicao <= 3
               const color = getCardColor(unidade.id)
-              // Cores alternadas para melhor leitura (padrão gray-900)
+              // Cores alternadas para melhor leitura
               const isEven = index % 2 === 0
 
               return (
                 <TableRow
                   key={`unidade-row-${unidade.id}-${index}`}
                   className={cn(
-                    "border-gray-800 text-white transition-colors",
-                    isEven ? "bg-gray-900" : "bg-gray-900/60",
-                    "hover:bg-gray-800",
+                    "border-gray-200 text-gray-900 transition-colors",
+                    isEven ? "bg-white" : "bg-gray-50/50",
+                    "hover:bg-gray-100",
                     topRank && "ring-1 ring-inset ring-yellow-400/30"
                   )}
                 >
@@ -190,7 +190,7 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
                     <span
                       className={cn(
                         "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black",
-                        topRank ? "bg-yellow-400 text-gray-900" : "bg-gray-700 text-gray-300"
+                        topRank ? "bg-yellow-400 text-gray-900" : "bg-gray-200 text-gray-600"
                       )}
                     >
                       {posicao}
@@ -201,7 +201,7 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
                   <TableCell className="py-2.5">
                     <div className="flex items-center gap-2.5">
                       <span className={cn("w-3 h-3 rounded-full flex-shrink-0", color.bg)} aria-hidden="true" />
-                      <span className="font-bold text-sm text-white uppercase tracking-wide truncate max-w-[180px]">
+                      <span className="font-bold text-sm text-gray-900 uppercase tracking-wide truncate max-w-[180px]">
                         {nomeExibicao}
                       </span>
                     </div>
@@ -214,14 +214,14 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
                         <button
                           type="button"
                           onClick={() => onClickStatus({ id: unidade.id, nome: nomeExibicao }, "abertas")}
-                          className="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded px-2.5 py-1.5 transition-colors"
+                          className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded px-2.5 py-1.5 transition-colors"
                           aria-label={`Ver ${unidade.oportunidades_abertas} oportunidades abertas`}
                         >
-                          <span className="font-bold text-sm text-blue-400">{unidade.oportunidades_abertas}</span>
-                          <span className="text-[10px] text-gray-400">{currencyCompact.format(unidade.valor_aberto)}</span>
+                          <span className="font-bold text-sm text-blue-600">{unidade.oportunidades_abertas}</span>
+                          <span className="text-[10px] text-gray-500">{currencyCompact.format(unidade.valor_aberto)}</span>
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="bg-gray-950 border-gray-700 text-white text-xs">
+                      <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white text-xs">
                         {unidade.oportunidades_abertas} abertas • {currency.format(unidade.valor_aberto)}
                       </TooltipContent>
                     </Tooltip>
@@ -234,14 +234,14 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
                         <button
                           type="button"
                           onClick={() => onClickStatus({ id: unidade.id, nome: nomeExibicao }, "ganhas")}
-                          className="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded px-2.5 py-1.5 transition-colors"
+                          className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded px-2.5 py-1.5 transition-colors"
                           aria-label={`Ver ${unidade.oportunidades_ganhas} oportunidades ganhas`}
                         >
-                          <span className="font-bold text-sm text-green-400">{unidade.oportunidades_ganhas}</span>
-                          <span className="text-[10px] text-gray-400">{currencyCompact.format(unidade.valor_ganho)}</span>
+                          <span className="font-bold text-sm text-green-600">{unidade.oportunidades_ganhas}</span>
+                          <span className="text-[10px] text-gray-500">{currencyCompact.format(unidade.valor_ganho)}</span>
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="bg-gray-950 border-gray-700 text-white text-xs">
+                      <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white text-xs">
                         {unidade.oportunidades_ganhas} ganhas • {currency.format(unidade.valor_ganho)}
                       </TooltipContent>
                     </Tooltip>
@@ -254,14 +254,14 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
                         <button
                           type="button"
                           onClick={() => onClickStatus({ id: unidade.id, nome: nomeExibicao }, "perdidas")}
-                          className="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded px-2.5 py-1.5 transition-colors"
+                          className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded px-2.5 py-1.5 transition-colors"
                           aria-label={`Ver ${unidade.oportunidades_perdidas} oportunidades perdidas`}
                         >
-                          <span className="font-bold text-sm text-red-400">{unidade.oportunidades_perdidas}</span>
-                          <span className="text-[10px] text-gray-400">{currencyCompact.format(unidade.valor_perdido)}</span>
+                          <span className="font-bold text-sm text-red-600">{unidade.oportunidades_perdidas}</span>
+                          <span className="text-[10px] text-gray-500">{currencyCompact.format(unidade.valor_perdido)}</span>
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="bg-gray-950 border-gray-700 text-white text-xs">
+                      <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white text-xs">
                         {unidade.oportunidades_perdidas} perdidas • {currency.format(unidade.valor_perdido)}
                       </TooltipContent>
                     </Tooltip>
@@ -269,14 +269,14 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
 
                   {/* Meta */}
                   <TableCell className="py-2.5 text-right">
-                    <span className="font-semibold text-sm text-gray-300">{currencyCompact.format(unidade.meta_valor)}</span>
+                    <span className="font-semibold text-sm text-gray-700">{currencyCompact.format(unidade.meta_valor)}</span>
                   </TableCell>
 
                   {/* Faltante */}
                   <TableCell className="py-2.5 text-right">
                     <span className={cn(
                       "text-sm font-semibold",
-                      faltante === 0 ? "text-green-400" : "text-gray-300"
+                      faltante === 0 ? "text-green-600" : "text-gray-700"
                     )}>
                       {faltante === 0 ? "✓" : currencyCompact.format(faltante)}
                     </span>
@@ -287,13 +287,13 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
                     <div className="flex items-center justify-end gap-2">
                       {/* Barra + % */}
                       <div className="flex items-center gap-2 min-w-[140px]">
-                        <div className="h-2 w-20 rounded-full bg-gray-700 overflow-hidden">
+                        <div className="h-2 w-20 rounded-full bg-gray-200 overflow-hidden">
                           <div
                             className={cn("h-full rounded-full transition-all", smartMeta.fillClass)}
                             style={{ width: `${smartMeta.percentualMeta}%` }}
                           />
                         </div>
-                        <span className="font-black text-sm w-12 text-right text-white">{smartMeta.percentualMeta.toFixed(0)}%</span>
+                        <span className="font-black text-sm w-12 text-right text-gray-900">{smartMeta.percentualMeta.toFixed(0)}%</span>
                       </div>
 
                       {/* Badge status */}

@@ -211,7 +211,6 @@ export async function GET(request: NextRequest) {
             AND unidade_id = ?
             AND mes = ?
             AND ano = ?
-            AND status = 'ativa'
         `, [vendedor.id, unidade.id, mesFinal, anoFinal]) as any[]
 
         // Tempo médio de fechamento (Won Time) - diferença entre createDate e gain_date
@@ -721,8 +720,7 @@ export async function GET(request: NextRequest) {
         FROM metas_mensais
         WHERE unidade_id = ? 
           AND mes = ? 
-          AND ano = ? 
-          AND status = 'ativa'
+          AND ano = ?
       `, [unidade.id, mesFinal, anoFinal]) as any[]
 
       // Comparação mockada (será implementada com dados reais depois)

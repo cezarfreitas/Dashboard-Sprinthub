@@ -62,6 +62,10 @@ const menuItems = [
       {
         title: "Resultados / Meta",
         href: "/analytics/resultados-meta"
+      },
+      {
+        title: "Acumulado Mês",
+        href: "/analytics/acumulado-mes"
       }
     ]
   },

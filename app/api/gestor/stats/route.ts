@@ -201,7 +201,6 @@ export async function GET(request: NextRequest) {
             AND unidade_id = ?
             AND mes = ?
             AND ano = ?
-            AND status = 'ativa'
         `, [vendedor.id, unidadeId, mes, ano]) as any[]
 
         return {

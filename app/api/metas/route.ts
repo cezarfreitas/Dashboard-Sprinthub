@@ -32,29 +32,8 @@ export async function GET(request: NextRequest) {
     const targetMes = mes ? parseInt(mes) : currentDate.getMonth() + 1
     const targetAno = ano ? parseInt(ano) : currentDate.getFullYear()
 
-    // Criar tabelas se não existirem
-    await executeQuery(`
-      CREATE TABLE IF NOT EXISTS metas_mensais (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        vendedor_id INT NOT NULL,
-        unidade_id INT NOT NULL,
-        mes INT NOT NULL CHECK (mes >= 1 AND mes <= 12),
-        ano INT NOT NULL CHECK (ano >= 2020 AND ano <= 2030),
-        meta_valor DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-        meta_descricao VARCHAR(500) NULL,
-        status ENUM('ativa', 'pausada', 'cancelada') DEFAULT 'ativa',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        
-        INDEX idx_vendedor_id (vendedor_id),
-        INDEX idx_unidade_id (unidade_id),
-        INDEX idx_mes_ano (mes, ano),
-        INDEX idx_vendedor_unidade_mes (vendedor_id, unidade_id, mes, ano),
-        INDEX idx_status (status),
-        
-        UNIQUE KEY unique_vendedor_unidade_mes_ano (vendedor_id, unidade_id, mes, ano)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `)
+    // Nota: A tabela metas_mensais já deve existir no banco (ver banco.sql)
+    // Não tentamos criar aqui para evitar conflitos com a estrutura existente
 
     // Buscar metas reais do banco
     let query = `
@@ -66,7 +45,6 @@ export async function GET(request: NextRequest) {
         m.ano,
         m.meta_valor,
         m.meta_descricao,
-        m.status,
         m.created_at,
         m.updated_at,
         v.name as vendedor_nome,
@@ -76,7 +54,7 @@ export async function GET(request: NextRequest) {
       FROM metas_mensais m
       JOIN vendedores v ON m.vendedor_id = v.id
       JOIN unidades u ON m.unidade_id = u.id
-      WHERE m.ano = ? AND m.status = 'ativa'
+      WHERE m.ano = ?
     `
     
     const params = [targetAno]
@@ -240,12 +218,20 @@ export async function GET(request: NextRequest) {
 
 // POST - Criar nova meta
 export async function POST(request: NextRequest) {
+  let bodyData: Record<string, unknown> = {}
+  
   try {
+    console.log('[POST /api/metas] Iniciando criação de meta...')
+    
     const body = await request.json()
+    bodyData = body as Record<string, unknown>
+    console.log('[POST /api/metas] Body recebido:', JSON.stringify(bodyData))
+    
     const { vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao } = body
 
     // Validações
     if (!vendedor_id || !unidade_id || !mes || !ano || meta_valor === undefined) {
+      console.log('[POST /api/metas] ❌ Validação falhou: campos obrigatórios faltando')
       return NextResponse.json(
         { success: false, message: 'Todos os campos obrigatórios devem ser preenchidos' },
         { status: 400 }
@@ -253,6 +239,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (meta_valor < 0) {
+      console.log('[POST /api/metas] ❌ Validação falhou: meta_valor negativo')
       return NextResponse.json(
         { success: false, message: 'O valor da meta deve ser maior ou igual a zero' },
         { status: 400 }
@@ -260,6 +247,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (mes < 1 || mes > 12) {
+      console.log('[POST /api/metas] ❌ Validação falhou: mês inválido')
       return NextResponse.json(
         { success: false, message: 'Mês deve estar entre 1 e 12' },
         { status: 400 }
@@ -267,56 +255,90 @@ export async function POST(request: NextRequest) {
     }
 
     if (ano < 2020 || ano > 2030) {
+      console.log('[POST /api/metas] ❌ Validação falhou: ano inválido')
       return NextResponse.json(
         { success: false, message: 'Ano deve estar entre 2020 e 2030' },
         { status: 400 }
       )
     }
 
-    // Verificar se já existe meta para este vendedor/unidade/mês/ano
-    const existingMeta = await executeQuery(
-      'SELECT id FROM metas_mensais WHERE vendedor_id = ? AND unidade_id = ? AND mes = ? AND ano = ? AND status = "ativa"',
-      [vendedor_id, unidade_id, mes, ano]
-    ) as any[]
+    console.log('[POST /api/metas] ✅ Validações passaram')
+    console.log('[POST /api/metas] Criando/atualizando meta...')
+    console.log('[POST /api/metas] Parâmetros:', { vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao })
 
-    if (existingMeta.length > 0) {
-      return NextResponse.json(
-        { success: false, message: 'Já existe uma meta ativa para este vendedor/unidade/mês/ano' },
-        { status: 409 }
-      )
-    }
-
-    // Criar nova meta
+    // Usar INSERT ... ON DUPLICATE KEY UPDATE para criar ou atualizar
+    // A constraint UNIQUE (vendedor_id, unidade_id, mes, ano) garante que só existe uma meta
     const result = await executeQuery(
-      'INSERT INTO metas_mensais (vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao) VALUES (?, ?, ?, ?, ?, ?)',
+      `INSERT INTO metas_mensais (vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao) 
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+         meta_valor = VALUES(meta_valor),
+         meta_descricao = VALUES(meta_descricao),
+         updated_at = CURRENT_TIMESTAMP`,
       [vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao || null]
     ) as any
 
+    const isUpdate = result.affectedRows === 2 // affectedRows = 2 significa UPDATE
+    const metaId = isUpdate ? result.insertId : result.insertId
+
+    console.log(`[POST /api/metas] ✅ Meta ${isUpdate ? 'atualizada' : 'criada'} com sucesso! ID: ${metaId || 'existente'}`)
+
     return NextResponse.json({
       success: true,
-      message: 'Meta criada com sucesso',
-      meta_id: result.insertId
+      message: isUpdate ? 'Meta atualizada com sucesso' : 'Meta criada com sucesso',
+      meta_id: metaId,
+      action: isUpdate ? 'updated' : 'created'
     })
 
   } catch (error) {
+    console.error('[POST /api/metas] ❌ ERRO CAPTURADO:')
+    console.error('[POST /api/metas] Tipo:', error instanceof Error ? 'Error' : typeof error)
+    console.error('[POST /api/metas] Mensagem:', error instanceof Error ? error.message : String(error))
+    console.error('[POST /api/metas] Stack:', error instanceof Error ? error.stack : 'N/A')
+    console.error('[POST /api/metas] Body enviado:', JSON.stringify(bodyData))
+    
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+    const errorDetails = error instanceof Error && 'code' in error ? (error as any).code : undefined
+    
+    // Verificar se é erro de chave duplicada (não deveria acontecer com ON DUPLICATE KEY UPDATE)
+    if (errorMessage.includes('Duplicate entry') && errorMessage.includes('unique_vendedor_unidade_mes_ano')) {
+      console.error('[POST /api/metas] ⚠️ Erro inesperado de chave duplicada - o UPSERT deveria ter funcionado')
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Erro ao processar meta. Tente novamente.',
+          error: 'Erro de chave duplicada inesperado'
+        },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
       { 
         success: false, 
         message: 'Erro interno do servidor ao criar meta',
-        error: error instanceof Error ? error.message : 'Erro desconhecido'
+        error: errorMessage,
+        code: errorDetails,
+        details: bodyData
       },
       { status: 500 }
     )
   }
 }
 
-// PUT - Atualizar meta existente
+// PUT - Atualizar meta existente (mantido para compatibilidade, mas POST agora faz UPSERT)
 export async function PUT(request: NextRequest) {
   try {
+    console.log('[PUT /api/metas] Iniciando atualização de meta...')
+    
     const body = await request.json()
+    console.log('[PUT /api/metas] Body recebido:', JSON.stringify(body))
+    
     const { id, meta_valor, meta_descricao } = body
 
     if (!id || meta_valor === undefined) {
+      console.log('[PUT /api/metas] ❌ Validação falhou: ID ou meta_valor faltando')
       return NextResponse.json(
         { success: false, message: 'ID da meta e valor são obrigatórios' },
         { status: 400 }
@@ -324,31 +346,36 @@ export async function PUT(request: NextRequest) {
     }
 
     if (meta_valor < 0) {
+      console.log('[PUT /api/metas] ❌ Validação falhou: meta_valor negativo')
       return NextResponse.json(
         { success: false, message: 'O valor da meta deve ser maior ou igual a zero' },
         { status: 400 }
       )
     }
 
-    // Buscar meta atual para histórico
+    // Buscar meta atual
     const currentMeta = await executeQuery(
-      'SELECT * FROM metas_mensais WHERE id = ? AND status = "ativa"',
+      'SELECT * FROM metas_mensais WHERE id = ?',
       [id]
     ) as any[]
 
     if (currentMeta.length === 0) {
+      console.log('[PUT /api/metas] ❌ Meta não encontrada')
       return NextResponse.json(
-        { success: false, message: 'Meta não encontrada ou inativa' },
+        { success: false, message: 'Meta não encontrada' },
         { status: 404 }
       )
     }
 
-    const meta = currentMeta[0]
+    console.log('[PUT /api/metas] Meta encontrada:', currentMeta[0])
+    console.log('[PUT /api/metas] Atualizando meta...')
 
     await executeQuery(
-      'UPDATE metas_mensais SET meta_valor = ?, meta_descricao = ? WHERE id = ?',
+      'UPDATE metas_mensais SET meta_valor = ?, meta_descricao = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [meta_valor, meta_descricao || null, id]
     )
+
+    console.log('[PUT /api/metas] ✅ Meta atualizada com sucesso!')
 
     return NextResponse.json({
       success: true,
@@ -356,6 +383,7 @@ export async function PUT(request: NextRequest) {
     })
 
   } catch (error) {
+    console.error('[PUT /api/metas] ❌ ERRO:', error)
     return NextResponse.json(
       { 
         success: false, 
@@ -367,38 +395,48 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Remover meta (soft delete)
+// DELETE - Remover meta (hard delete - agora que não há status)
 export async function DELETE(request: NextRequest) {
   try {
+    console.log('[DELETE /api/metas] Iniciando remoção de meta...')
+    
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) {
+      console.log('[DELETE /api/metas] ❌ ID não fornecido')
       return NextResponse.json(
         { success: false, message: 'ID da meta é obrigatório' },
         { status: 400 }
       )
     }
 
-    // Buscar meta atual para histórico
+    console.log('[DELETE /api/metas] Buscando meta ID:', id)
+    
+    // Buscar meta atual
     const currentMeta = await executeQuery(
-      'SELECT * FROM metas_mensais WHERE id = ? AND status = "ativa"',
+      'SELECT * FROM metas_mensais WHERE id = ?',
       [id]
     ) as any[]
 
     if (currentMeta.length === 0) {
+      console.log('[DELETE /api/metas] ❌ Meta não encontrada')
       return NextResponse.json(
-        { success: false, message: 'Meta não encontrada ou já removida' },
+        { success: false, message: 'Meta não encontrada' },
         { status: 404 }
       )
     }
 
-    const meta = currentMeta[0]
+    console.log('[DELETE /api/metas] Meta encontrada:', currentMeta[0])
+    console.log('[DELETE /api/metas] Deletando meta...')
 
+    // Hard delete - remove permanentemente
     await executeQuery(
-      'UPDATE metas_mensais SET status = "cancelada" WHERE id = ?',
+      'DELETE FROM metas_mensais WHERE id = ?',
       [id]
     )
+
+    console.log('[DELETE /api/metas] ✅ Meta deletada com sucesso!')
 
     return NextResponse.json({
       success: true,
@@ -406,6 +444,7 @@ export async function DELETE(request: NextRequest) {
     })
 
   } catch (error) {
+    console.error('[DELETE /api/metas] ❌ ERRO:', error)
     return NextResponse.json(
       { 
         success: false, 

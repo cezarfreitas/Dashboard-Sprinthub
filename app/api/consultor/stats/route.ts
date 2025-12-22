@@ -65,7 +65,6 @@ export async function GET(request: NextRequest) {
       WHERE m.vendedor_id = ? 
         AND m.mes = ? 
         AND m.ano = ? 
-        AND m.status = 'ativa'
     `, [parseInt(consultorId), mes, ano]) as Array<{ meta_total: number }>
 
     // Buscar etapas do funil para o consultor

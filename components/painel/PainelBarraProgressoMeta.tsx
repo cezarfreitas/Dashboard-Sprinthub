@@ -215,8 +215,8 @@ function PainelBarraProgressoMeta({
 
   if (loading) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
-        <Skeleton className="h-8 w-full bg-gray-800" />
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+        <Skeleton className="h-8 w-full bg-gray-200" />
       </div>
     )
   }
@@ -241,11 +241,11 @@ function PainelBarraProgressoMeta({
         periodoLabel="do período"
       />
 
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 shadow-sm">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Target className="w-5 h-5 text-white/90" />
-          <span className="text-sm font-semibold text-white/90 whitespace-nowrap">
+          <Target className="w-5 h-5 text-gray-700" />
+          <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
             {meta === 0 ? 'Vendas do Período:' : 'Meta do Período:'}
           </span>
         </div>
@@ -253,7 +253,7 @@ function PainelBarraProgressoMeta({
         {meta > 0 ? (
           <>
             {/* Barra de Progresso */}
-            <div className="relative h-8 bg-gray-800 rounded-full overflow-hidden flex-1">
+            <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden flex-1">
           <div 
             className={cn(
               "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-3",
@@ -271,7 +271,7 @@ function PainelBarraProgressoMeta({
           {/* Marcador do esperado (ritmo) */}
           {smartMeta.expectedMarkerPercent !== null && (
             <div
-              className="absolute top-0 bottom-0 w-[2px] bg-white/70"
+              className="absolute top-0 bottom-0 w-[2px] bg-gray-600"
               style={{ left: `calc(${smartMeta.expectedMarkerPercent}% - 1px)` }}
               title={`Esperado hoje: ${smartMeta.expectedMarkerPercent.toFixed(1)}%`}
             />
@@ -279,7 +279,7 @@ function PainelBarraProgressoMeta({
 
           {percentualMeta <= 15 && percentualMeta > 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-gray-400 text-xs font-bold">
+              <span className="text-gray-600 text-xs font-bold">
                 {percentualMeta.toFixed(1)}%
               </span>
             </div>
@@ -288,18 +288,18 @@ function PainelBarraProgressoMeta({
         
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="text-right">
-            <span className="text-xs text-white/70">Atingido: </span>
-            <span className="text-sm font-bold text-white">{formatCurrency(valorAtual)}</span>
+            <span className="text-xs text-gray-500">Atingido: </span>
+            <span className="text-sm font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
           </div>
-          <div className="text-white/30">/</div>
+          <div className="text-gray-300">/</div>
           <div className="text-right">
-            <span className="text-xs text-white/70">Meta: </span>
-            <span className="text-sm font-bold text-white">{formatCurrency(meta)}</span>
+            <span className="text-xs text-gray-500">Meta: </span>
+            <span className="text-sm font-bold text-gray-900">{formatCurrency(meta)}</span>
           </div>
           <div className="text-right min-w-[60px]">
             <span className={cn(
               "text-sm font-bold",
-              percentualMeta >= 100 ? "text-emerald-400" : "text-green-400"
+              percentualMeta >= 100 ? "text-emerald-600" : "text-green-600"
             )}>
               {percentualMeta.toFixed(1)}%
             </span>
@@ -311,16 +311,16 @@ function PainelBarraProgressoMeta({
                 <span className={cn(
                   "text-[11px] font-semibold",
                   smartMeta.deviationPp !== null && smartMeta.deviationPp < -15
-                    ? "text-rose-300"
+                    ? "text-rose-600"
                     : smartMeta.deviationPp !== null && smartMeta.deviationPp < -5
-                      ? "text-amber-200"
+                      ? "text-amber-600"
                       : percentualMeta >= 100
-                        ? "text-emerald-300"
-                        : "text-emerald-200"
+                        ? "text-emerald-600"
+                        : "text-emerald-500"
                 )}>
                   {smartMeta.statusLabel}
                   {smartMeta.deviationPp !== null && percentualMeta < 100 && (
-                    <span className="text-white/60 font-bold">
+                    <span className="text-gray-500 font-bold">
                       {' '}({smartMeta.deviationPp >= 0 ? '+' : ''}{smartMeta.deviationPp.toFixed(1)}pp)
                     </span>
                   )}
@@ -328,8 +328,8 @@ function PainelBarraProgressoMeta({
               )}
 
               {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
-                <span className="text-[11px] text-white/75">
-                  Proj.: <span className="font-bold text-white">{Math.min(200, smartMeta.projectedPercent).toFixed(0)}%</span>
+                <span className="text-[11px] text-gray-500">
+                  Proj.: <span className="font-bold text-gray-900">{Math.min(200, smartMeta.projectedPercent).toFixed(0)}%</span>
                   {' '}({formatCurrency(smartMeta.projectedValor)})
                 </span>
               )}
@@ -340,11 +340,11 @@ function PainelBarraProgressoMeta({
         ) : (
           <div className="flex items-center gap-4 flex-shrink-0">
             <div className="text-right">
-              <span className="text-xs text-white/70">Total vendido: </span>
-              <span className="text-sm font-bold text-white">{formatCurrency(valorAtual)}</span>
+              <span className="text-xs text-gray-500">Total vendido: </span>
+              <span className="text-sm font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
             </div>
-            <div className="px-3 py-1 bg-orange-500/20 border border-orange-500/30 rounded-md">
-              <span className="text-xs text-orange-400">Sem meta cadastrada</span>
+            <div className="px-3 py-1 bg-orange-100 border border-orange-200 rounded-md">
+              <span className="text-xs text-orange-600">Sem meta cadastrada</span>
             </div>
           </div>
         )}

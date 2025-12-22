@@ -11,7 +11,6 @@ export interface MetaMensal {
   ano: number
   meta_valor: number
   meta_descricao?: string
-  status: string
   vendedor_nome: string
   vendedor_lastName: string
   vendedor_username: string
@@ -114,8 +113,7 @@ export function useMetasConfig(): UseMetasConfigReturn {
       m.vendedor_id === vendedorId && 
       m.mes === mesNumero &&
       m.unidade_id === targetUnidadeId &&
-      m.ano === selectedAno &&
-      m.status === 'ativa'
+      m.ano === selectedAno
     )
     
     return meta ? parseFloat(meta.meta_valor.toString()) : 0
@@ -157,82 +155,36 @@ export function useMetasConfig(): UseMetasConfigReturn {
       m.vendedor_id === editingCell.vendedorId && 
       m.mes === mesNumero &&
       m.unidade_id === unidadeId &&
-      m.ano === selectedAno &&
-      m.status === 'ativa'
+      m.ano === selectedAno
     )
     
-    const isNewMeta = !metaExistente
-    
     try {
-      if (isNewMeta) {
-        const response = await fetch('/api/metas', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            vendedor_id: editingCell.vendedorId,
-            unidade_id: unidadeId,
-            mes: mesNumero,
-            ano: selectedAno,
-            meta_valor: newValue,
-            meta_descricao: null
-          })
+      // Sempre usar POST (que faz UPSERT)
+      const response = await fetch('/api/metas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendedor_id: editingCell.vendedorId,
+          unidade_id: unidadeId,
+          mes: mesNumero,
+          ano: selectedAno,
+          meta_valor: newValue,
+          meta_descricao: metaExistente?.meta_descricao || null
         })
+      })
 
-        const data = await response.json()
-        if (!response.ok) throw new Error(data.message || 'Erro ao criar meta')
-        
-        toast({ 
-          title: "Meta criada!", 
-          description: `Meta de R$ ${newValue.toLocaleString('pt-BR')} criada` 
-        })
-      } else {
-        const response = await fetch('/api/metas', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: metaExistente.id,
-            meta_valor: newValue,
-            meta_descricao: metaExistente.meta_descricao
-          })
-        })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Erro ao salvar meta')
+      
+      const action = data.action || (metaExistente ? 'updated' : 'created')
+      
+      toast({ 
+        title: action === 'updated' ? "Meta atualizada!" : "Meta criada!",
+        description: `Meta de R$ ${newValue.toLocaleString('pt-BR')} ${action === 'updated' ? 'atualizada' : 'criada'}` 
+      })
 
-        const data = await response.json()
-        if (!response.ok) throw new Error(data.message || 'Erro ao atualizar meta')
-        
-        toast({ 
-          title: "Meta atualizada!", 
-          description: `Meta atualizada para R$ ${newValue.toLocaleString('pt-BR')}` 
-        })
-      }
-
-      if (isNewMeta) {
-        const vendedor = vendedores.find(v => v.id === editingCell.vendedorId)
-        const unidade = unidades.find(u => u.id === unidadeId)
-        
-        if (vendedor && unidade) {
-          const novaMeta: MetaMensal = {
-            id: Date.now(),
-            vendedor_id: editingCell.vendedorId,
-            unidade_id: unidadeId,
-            mes: mesNumero,
-            ano: selectedAno,
-            meta_valor: newValue,
-            meta_descricao: undefined,
-            status: 'ativa',
-            vendedor_nome: vendedor.name,
-            vendedor_lastName: vendedor.lastName,
-            vendedor_username: vendedor.username,
-            unidade_nome: unidade.nome
-          }
-          setMetas(prev => [...prev, novaMeta])
-        }
-      } else {
-        setMetas(prev => prev.map(meta => 
-          meta.id === metaExistente.id 
-            ? { ...meta, meta_valor: newValue }
-            : meta
-        ))
-      }
+      // Recarregar dados do servidor para ter IDs corretos
+      await fetchData()
       
     } catch (error) {
       toast({
@@ -244,7 +196,7 @@ export function useMetasConfig(): UseMetasConfigReturn {
     
     setEditingCell(null)
     setEditValue('')
-  }, [editingCell, editValue, metas, vendedores, unidades, selectedAno, toast])
+  }, [editingCell, editValue, metas, vendedores, selectedAno, toast, fetchData])
 
   const cancelInlineEdit = useCallback(() => {
     setEditingCell(null)

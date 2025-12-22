@@ -187,14 +187,8 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Desativar metas existentes para o ano
-      const cancelResult = await executeMutation(`
-        UPDATE metas_mensais 
-        SET status = 'cancelada' 
-        WHERE ano = ? AND status = 'ativa'
-      `, [parseInt(ano)])
-      
-      console.log(`[Import Excel] Canceladas ${cancelResult.affectedRows} metas existentes para o ano ${ano}`)
+      // Não precisa mais desativar metas - o UPSERT vai atualizar ou criar
+      console.log(`[Import Excel] Processando metas para o ano ${ano} (UPSERT mode)`)
 
       // Inserir novas metas usando INSERT ... ON DUPLICATE KEY UPDATE
       let inseridas = 0
@@ -212,12 +206,11 @@ export async function POST(request: NextRequest) {
         for (const meta of batch) {
           try {
             const result = await executeMutation(`
-              INSERT INTO metas_mensais (vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao, status)
-              VALUES (?, ?, ?, ?, ?, ?, 'ativa')
+              INSERT INTO metas_mensais (vendedor_id, unidade_id, mes, ano, meta_valor, meta_descricao)
+              VALUES (?, ?, ?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE 
                 meta_valor = VALUES(meta_valor),
                 meta_descricao = VALUES(meta_descricao),
-                status = 'ativa',
                 updated_at = CURRENT_TIMESTAMP
             `, [meta.vendedor_id, meta.unidade_id, meta.mes, meta.ano, meta.meta_valor, meta.meta_descricao])
             
@@ -239,7 +232,7 @@ export async function POST(request: NextRequest) {
               try {
                 const updateResult = await executeMutation(`
                   UPDATE metas_mensais 
-                  SET meta_valor = ?, meta_descricao = ?, status = 'ativa', updated_at = CURRENT_TIMESTAMP
+                  SET meta_valor = ?, meta_descricao = ?, updated_at = CURRENT_TIMESTAMP
                   WHERE vendedor_id = ? AND unidade_id = ? AND mes = ? AND ano = ?
                 `, [meta.meta_valor, meta.meta_descricao, meta.vendedor_id, meta.unidade_id, meta.mes, meta.ano])
                 

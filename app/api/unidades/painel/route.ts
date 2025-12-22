@@ -77,7 +77,6 @@ export async function GET(request: NextRequest) {
       WHERE mm.unidade_id IN (${metasPlaceholders})
         AND mm.mes = ?
         AND mm.ano = ?
-        AND mm.status = 'ativa'
       GROUP BY mm.unidade_id
     `, [...todasUnidadesIds, mesAtual, anoAtual]) as any[]
 
