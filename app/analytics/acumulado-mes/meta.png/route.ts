@@ -113,6 +113,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const debug = searchParams.get('debug') === '1'
     const format = (searchParams.get('format') || 'png').toLowerCase()
+    const ordem = searchParams.get('ordem') || 'receita' // receita, meta, ticket, ops, nome
+    const desc = searchParams.get('desc') !== null && searchParams.get('desc') !== 'false' // true por padrão se presente
     const debugLog: string[] = []
 
     const log = (...args: Array<string | number | boolean | null | undefined>) => {
@@ -257,7 +259,9 @@ export async function GET(request: NextRequest) {
       log('[meta.png]', 'Total vendedores não mapeados:', vendedoresNaoMapeados)
     }
     
-    // Converter para array e ordenar por valor (maior primeiro)
+    log('[meta.png]', 'Ordenação:', ordem, desc ? '(desc)' : '(asc)')
+    
+    // Converter para array e ordenar conforme parâmetros da URL
     const unidadesComVendas = Array.from(unidadesMap.entries())
       .map(([id, data]) => ({
         id,
@@ -269,7 +273,37 @@ export async function GET(request: NextRequest) {
         percentual_meta: data.meta > 0 ? (data.valor / data.meta) * 100 : 0
       }))
       .filter(u => u.valor > 0 || u.meta > 0) // Mostrar unidades com vendas OU meta
-      .sort((a, b) => b.valor - a.valor)
+      .sort((a, b) => {
+        let compareValue = 0
+        
+        switch (ordem.toLowerCase()) {
+          case 'meta':
+          case 'meta_atingida':
+          case 'percentual':
+            compareValue = a.percentual_meta - b.percentual_meta
+            break
+          case 'receita':
+          case 'valor':
+            compareValue = a.valor - b.valor
+            break
+          case 'ticket':
+          case 'ticket_medio':
+            compareValue = a.ticket_medio - b.ticket_medio
+            break
+          case 'ops':
+          case 'quantidade':
+            compareValue = a.quantidade - b.quantidade
+            break
+          case 'nome':
+            compareValue = a.nome.localeCompare(b.nome, 'pt-BR')
+            break
+          default:
+            compareValue = a.valor - b.valor // padrão: receita
+        }
+        
+        // Aplicar ordem (desc = true significa decrescente)
+        return desc ? -compareValue : compareValue
+      })
     
     // Calcular totais
     const totalOportunidades = unidadesComVendas.reduce((sum, u) => sum + u.quantidade, 0)
