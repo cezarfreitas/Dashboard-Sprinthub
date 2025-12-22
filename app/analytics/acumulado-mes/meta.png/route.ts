@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery } from '@/lib/database'
 import sharp from 'sharp'
+import fs from 'fs'
+import path from 'path'
 
 export const dynamic = 'force-dynamic'
 
@@ -340,22 +342,41 @@ function gerarSVG(
   
   const totalHeight = headerHeight + tableHeaderHeight + (unidades.length * rowHeight) + footerHeight
 
+  // Ler fontes e converter para base64
+  const fontRegularPath = path.join(process.cwd(), 'public', 'fonts', 'Roboto-Regular.woff2')
+  const fontBoldPath = path.join(process.cwd(), 'public', 'fonts', 'Roboto-Bold.woff2')
+  
+  const fontRegularBase64 = fs.readFileSync(fontRegularPath).toString('base64')
+  const fontBoldBase64 = fs.readFileSync(fontBoldPath).toString('base64')
+
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${width}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
-      .title { font-family: Arial, Helvetica, sans-serif; font-size: 42px; font-weight: bold; fill: #111827; }
-      .subtitle { font-family: Arial, Helvetica, sans-serif; font-size: 18px; font-weight: bold; fill: #6b7280; }
-      .cardLabel { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: bold; fill: #6b7280; letter-spacing: 0.6px; text-transform: uppercase; }
-      .cardValue { font-family: Arial, Helvetica, sans-serif; font-size: 22px; font-weight: bold; fill: #111827; }
-      .cardValueGreen { font-family: Arial, Helvetica, sans-serif; font-size: 22px; font-weight: bold; fill: #059669; }
-      .header-text { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; fill: #374151; text-transform: uppercase; letter-spacing: 0.5px; }
-      .cell-text { font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: bold; fill: #1f2937; }
-      .cell-number { font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: bold; fill: #059669; }
-      .cell-muted { font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: bold; fill: #111827; }
-      .footer-text { font-family: Arial, Helvetica, sans-serif; font-size: 20px; font-weight: bold; fill: #111827; }
-      .footer-number { font-family: Arial, Helvetica, sans-serif; font-size: 22px; font-weight: bold; fill: #059669; }
-      .footer-small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: normal; fill: #9ca3af; }
+      @font-face {
+        font-family: 'Roboto';
+        font-style: normal;
+        font-weight: 400;
+        src: url(data:font/woff2;charset=utf-8;base64,${fontRegularBase64}) format('woff2');
+      }
+      @font-face {
+        font-family: 'Roboto';
+        font-style: normal;
+        font-weight: 700;
+        src: url(data:font/woff2;charset=utf-8;base64,${fontBoldBase64}) format('woff2');
+      }
+      .title { font-family: 'Roboto', sans-serif; font-size: 42px; font-weight: 700; fill: #111827; }
+      .subtitle { font-family: 'Roboto', sans-serif; font-size: 18px; font-weight: 700; fill: #6b7280; }
+      .cardLabel { font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 700; fill: #6b7280; letter-spacing: 0.6px; text-transform: uppercase; }
+      .cardValue { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 700; fill: #111827; }
+      .cardValueGreen { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 700; fill: #059669; }
+      .header-text { font-family: 'Roboto', sans-serif; font-size: 13px; font-weight: 700; fill: #374151; text-transform: uppercase; letter-spacing: 0.5px; }
+      .cell-text { font-family: 'Roboto', sans-serif; font-size: 15px; font-weight: 700; fill: #1f2937; }
+      .cell-number { font-family: 'Roboto', sans-serif; font-size: 15px; font-weight: 700; fill: #059669; }
+      .cell-muted { font-family: 'Roboto', sans-serif; font-size: 14px; font-weight: 700; fill: #111827; }
+      .footer-text { font-family: 'Roboto', sans-serif; font-size: 20px; font-weight: 700; fill: #111827; }
+      .footer-number { font-family: 'Roboto', sans-serif; font-size: 22px; font-weight: 700; fill: #059669; }
+      .footer-small { font-family: 'Roboto', sans-serif; font-size: 13px; font-weight: 400; fill: #9ca3af; }
     </style>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#f0fdf4;stop-opacity:1" />
