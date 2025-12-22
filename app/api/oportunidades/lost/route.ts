@@ -3,6 +3,14 @@ import { executeQuery } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
+function parseIdList(value: string | null): number[] {
+  if (!value) return []
+  return value
+    .split(',')
+    .map((v) => parseInt(v.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n > 0)
+}
+
 // Helper para parsear JSON com segurança
 function parseJSON(value: any): any[] {
   if (!value) return []
@@ -97,12 +105,65 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     
     // Parâmetros de filtro
-    const unidadeIdParam = searchParams.get('unidade_id')
+    const unidadesParam = searchParams.get('unidades') || searchParams.get('unidade_id')
+    const grupoParam = searchParams.get('grupo') || searchParams.get('grupo_id')
+    const funilParam = searchParams.get('funil') || searchParams.get('funil_id')
     const userIdParam = searchParams.get('user_id') || searchParams.get('vendedor_id')
-    const lostDateStart = searchParams.get('lost_date_start') || searchParams.get('data_inicio')
-    const lostDateEnd = searchParams.get('lost_date_end') || searchParams.get('data_fim')
+    const lostDateStart =
+      searchParams.get('dataInicio') ||
+      searchParams.get('lost_date_start') ||
+      searchParams.get('data_inicio')
+    const lostDateEnd =
+      searchParams.get('dataFim') ||
+      searchParams.get('lost_date_end') ||
+      searchParams.get('data_fim')
     const allParam = searchParams.get('all') === '1'
     
+    const funilId =
+      funilParam && funilParam !== 'todos' ? Number(funilParam) : null
+    const grupoId =
+      grupoParam && grupoParam !== 'todos' ? Number(grupoParam) : null
+
+    // Resolver unidades pelo grupo (e/ou interseção com unidades selecionadas)
+    let unidadeIds = parseIdList(unidadesParam)
+    if (Number.isFinite(grupoId) && (grupoId as number) > 0) {
+      const grupoUnidades = (await executeQuery(
+        `
+        SELECT u.id
+        FROM unidades u
+        WHERE u.grupo_id = ? AND u.ativo = 1
+        `,
+        [Number(grupoId)]
+      )) as Array<{ id: number }>
+
+      const grupoUnidadeIds = grupoUnidades.map((u) => Number(u.id)).filter((id) => Number.isFinite(id) && id > 0)
+
+      if (unidadeIds.length > 0) {
+        const grupoSet = new Set(grupoUnidadeIds)
+        unidadeIds = unidadeIds.filter((id) => grupoSet.has(id))
+      } else {
+        unidadeIds = grupoUnidadeIds
+      }
+
+      // Se filtrou por grupo (e opcionalmente por unidades) mas não sobrou nenhuma unidade, retornar vazio
+      if (unidadeIds.length === 0) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            motivos_perda: [],
+            totais: { total_oportunidades: 0, valor_total: 0, total_motivos: 0 }
+          },
+          filters: {
+            unidades: unidadesParam || null,
+            grupo: grupoParam || null,
+            funil: funilParam || null,
+            dataInicio: lostDateStart || null,
+            dataFim: lostDateEnd || null
+          }
+        })
+      }
+    }
+
     // Validar e corrigir datas
     let dataInicioValida: string | null = null
     let dataFimValida: string | null = null
@@ -183,13 +244,19 @@ export async function GET(request: NextRequest) {
 
     // Filtro de período (lost_date)
     if (dataInicioValida) {
-      whereClauses.push('o.lost_date >= ?')
-      queryParams.push(dataInicioValida + ' 00:00:00')
+      whereClauses.push(`DATE(CONVERT_TZ(o.lost_date, '+00:00', '-03:00')) >= ?`)
+      queryParams.push(dataInicioValida)
     }
 
     if (dataFimValida) {
-      whereClauses.push('o.lost_date <= ?')
-      queryParams.push(dataFimValida + ' 23:59:59')
+      whereClauses.push(`DATE(CONVERT_TZ(o.lost_date, '+00:00', '-03:00')) <= ?`)
+      queryParams.push(dataFimValida)
+    }
+
+    // Filtro de funil
+    if (Number.isFinite(funilId) && (funilId as number) > 0) {
+      whereClauses.push(`o.coluna_funil_id IN (SELECT id FROM colunas_funil WHERE id_funil = ?)`)
+      queryParams.push(Number(funilId))
     }
 
     // Filtro de vendedor/unidade
@@ -204,8 +271,8 @@ export async function GET(request: NextRequest) {
       userIds.push(...userIdsFromParam)
     }
 
-    if (unidadeIdParam) {
-      const { vendedoresIds, vendedorUnidadeMap: map } = await buildUnidadeFilter(unidadeIdParam)
+    if (unidadeIds.length > 0) {
+      const { vendedoresIds, vendedorUnidadeMap: map } = await buildUnidadeFilter(unidadeIds.join(','))
       userIds.push(...vendedoresIds)
       vendedorUnidadeMap = map
     }
@@ -382,24 +449,17 @@ export async function GET(request: NextRequest) {
 
     // Buscar informações das unidades (se filtrado por unidade)
     let unidadesInfo: Array<{ id: number; nome: string }> = []
-    if (unidadeIdParam) {
-      const unidadeIds = unidadeIdParam
-        .split(',')
-        .map(id => parseInt(id.trim()))
-        .filter(id => !isNaN(id) && id > 0)
-      
-      if (unidadeIds.length > 0) {
-        const placeholders = unidadeIds.map(() => '?').join(',')
-        const unidades = await executeQuery(
-          `SELECT id, COALESCE(nome, name) as nome FROM unidades WHERE id IN (${placeholders}) AND ativo = 1`,
-          unidadeIds
-        ) as Array<{ id: number; nome: string }>
-        
-        unidadesInfo = unidades.map(u => ({
-          id: u.id,
-          nome: u.nome || 'Sem nome'
-        }))
-      }
+    if (unidadeIds.length > 0) {
+      const placeholders = unidadeIds.map(() => '?').join(',')
+      const unidades = await executeQuery(
+        `SELECT id, COALESCE(nome, name) as nome FROM unidades WHERE id IN (${placeholders}) AND ativo = 1`,
+        unidadeIds
+      ) as Array<{ id: number; nome: string }>
+
+      unidadesInfo = unidades.map(u => ({
+        id: u.id,
+        nome: u.nome || 'Sem nome'
+      }))
     }
 
     // Buscar informações dos vendedores (se filtrado por vendedor)
@@ -444,10 +504,16 @@ export async function GET(request: NextRequest) {
       success: true,
       data: responseData,
       filters: {
-        unidade_id: unidadeIdParam || null,
+        // Mantém compatibilidade retroativa + adiciona padrão do ranking
+        unidade_id: unidadesParam || null,
+        unidades: unidadesParam || null,
+        grupo: grupoParam || null,
+        funil: funilParam || null,
         user_id: userIdParam || null,
         lost_date_start: dataInicioValida || null,
-        lost_date_end: dataFimValida || null
+        lost_date_end: dataFimValida || null,
+        dataInicio: dataInicioValida || null,
+        dataFim: dataFimValida || null
       },
       ...(unidadesInfo.length > 0 ? { unidade_info: unidadesInfo } : {}),
       ...(vendedoresInfo.length > 0 ? { vendedor_info: vendedoresInfo } : {})

@@ -21,6 +21,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -177,11 +178,20 @@ export default function MotivosPerdaPage() {
       setLoading(true)
       
       const params = new URLSearchParams()
-      params.append('lost_date_start', filtros.periodoInicio)
-      params.append('lost_date_end', filtros.periodoFim)
+      // Padronizado (igual ranking de vendedores)
+      params.append('dataInicio', filtros.periodoInicio)
+      params.append('dataFim', filtros.periodoFim)
       
       if (filtros.unidadesSelecionadas.length > 0) {
-        params.append('unidade_id', filtros.unidadesSelecionadas.join(','))
+        params.append('unidades', filtros.unidadesSelecionadas.join(','))
+      }
+
+      if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos') {
+        params.append('funil', filtros.funilSelecionado)
+      }
+
+      if (filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos') {
+        params.append('grupo', filtros.grupoSelecionado)
       }
       
       const apiUrl = `/api/oportunidades/lost?${params.toString()}`
@@ -294,7 +304,14 @@ export default function MotivosPerdaPage() {
     if (filtros.periodoInicio && filtros.periodoFim) {
       fetchData()
     }
-  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas, fetchData])
+  }, [
+    filtros.periodoInicio,
+    filtros.periodoFim,
+    filtros.unidadesSelecionadas,
+    filtros.funilSelecionado,
+    filtros.grupoSelecionado,
+    fetchData
+  ])
 
   const totalGeralOportunidades = useMemo(() => {
     return totais.total_oportunidades || motivosGerais.reduce((sum, m) => sum + m.total_oportunidades, 0)
@@ -314,6 +331,7 @@ export default function MotivosPerdaPage() {
         motivoFull: m.motivo,
         quantidade: m.total_oportunidades,
         valor: m.valor_total,
+        valorLabel: m.valor_total > 0 ? formatCurrency(m.valor_total) : 'R$ 0',
         percentual: totalGeralOportunidades > 0
           ? ((m.total_oportunidades / totalGeralOportunidades) * 100).toFixed(1)
           : '0.0',
@@ -330,7 +348,7 @@ export default function MotivosPerdaPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
-        <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 py-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           {/* Cabeçalho */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
@@ -368,6 +386,7 @@ export default function MotivosPerdaPage() {
               grupos={grupos}
               periodoInicial={periodoInicial}
               filtrosAtivos={filtrosAtivos}
+              showGainDateFilter={false}
             />
           </div>
 
@@ -448,7 +467,7 @@ export default function MotivosPerdaPage() {
                       <BarChart
                         data={chartData}
                         layout="vertical"
-                        margin={{ top: 8, right: 48, left: 16, bottom: 8 }}
+                        margin={{ top: 8, right: 140, left: 16, bottom: 8 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
                         <XAxis
@@ -489,6 +508,12 @@ export default function MotivosPerdaPage() {
                           {chartData.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={barColors[index % barColors.length]} />
                           ))}
+                          <LabelList
+                            dataKey="valorLabel"
+                            position="right"
+                            fill="hsl(var(--muted-foreground))"
+                            fontSize={11}
+                          />
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
@@ -525,90 +550,76 @@ export default function MotivosPerdaPage() {
                   </div>
                 ) : motivosGerais.length > 0 ? (
                   <div className="rounded-lg border bg-card">
-                    <div className="max-h-[520px] overflow-auto">
-                      <Table>
-                        <TableHeader className="sticky top-0 z-10 bg-card">
-                          <TableRow className="hover:bg-transparent">
-                            <TableHead className="text-left">
-                              <span className="text-xs font-semibold text-muted-foreground">Motivo</span>
-                            </TableHead>
-                            <TableHead className="text-right whitespace-nowrap tabular-nums">
-                              <span className="text-xs font-semibold text-muted-foreground">Qtd.</span>
-                            </TableHead>
-                            <TableHead className="text-center whitespace-nowrap">
-                              <span className="text-xs font-semibold text-muted-foreground">Taxa</span>
-                            </TableHead>
-                            <TableHead className="text-right whitespace-nowrap tabular-nums">
-                              <span className="text-xs font-semibold text-muted-foreground">Lead time</span>
-                            </TableHead>
-                            <TableHead className="text-right whitespace-nowrap tabular-nums">
-                              <span className="text-xs font-semibold text-muted-foreground">Valor de P&amp;S</span>
-                            </TableHead>
-                            <TableHead className="text-right whitespace-nowrap tabular-nums">
-                              <span className="text-xs font-semibold text-muted-foreground">Ticket de P&amp;S</span>
-                            </TableHead>
-                            <TableHead className="text-right whitespace-nowrap tabular-nums">
-                              <span className="text-xs font-semibold text-muted-foreground">Valor de MRR</span>
-                            </TableHead>
-                            <TableHead className="text-right whitespace-nowrap tabular-nums">
-                              <span className="text-xs font-semibold text-muted-foreground">Ticket de MRR</span>
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {motivosGerais.map((motivo, idx) => {
-                            const taxa =
-                              totalGeralOportunidades > 0
-                                ? (motivo.total_oportunidades / totalGeralOportunidades) * 100
-                                : 0
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-card">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="text-left">
+                            <span className="text-xs font-semibold text-muted-foreground">Motivo</span>
+                          </TableHead>
+                          <TableHead className="text-right whitespace-nowrap tabular-nums">
+                            <span className="text-xs font-semibold text-muted-foreground">Qtd.</span>
+                          </TableHead>
+                          <TableHead className="text-center whitespace-nowrap">
+                            <span className="text-xs font-semibold text-muted-foreground">Taxa</span>
+                          </TableHead>
+                          <TableHead className="text-right whitespace-nowrap tabular-nums">
+                            <span className="text-xs font-semibold text-muted-foreground">Lead time</span>
+                          </TableHead>
+                          <TableHead className="text-right whitespace-nowrap tabular-nums">
+                            <span className="text-xs font-semibold text-muted-foreground">Valor de P&amp;S</span>
+                          </TableHead>
+                          <TableHead className="text-right whitespace-nowrap tabular-nums">
+                            <span className="text-xs font-semibold text-muted-foreground">Ticket de P&amp;S</span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {motivosGerais.map((motivo, idx) => {
+                          const taxa =
+                            totalGeralOportunidades > 0
+                              ? (motivo.total_oportunidades / totalGeralOportunidades) * 100
+                              : 0
 
-                            const ticketPS =
-                              motivo.total_oportunidades > 0 && motivo.valor_total > 0
-                                ? motivo.valor_total / motivo.total_oportunidades
-                                : 0
+                          const ticketPS =
+                            motivo.total_oportunidades > 0 && motivo.valor_total > 0
+                              ? motivo.valor_total / motivo.total_oportunidades
+                              : 0
 
-                            return (
-                              <TableRow
-                                key={motivo.motivo_id || `motivo-${idx}`}
-                                className={[
-                                  idx % 2 === 0 ? "bg-muted/20" : "",
-                                  "hover:bg-muted/40"
-                                ].join(" ")}
-                              >
-                                <TableCell className="py-2 px-3">
-                                  <div className="text-sm font-medium text-foreground truncate max-w-[520px]" title={motivo.motivo}>
-                                    {motivo.motivo}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums font-semibold">
-                                  {motivo.total_oportunidades.toLocaleString("pt-BR")}
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <span className="inline-flex items-center rounded-md bg-red-500/10 text-red-600 px-2 py-1 text-xs font-medium tabular-nums">
-                                    {formatPercent(taxa)}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums text-muted-foreground">
-                                  {motivo.lost_time}d
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums font-medium whitespace-nowrap">
-                                  {motivo.valor_total > 0 ? formatCurrency(motivo.valor_total) : <span className="text-muted-foreground">—</span>}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums whitespace-nowrap">
-                                  {ticketPS > 0 ? formatCurrency(ticketPS) : <span className="text-muted-foreground">—</span>}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums whitespace-nowrap">
-                                  <span className="text-muted-foreground">—</span>
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums whitespace-nowrap">
-                                  <span className="text-muted-foreground">—</span>
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
+                          return (
+                            <TableRow
+                              key={motivo.motivo_id || `motivo-${idx}`}
+                              className={[
+                                idx % 2 === 0 ? "bg-muted/20" : "",
+                                "hover:bg-muted/40"
+                              ].join(" ")}
+                            >
+                              <TableCell className="py-2 px-3">
+                                <div className="text-sm font-medium text-foreground whitespace-normal break-words" title={motivo.motivo}>
+                                  {motivo.motivo}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums font-semibold whitespace-nowrap">
+                                {motivo.total_oportunidades.toLocaleString("pt-BR")}
+                              </TableCell>
+                              <TableCell className="text-center whitespace-nowrap">
+                                <span className="inline-flex items-center rounded-md bg-red-500/10 text-red-600 px-2 py-1 text-xs font-medium tabular-nums">
+                                  {formatPercent(taxa)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-muted-foreground whitespace-nowrap">
+                                {motivo.lost_time}d
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums font-medium whitespace-nowrap">
+                                {motivo.valor_total > 0 ? formatCurrency(motivo.valor_total) : <span className="text-muted-foreground">—</span>}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums whitespace-nowrap">
+                                {ticketPS > 0 ? formatCurrency(ticketPS) : <span className="text-muted-foreground">—</span>}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
                   </div>
                 ) : (
                   <div className="rounded-lg border bg-card p-10 text-center">

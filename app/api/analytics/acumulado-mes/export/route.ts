@@ -300,10 +300,10 @@ export async function GET(request: NextRequest) {
     XLSX.utils.book_append_sheet(wb, wsAcumulado, 'Acumulado')
     XLSX.utils.book_append_sheet(wb, wsOportunidades, 'Oportunidades')
 
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
     const filename = `acumulado_${dataInicio}_a_${dataFim}.xlsx`
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

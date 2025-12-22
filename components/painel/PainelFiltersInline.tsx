@@ -31,6 +31,7 @@ interface PainelFiltersInlineProps {
   grupos: Array<{ id: number; nome: string }>
   periodoInicial: { inicio: string; fim: string }
   filtrosAtivos: boolean
+  showGainDateFilter?: boolean
 }
 
 export default function PainelFiltersInline({
@@ -40,7 +41,8 @@ export default function PainelFiltersInline({
   funis,
   grupos,
   periodoInicial,
-  filtrosAtivos
+  filtrosAtivos,
+  showGainDateFilter = true
 }: PainelFiltersInlineProps) {
   const periodoOptions = [
     { value: 'este-mes', label: 'Este Mês' },
@@ -166,32 +168,34 @@ export default function PainelFiltersInline({
         </div>
 
         {/* Data de Ganho */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Calendar className="h-3 w-3 text-green-600" />
-          <span className="text-xs font-medium text-gray-600">Ganho</span>
-          <Input
-            type="date"
-            value={filtros.gainDateInicio || ''}
-            onChange={(e) => setFiltros({ ...filtros, gainDateInicio: e.target.value || undefined })}
-            className="h-9 text-xs bg-white border-gray-300 text-gray-900 w-[145px]"
-          />
-          <span className="text-gray-500 text-xs">até</span>
-          <Input
-            type="date"
-            value={filtros.gainDateFim || ''}
-            onChange={(e) => setFiltros({ ...filtros, gainDateFim: e.target.value || undefined })}
-            className="h-9 text-xs bg-white border-gray-300 text-gray-900 w-[145px]"
-          />
-          {(filtros.gainDateInicio || filtros.gainDateFim) && (
-            <button
-              onClick={() => setFiltros({ ...filtros, gainDateInicio: undefined, gainDateFim: undefined })}
-              className="text-xs text-gray-400 hover:text-red-500"
-              title="Limpar filtro de data de ganho"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
+        {showGainDateFilter && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Calendar className="h-3 w-3 text-green-600" />
+            <span className="text-xs font-medium text-gray-600">Ganho</span>
+            <Input
+              type="date"
+              value={filtros.gainDateInicio || ''}
+              onChange={(e) => setFiltros({ ...filtros, gainDateInicio: e.target.value || undefined })}
+              className="h-9 text-xs bg-white border-gray-300 text-gray-900 w-[145px]"
+            />
+            <span className="text-gray-500 text-xs">até</span>
+            <Input
+              type="date"
+              value={filtros.gainDateFim || ''}
+              onChange={(e) => setFiltros({ ...filtros, gainDateFim: e.target.value || undefined })}
+              className="h-9 text-xs bg-white border-gray-300 text-gray-900 w-[145px]"
+            />
+            {(filtros.gainDateInicio || filtros.gainDateFim) && (
+              <button
+                onClick={() => setFiltros({ ...filtros, gainDateInicio: undefined, gainDateFim: undefined })}
+                className="text-xs text-gray-400 hover:text-red-500"
+                title="Limpar filtro de data de ganho"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Limpar */}
         {filtrosAtivos && (
