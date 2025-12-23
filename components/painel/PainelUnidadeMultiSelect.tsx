@@ -69,9 +69,13 @@ export default function PainelUnidadeMultiSelect({
           {/* Opção "Todas" */}
           <div
             className="flex items-center px-3 py-2 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              toggleAll()
+            }}
             onMouseDown={(e) => {
               e.preventDefault()
-              toggleAll()
             }}
           >
             <Checkbox
@@ -79,11 +83,18 @@ export default function PainelUnidadeMultiSelect({
               checked={selectedIds.length === unidadesList.length && unidadesList.length > 0}
               onCheckedChange={toggleAll}
               className="mr-2"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+              }}
             />
             <label
               htmlFor="select-all"
               className="flex-1 text-xs font-semibold text-gray-700 cursor-pointer py-1"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                toggleAll()
+              }}
             >
               Todas as unidades
             </label>
@@ -98,22 +109,37 @@ export default function PainelUnidadeMultiSelect({
                   <div
                     key={unidade.id}
                     className="flex items-center px-3 py-2 rounded-sm hover:bg-gray-50 cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleUnidade(unidade.id)
+                    }}
                     onMouseDown={(e) => {
                       e.preventDefault()
-                      toggleUnidade(unidade.id)
                     }}
                   >
                     <Checkbox
                       id={`unidade-${unidade.id}`}
                       checked={isChecked}
-                      onCheckedChange={() => toggleUnidade(unidade.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked !== isChecked) {
+                          toggleUnidade(unidade.id)
+                        }
+                      }}
                       className="mr-2"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                      }}
                     />
                     <label
                       htmlFor={`unidade-${unidade.id}`}
                       className="flex-1 text-xs text-gray-700 cursor-pointer py-1 truncate"
                       title={unidade.nome}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleUnidade(unidade.id)
+                      }}
                     >
                       {unidade.nome}
                     </label>

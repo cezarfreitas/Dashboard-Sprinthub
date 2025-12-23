@@ -254,37 +254,46 @@ function PainelBarraProgressoMeta({
           <>
             {/* Barra de Progresso */}
             <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden flex-1">
-          <div 
-            className={cn(
-              "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-3",
-              smartMeta.fillClass
-            )}
-            style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
-          >
-            {percentualMeta > 15 && (
-              <span className="text-white text-xs font-bold">
-                {percentualMeta.toFixed(1)}%
-              </span>
-            )}
-          </div>
+              <div 
+                className={cn(
+                  "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-3",
+                  smartMeta.fillClass
+                )}
+                style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
+              >
+                {percentualMeta > 15 && (
+                  <span className="text-white text-xs font-bold">
+                    {percentualMeta.toFixed(1)}%
+                  </span>
+                )}
+              </div>
 
-          {/* Marcador do esperado (ritmo) */}
-          {smartMeta.expectedMarkerPercent !== null && (
-            <div
-              className="absolute top-0 bottom-0 w-[2px] bg-gray-600"
-              style={{ left: `calc(${smartMeta.expectedMarkerPercent}% - 1px)` }}
-              title={`Esperado hoje: ${smartMeta.expectedMarkerPercent.toFixed(1)}%`}
-            />
-          )}
+              {/* Marcador de projeção - linha dentro da barra */}
+              {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
+                <div
+                  className="absolute top-0 bottom-0 w-[2px] bg-blue-600 z-10"
+                  style={{ left: `${Math.min(100, smartMeta.projectedPercent)}%` }}
+                />
+              )}
 
-          {percentualMeta <= 15 && percentualMeta > 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-gray-600 text-xs font-bold">
-                {percentualMeta.toFixed(1)}%
-              </span>
+              {percentualMeta <= 15 && percentualMeta > 0 && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-gray-600 text-xs font-bold">
+                    {percentualMeta.toFixed(1)}%
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Label de projeção - fora da barra, ao lado */}
+            {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <div className="w-3 h-[2px] bg-blue-600" />
+                <span className="text-[10px] font-bold text-blue-600 whitespace-nowrap">
+                  Proj: {formatCurrency(smartMeta.projectedValor)}
+                </span>
+              </div>
+            )}
         
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="text-right">

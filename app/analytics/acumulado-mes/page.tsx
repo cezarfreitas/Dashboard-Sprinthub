@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
 import PainelFiltersInline from "@/components/painel/PainelFiltersInline"
-import { PainelUnidadesGrid } from "@/components/painel/PainelUnidadesGrid"
+import { AcumuladoMesTable } from "@/components/analytics/AcumuladoMesTable"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -139,6 +139,43 @@ export default function AcumuladoMesPage() {
            filtros.grupoSelecionado !== 'todos'
   }, [filtros])
 
+
+  const fetchFunis = useCallback(async () => {
+    try {
+      const response = await fetch('/api/funis')
+      const data = await response.json()
+      if (data.success && data.funis) {
+        setFunis(data.funis)
+      }
+    } catch (err) {
+      setFunis([])
+    }
+  }, [])
+
+  const fetchGrupos = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades/grupos')
+      const data = await response.json()
+      if (data.success && data.grupos) {
+        setGrupos(data.grupos)
+      }
+    } catch (err) {
+      setGrupos([])
+    }
+  }, [])
+
+  const fetchUnidadesList = useCallback(async () => {
+    try {
+      const response = await fetch('/api/unidades/list')
+      const data = await response.json()
+      if (data.success && data.unidades) {
+        setUnidadesList(data.unidades)
+      }
+    } catch (err) {
+      setUnidadesList([])
+    }
+  }, [])
+
   // Buscar dados acumulados dia a dia
   const fetchDadosAcumulados = useCallback(async (signal: AbortSignal) => {
     try {
@@ -192,42 +229,6 @@ export default function AcumuladoMesPage() {
     }
   }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas, periodoInicial])
 
-  const fetchFunis = useCallback(async () => {
-    try {
-      const response = await fetch('/api/funis')
-      const data = await response.json()
-      if (data.success && data.funis) {
-        setFunis(data.funis)
-      }
-    } catch (err) {
-      setFunis([])
-    }
-  }, [])
-
-  const fetchGrupos = useCallback(async () => {
-    try {
-      const response = await fetch('/api/unidades/grupos')
-      const data = await response.json()
-      if (data.success && data.grupos) {
-        setGrupos(data.grupos)
-      }
-    } catch (err) {
-      setGrupos([])
-    }
-  }, [])
-
-  const fetchUnidadesList = useCallback(async () => {
-    try {
-      const response = await fetch('/api/unidades/list')
-      const data = await response.json()
-      if (data.success && data.unidades) {
-        setUnidadesList(data.unidades)
-      }
-    } catch (err) {
-      setUnidadesList([])
-    }
-  }, [])
-
   // Effect 1: Atualizar período quando o tipo mudar
   useEffect(() => {
     if (filtros.periodoTipo !== 'personalizado') {
@@ -242,14 +243,14 @@ export default function AcumuladoMesPage() {
     }
   }, [filtros.periodoTipo, filtros.periodoInicio, filtros.periodoFim, calcularPeriodo])
 
-  // Effect 2: Carregar dados estáticos uma vez
+  // Effect: Carregar dados estáticos uma vez
   useEffect(() => {
     fetchFunis()
     fetchGrupos()
     fetchUnidadesList()
   }, [fetchFunis, fetchGrupos, fetchUnidadesList])
 
-  // Effect 3: Carregar dados do gráfico quando filtros mudarem
+  // Effect: Carregar dados do gráfico quando filtros mudarem
   useEffect(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -279,6 +280,16 @@ export default function AcumuladoMesPage() {
     return 'Período não definido'
   }, [filtros.periodoInicio, filtros.periodoFim])
 
+  // Valor total acumulado (último valor do array)
+  const totalAcumulado = useMemo(() => {
+    if (dadosAcumulados.length === 0) return { valor: 0, quantidade: 0 }
+    const ultimo = dadosAcumulados[dadosAcumulados.length - 1]
+    return {
+      valor: ultimo.valor_acumulado,
+      quantidade: ultimo.quantidade_acumulada
+    }
+  }, [dadosAcumulados])
+
   // Aplicar filtro de grupo sobre as unidades selecionadas
   const filtrosParaGrid = useMemo(() => {
     const grupoSelecionadoId =
@@ -306,15 +317,6 @@ export default function AcumuladoMesPage() {
     }
   }, [filtros, grupos])
 
-  // Valor total acumulado (último valor do array)
-  const totalAcumulado = useMemo(() => {
-    if (dadosAcumulados.length === 0) return { valor: 0, quantidade: 0 }
-    const ultimo = dadosAcumulados[dadosAcumulados.length - 1]
-    return {
-      valor: ultimo.valor_acumulado,
-      quantidade: ultimo.quantidade_acumulada
-    }
-  }, [dadosAcumulados])
 
   const handleExportExcel = useCallback(async () => {
     if (exporting) return
@@ -505,8 +507,8 @@ export default function AcumuladoMesPage() {
           </CardContent>
         </Card>
 
-        {/* Grid de Unidades (igual ao painel) */}
-        <PainelUnidadesGrid
+        {/* Tabela de Unidades */}
+        <AcumuladoMesTable
           filtros={filtrosParaGrid}
           mesAtual={mesAtual}
           anoAtual={anoAtual}

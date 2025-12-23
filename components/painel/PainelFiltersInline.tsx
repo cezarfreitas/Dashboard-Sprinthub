@@ -55,7 +55,7 @@ export default function PainelFiltersInline({
   ]
 
   return (
-    <div className="w-full">
+    <div className="w-full mb-6">
       <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 shadow-sm overflow-x-auto whitespace-nowrap">
         {/* Unidades */}
         <div className="flex items-center gap-2 shrink-0 min-w-[260px]">
