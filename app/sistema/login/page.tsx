@@ -75,9 +75,8 @@ export default function LoginSistemaPage() {
             <div className="flex justify-center">
               <EmpresaLogo
                 src={empresaConfig?.logotipo}
-                empresaNome={empresaConfig?.nome}
+                alt={empresaConfig?.nome || 'Logo'}
                 className="h-12 w-auto object-contain"
-                showFallbackIcon={true}
               />
             </div>
             <div className="space-y-1">

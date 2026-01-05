@@ -1,8 +1,15 @@
-import React, { memo, useCallback } from 'react'
+import React, { memo, useCallback, useRef, useState } from 'react'
+import Image from 'next/image'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import {
   Building2,
   Users,
@@ -14,7 +21,7 @@ import {
   TrendingUp,
   Clock,
   CalendarX,
-  FileText
+  FileText,
 } from 'lucide-react'
 import type { Unidade, VendedorFila } from '@/hooks/unidades/useUnidades'
 
@@ -24,6 +31,7 @@ interface UnidadeCardProps {
   onManageQueue: (unidade: Unidade) => void
   onRegistroAusencia?: (unidade: Unidade) => void
   onLogs?: (unidade: Unidade) => void
+  onUploadImagem?: (unidadeId: number, file: File) => Promise<string>
 }
 
 export const UnidadeCard = memo(function UnidadeCard({
@@ -31,8 +39,13 @@ export const UnidadeCard = memo(function UnidadeCard({
   onToggleStatus,
   onManageQueue,
   onRegistroAusencia,
-  onLogs
+  onLogs,
+  onUploadImagem
 }: UnidadeCardProps) {
+  const [uploadingImagem, setUploadingImagem] = useState(false)
+  const [imagemDialogOpen, setImagemDialogOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
   const handleToggleStatus = useCallback(() => {
     onToggleStatus(unidade.id, unidade.ativo)
   }, [unidade.id, unidade.ativo, onToggleStatus])
@@ -52,6 +65,30 @@ export const UnidadeCard = memo(function UnidadeCard({
       onLogs(unidade)
     }
   }, [unidade, onLogs])
+
+  const handleOpenImagemDialog = useCallback(() => {
+    if (!onUploadImagem) return
+    setImagemDialogOpen(true)
+  }, [onUploadImagem])
+
+  const handleSelectImagem = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  const handleImagemChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!onUploadImagem) return
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploadingImagem(true)
+      await onUploadImagem(unidade.id, file)
+      setImagemDialogOpen(false)
+    } finally {
+      setUploadingImagem(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }, [onUploadImagem, unidade.id])
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Nunca'
@@ -78,7 +115,101 @@ export const UnidadeCard = memo(function UnidadeCard({
           <div className="flex-1 min-w-0 space-y-1.5">
             {/* Nome + Grupo */}
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
+              {/* Ícone OU Imagem da unidade */}
+              {unidade.imagem ? (
+                <button
+                  type="button"
+                  onClick={handleOpenImagemDialog}
+                  disabled={!onUploadImagem}
+                  className={`relative h-8 w-8 overflow-hidden rounded-md border bg-muted flex-shrink-0 ${
+                    onUploadImagem ? 'cursor-pointer hover:opacity-90' : 'cursor-default'
+                  }`}
+                  aria-label={`Abrir upload de imagem da unidade ${unidade.name}`}
+                  title={onUploadImagem ? 'Trocar imagem' : 'Sem permissão'}
+                >
+                  <Image
+                    src={unidade.imagem}
+                    alt={`Imagem da unidade ${unidade.name}`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOpenImagemDialog}
+                  disabled={!onUploadImagem}
+                  className={`h-4 w-4 text-primary flex-shrink-0 ${
+                    onUploadImagem ? 'cursor-pointer hover:opacity-70' : 'cursor-default'
+                  }`}
+                  aria-label={`Enviar imagem da unidade ${unidade.name}`}
+                  title={onUploadImagem ? 'Enviar imagem' : 'Sem permissão'}
+                >
+                  <Building2 className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* Input e Dialog de upload (ocultos) */}
+              {onUploadImagem && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImagemChange}
+                    aria-label={`Selecionar imagem para unidade ${unidade.name}`}
+                  />
+
+                  <Dialog open={imagemDialogOpen} onOpenChange={setImagemDialogOpen}>
+                    <DialogContent className="max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Imagem da unidade</DialogTitle>
+                      </DialogHeader>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-20 w-20 overflow-hidden rounded-md border bg-muted">
+                            {unidade.imagem ? (
+                              <Image
+                                src={unidade.imagem}
+                                alt={`Imagem da unidade ${unidade.name}`}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            ) : null}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{unidade.name}</div>
+                            <div className="text-xs text-muted-foreground">#{unidade.id}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setImagemDialogOpen(false)}
+                            disabled={uploadingImagem}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={handleSelectImagem}
+                            disabled={uploadingImagem}
+                          >
+                            {uploadingImagem ? 'Enviando...' : 'Selecionar arquivo'}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+
               <h3 className="text-base font-semibold truncate">
                 {unidade.name}
                 <span className="text-sm text-muted-foreground font-normal ml-1">

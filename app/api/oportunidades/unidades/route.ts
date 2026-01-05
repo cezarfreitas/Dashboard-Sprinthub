@@ -61,7 +61,8 @@ export async function GET(request: NextRequest) {
         id, 
         COALESCE(nome, name) as nome, 
         users,
-        grupo_id
+        grupo_id,
+        imagem
       FROM unidades 
       WHERE ativo = 1
     `
@@ -118,6 +119,7 @@ export async function GET(request: NextRequest) {
         return {
           unidade_id: unidade.id,
           unidade_nome: unidade.nome,
+          imagem: unidade.imagem || null,
           abertas: {
             quantidade: 0,
             valor: 0
@@ -276,6 +278,7 @@ export async function GET(request: NextRequest) {
       return {
         unidade_id: unidade.id,
         unidade_nome: unidade.nome,
+        imagem: unidade.imagem || null,
         abertas,
         ganhas,
         perdidas,

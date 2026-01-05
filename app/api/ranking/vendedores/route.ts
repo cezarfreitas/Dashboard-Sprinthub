@@ -47,8 +47,12 @@ export async function GET(request: NextRequest) {
       unidadeIds = unidadesParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
     }
     
+    // Flag para indicar se temos filtro de grupo/unidade ativo
+    let temFiltroUnidadeOuGrupo = false
+    
     // Se tem grupo selecionado, buscar unidades do grupo
     if (grupoId && grupoId !== 'todos') {
+      temFiltroUnidadeOuGrupo = true
       const grupoUnidades = await executeQuery(`
         SELECT u.id 
         FROM unidades u 
@@ -63,9 +67,11 @@ export async function GET(request: NextRequest) {
       } else {
         unidadeIds = grupoUnidadeIds
       }
+    } else if (unidadeIds.length > 0) {
+      temFiltroUnidadeOuGrupo = true
     }
     
-    // Buscar vendedores das unidades selecionadas (se houver filtro de unidade)
+    // Buscar vendedores das unidades selecionadas (se houver filtro de unidade/grupo)
     let vendedorIds: number[] = []
     if (unidadeIds.length > 0) {
       const unidades = await executeQuery(`
@@ -104,6 +110,27 @@ export async function GET(request: NextRequest) {
             vendedorIds.push(vendedorId)
           }
         })
+      })
+    }
+    
+    // Se tem filtro de grupo/unidade ativo mas não encontrou vendedores, retornar vazio
+    if (temFiltroUnidadeOuGrupo && vendedorIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        ranking: [],
+        filtros: {
+          tipo,
+          mes: tipo === 'mensal' ? mes : null,
+          ano,
+          dataInicio,
+          dataFim,
+          unidades: unidadeIds,
+          funil: funilId,
+          grupo: grupoId,
+          gainDateInicio,
+          gainDateFim
+        },
+        message: 'Nenhum vendedor encontrado nas unidades/grupo selecionado'
       })
     }
 

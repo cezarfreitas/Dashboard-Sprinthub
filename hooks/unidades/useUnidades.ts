@@ -20,6 +20,7 @@ export interface Unidade {
   id: number
   name: string
   nome?: string
+  imagem?: string | null
   grupo_id?: number | null
   grupo_nome?: string | null
   department_id: number | null
@@ -70,6 +71,7 @@ interface UseUnidadesReturn {
   refreshUnidades: (showLoading?: boolean) => Promise<void>
   toggleUnidadeStatus: (unidadeId: number, currentStatus: boolean) => Promise<void>
   updateUnidadeFila: (unidadeId: number, fila: VendedorFila[]) => Promise<void>
+  uploadUnidadeImagem: (unidadeId: number, file: File) => Promise<string>
 }
 
 export function useUnidades(): UseUnidadesReturn {
@@ -253,6 +255,47 @@ export function useUnidades(): UseUnidadesReturn {
     }
   }, [])
 
+  const uploadUnidadeImagem = useCallback(async (unidadeId: number, file: File) => {
+    try {
+      setError('')
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch(`/api/unidades/${unidadeId}/upload-imagem`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorData: any
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          throw new Error(`Erro ${response.status}: ${response.statusText}`)
+        }
+        throw new Error(errorData.message || 'Erro ao enviar imagem')
+      }
+
+      const data = await response.json()
+      if (!data?.success || !data?.url) {
+        throw new Error(data?.message || 'Erro ao enviar imagem')
+      }
+
+      const url = String(data.url)
+
+      // Optimistic update
+      setUnidades(prev => prev.map(u => (u.id === unidadeId ? { ...u, imagem: url } : u)))
+
+      return url
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro ao enviar imagem'
+      setError(errorMsg)
+      throw err
+    }
+  }, [])
+
   // Debounced search effect
   useEffect(() => {
     if (debounceTimerRef.current) {
@@ -302,7 +345,8 @@ export function useUnidades(): UseUnidadesReturn {
     setPage,
     refreshUnidades: fetchUnidades,
     toggleUnidadeStatus,
-    updateUnidadeFila
+    updateUnidadeFila,
+    uploadUnidadeImagem
   }
 }
 

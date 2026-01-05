@@ -22,7 +22,8 @@ export default function UnidadesPage() {
     setSearchTerm,
     refreshUnidades,
     toggleUnidadeStatus,
-    updateUnidadeFila
+    updateUnidadeFila,
+    uploadUnidadeImagem
   } = useUnidades()
 
   const [editingUnidade, setEditingUnidade] = useState<Unidade | null>(null)
@@ -148,6 +149,7 @@ export default function UnidadesPage() {
                 onManageQueue={handleManageQueue}
                 onLogs={handleLogs}
                 onRegistroAusencia={handleAusencias}
+                onUploadImagem={uploadUnidadeImagem}
               />
             ))}
           </div>

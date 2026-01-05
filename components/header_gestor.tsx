@@ -168,7 +168,7 @@ export function HeaderGestor({
         <Link href="/gestor/dashboard" className="flex items-center gap-2 text-primary-foreground hover:text-primary-foreground/90">
           <EmpresaLogo
             src={empresaConfig?.logotipo}
-            empresaNome={empresaConfig?.nome}
+            alt={empresaConfig?.nome || 'Logo'}
             className="h-auto max-h-10 w-auto object-contain"
             priority
           />

@@ -116,3 +116,10 @@ echo "   mysql -u user -p database < scripts/diagnostico-fila-unidade-92.sql"
 
 
 
+
+
+
+
+
+
+

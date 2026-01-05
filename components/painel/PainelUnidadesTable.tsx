@@ -9,7 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getCardColor } from "./PainelUnidadeCard"
 
@@ -32,11 +31,15 @@ function computeSmartMeta({
   periodoInicio?: string
   periodoFim?: string
 }) {
+  // Percentual limitado a 100% para a barra visual
   const percentualMeta = metaValor > 0 ? Math.min(100, (valorGanho / metaValor) * 100) : 0
+  // Percentual real (pode ser > 100%)
+  const percentualReal = metaValor > 0 ? (valorGanho / metaValor) * 100 : 0
 
   if (!metaValor || metaValor <= 0) {
     return {
       percentualMeta,
+      percentualReal,
       statusKey: "no-meta" as const,
       statusLabel: "Sem meta",
       deviationPp: null as number | null,
@@ -47,6 +50,7 @@ function computeSmartMeta({
   if (!periodoInicio || !periodoFim) {
     return {
       percentualMeta,
+      percentualReal,
       statusKey: "unknown" as const,
       statusLabel: "Atingido",
       deviationPp: null as number | null,
@@ -61,6 +65,7 @@ function computeSmartMeta({
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end.getTime() <= start.getTime()) {
     return {
       percentualMeta,
+      percentualReal,
       statusKey: "unknown" as const,
       statusLabel: "Atingido",
       deviationPp: null as number | null,
@@ -73,12 +78,14 @@ function computeSmartMeta({
   const elapsed = (clampedNowMs - start.getTime()) / rangeMs
 
   const expectedPercent = Math.min(100, Math.max(0, elapsed * 100))
-  const deviationPpRaw = percentualMeta - expectedPercent
+  // Usar percentualReal para calcular desvio correto quando meta é ultrapassada
+  const deviationPpRaw = percentualReal - expectedPercent
   const deviationPp = Math.round(deviationPpRaw * 10) / 10
 
   if (deviationPp >= -5) {
     return {
       percentualMeta,
+      percentualReal,
       statusKey: "on-track" as const,
       statusLabel: deviationPp >= 0 ? "Acima do ritmo" : "No ritmo",
       deviationPp,
@@ -89,6 +96,7 @@ function computeSmartMeta({
   if (deviationPp >= -15) {
     return {
       percentualMeta,
+      percentualReal,
       statusKey: "warning" as const,
       statusLabel: "Um pouco abaixo",
       deviationPp,
@@ -98,26 +106,11 @@ function computeSmartMeta({
 
   return {
     percentualMeta,
+    percentualReal,
     statusKey: "off-track" as const,
     statusLabel: "Fora do ritmo",
     deviationPp,
     fillClass: "bg-gradient-to-r from-red-400 to-rose-500",
-  }
-}
-
-function getStatusBadgeClass(statusKey: "no-meta" | "unknown" | "on-track" | "warning" | "off-track") {
-  switch (statusKey) {
-    case "on-track":
-      return "bg-emerald-100 text-emerald-700 border-emerald-200"
-    case "warning":
-      return "bg-amber-100 text-amber-700 border-amber-200"
-    case "off-track":
-      return "bg-rose-100 text-rose-700 border-rose-200"
-    case "no-meta":
-      return "bg-slate-100 text-slate-600 border-slate-200"
-    case "unknown":
-    default:
-      return "bg-blue-100 text-blue-700 border-blue-200"
   }
 }
 
@@ -293,20 +286,9 @@ export const PainelUnidadesTable = memo(function PainelUnidadesTable({
                             style={{ width: `${smartMeta.percentualMeta}%` }}
                           />
                         </div>
-                        <span className="font-black text-sm w-12 text-right text-gray-900">{smartMeta.percentualMeta.toFixed(0)}%</span>
+                        <span className="font-black text-sm w-12 text-right text-gray-900">{smartMeta.percentualReal.toFixed(0)}%</span>
                       </div>
 
-                      {/* Badge status */}
-                      <Badge className={cn(
-                        "text-[10px] px-1.5 py-0 h-5 font-semibold border whitespace-nowrap",
-                        getStatusBadgeClass(smartMeta.statusKey)
-                      )}>
-                        {smartMeta.deviationPp !== null ? (
-                          <>{smartMeta.deviationPp >= 0 ? "+" : ""}{smartMeta.deviationPp.toFixed(0)}pp</>
-                        ) : (
-                          smartMeta.statusLabel
-                        )}
-                      </Badge>
                     </div>
                   </TableCell>
                 </TableRow>

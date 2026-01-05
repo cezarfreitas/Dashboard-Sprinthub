@@ -463,8 +463,8 @@ export default function AcumuladoMesPage() {
                         fontSize: '12px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
-                      formatter={(value: number, name: string) => {
-                        if (name === 'valor_acumulado') return [formatCurrency(value), 'Receita Acumulada']
+                      formatter={(value, name) => {
+                        if (name === 'valor_acumulado') return [formatCurrency(value as number), 'Receita Acumulada']
                         return [value, name]
                       }}
                       labelFormatter={(label) => `Dia ${label}`}

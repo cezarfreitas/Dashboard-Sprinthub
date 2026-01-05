@@ -102,6 +102,7 @@ export function usePainelUnidades(
         name: item.unidade_nome,
         nome_exibicao: item.unidade_nome,
         grupo_id: null,
+        imagem: item.imagem || null,
         oportunidades_abertas: item.abertas?.quantidade || 0,
         oportunidades_ganhas: item.ganhas?.quantidade || 0,
         oportunidades_perdidas: item.perdidas?.quantidade || 0,

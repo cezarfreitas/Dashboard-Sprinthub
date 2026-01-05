@@ -148,7 +148,7 @@ export function HeaderConsultor({
         <Link href="/consultor/dashboard" className="mr-4 flex items-center text-white hover:text-white/80">
           <EmpresaLogo
             src={empresaConfig?.logotipo}
-            empresaNome={empresaConfig?.nome}
+            alt={empresaConfig?.nome || 'Logo'}
             className="h-auto max-h-10 w-auto object-contain"
             priority
           />

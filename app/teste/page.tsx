@@ -756,8 +756,8 @@ export default function TestePage() {
                 tickFormatter={campoY === 'value' ? (value) => `R$ ${(value / 1000).toFixed(0)}k` : undefined}
               />
               <Tooltip 
-                formatter={(value: number) => 
-                  campoY === 'value' ? formatCurrency(value) : value.toLocaleString('pt-BR')
+                formatter={(value) => 
+                  campoY === 'value' ? formatCurrency(value as number) : (value as number).toLocaleString('pt-BR')
                 }
               />
               <Legend />
@@ -787,8 +787,8 @@ export default function TestePage() {
                 tickFormatter={campoY === 'value' ? (value) => `R$ ${(value / 1000).toFixed(0)}k` : undefined}
               />
               <Tooltip 
-                formatter={(value: number) => 
-                  campoY === 'value' ? formatCurrency(value) : value.toLocaleString('pt-BR')
+                formatter={(value) => 
+                  campoY === 'value' ? formatCurrency(value as number) : (value as number).toLocaleString('pt-BR')
                 }
               />
               <Legend />
@@ -831,8 +831,8 @@ export default function TestePage() {
                 ))}
               </Pie>
               <Tooltip 
-                formatter={(value: number) => 
-                  campoY === 'value' ? formatCurrency(value) : value.toLocaleString('pt-BR')
+                formatter={(value) => 
+                  campoY === 'value' ? formatCurrency(value as number) : (value as number).toLocaleString('pt-BR')
                 }
               />
               <Legend />
@@ -855,8 +855,8 @@ export default function TestePage() {
                 tickFormatter={campoY === 'value' ? (value) => `R$ ${(value / 1000).toFixed(0)}k` : undefined}
               />
               <Tooltip 
-                formatter={(value: number) => 
-                  campoY === 'value' ? formatCurrency(value) : value.toLocaleString('pt-BR')
+                formatter={(value) => 
+                  campoY === 'value' ? formatCurrency(value as number) : (value as number).toLocaleString('pt-BR')
                 }
               />
               <Legend />

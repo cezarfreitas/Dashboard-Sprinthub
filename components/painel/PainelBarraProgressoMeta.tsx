@@ -127,9 +127,16 @@ function PainelBarraProgressoMeta({
     fetchMetaData()
   }, [authLoading, user, unidadesIdsKey, periodoKey, funilKey])
 
+  // Percentual limitado a 100% para a barra visual
   const percentualMeta = useMemo(() => {
     if (meta === 0) return 0
     return Math.min(100, (valorAtual / meta) * 100)
+  }, [valorAtual, meta])
+
+  // Percentual real (pode ser > 100%)
+  const percentualReal = useMemo(() => {
+    if (meta === 0) return 0
+    return (valorAtual / meta) * 100
   }, [valorAtual, meta])
 
   const smartMeta = useMemo(() => {
@@ -166,12 +173,13 @@ function PainelBarraProgressoMeta({
     const elapsed = (clampedNowMs - start.getTime()) / rangeMs
 
     const expectedPercent = Math.min(100, Math.max(0, elapsed * 100))
-    const deviationPpRaw = percentualMeta - expectedPercent
+    // Usar percentualReal para calcular desvio correto quando meta é ultrapassada
+    const deviationPpRaw = percentualReal - expectedPercent
     const deviationPp = Math.round(deviationPpRaw * 10) / 10
 
     // Projeção (mantendo ritmo atual): percentual atual / fração de tempo transcorrida
     const projectedPercent =
-      elapsed > 0 ? Math.max(0, Math.min(200, (percentualMeta / elapsed))) : null
+      elapsed > 0 ? Math.max(0, Math.min(200, (percentualReal / elapsed))) : null
     const projectedValor =
       elapsed > 0 ? Math.max(0, Math.min(meta * 2, (valorAtual / elapsed))) : null
 
@@ -179,9 +187,6 @@ function PainelBarraProgressoMeta({
     // Dentro de -5pp = ok; -5pp a -15pp = atenção; abaixo disso = fora do ritmo
     let fillClass = "bg-gradient-to-r from-green-500 to-green-600"
     let statusLabel: string | null = null
-
-    // Calcular percentual real (sem limite de 100%)
-    const percentualReal = meta > 0 ? (valorAtual / meta) * 100 : 0
 
     if (percentualReal >= 100) {
       // Meta batida - usar verde vibrante para celebrar
@@ -207,7 +212,7 @@ function PainelBarraProgressoMeta({
       projectedPercent,
       projectedValor,
     }
-  }, [periodoInicio, periodoFim, meta, percentualMeta, valorAtual])
+  }, [periodoInicio, periodoFim, meta, percentualMeta, percentualReal, valorAtual])
 
   if (authLoading || !user) {
     return null
@@ -263,7 +268,7 @@ function PainelBarraProgressoMeta({
               >
                 {percentualMeta > 15 && (
                   <span className="text-white text-xs font-bold">
-                    {percentualMeta.toFixed(1)}%
+                    {percentualReal.toFixed(1)}%
                   </span>
                 )}
               </div>
@@ -279,7 +284,7 @@ function PainelBarraProgressoMeta({
               {percentualMeta <= 15 && percentualMeta > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-gray-600 text-xs font-bold">
-                    {percentualMeta.toFixed(1)}%
+                    {percentualReal.toFixed(1)}%
                   </span>
                 </div>
               )}
@@ -308,9 +313,9 @@ function PainelBarraProgressoMeta({
           <div className="text-right min-w-[60px]">
             <span className={cn(
               "text-sm font-bold",
-              percentualMeta >= 100 ? "text-emerald-600" : "text-green-600"
+              percentualReal >= 100 ? "text-emerald-600" : "text-green-600"
             )}>
-              {percentualMeta.toFixed(1)}%
+              {percentualReal.toFixed(1)}%
             </span>
           </div>
 

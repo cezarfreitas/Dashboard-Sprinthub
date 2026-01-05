@@ -22,12 +22,14 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const offset = (page - 1) * limit
 
-    // Buscar todas as unidades ativas
+    // Buscar todas as unidades ativas com nome do grupo
     let queryUnidades = `
       SELECT 
         u.*,
-        COALESCE(u.nome, u.name) as nome_exibicao
+        COALESCE(u.nome, u.name) as nome_exibicao,
+        g.nome as grupo_nome
       FROM unidades u
+      LEFT JOIN unidade_grupos g ON u.grupo_id = g.id
       WHERE u.ativo = 1
         AND (u.nome IS NOT NULL OR u.name IS NOT NULL)
     `
@@ -160,8 +162,9 @@ export async function GET(request: NextRequest) {
         id: unidade.id,
         name: unidade.name || unidade.nome || '',
         nome: unidade.nome_exibicao || unidade.nome || unidade.name || '',
+        imagem: unidade.imagem || null,
         grupo_id: unidade.grupo_id || null,
-        grupo_nome: null, // Será preenchido se necessário
+        grupo_nome: unidade.grupo_nome || null,
         department_id: unidade.department_id || null,
         show_sac360: unidade.show_sac360 || 0,
         show_crm: unidade.show_crm || 0,

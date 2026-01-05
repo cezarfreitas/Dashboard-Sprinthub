@@ -1,4 +1,5 @@
 import { memo, useMemo, useState } from 'react'
+import Image from 'next/image'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingUp, CheckCircle, XCircle, Target, FileSpreadsheet, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -112,8 +113,14 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
     currency: 'BRL'
   }).format(unidade.meta_valor)
 
+  // Percentual limitado a 100% para a barra visual
   const percentualMeta = unidade.meta_valor > 0 
     ? Math.min(100, (unidade.valor_ganho / unidade.meta_valor) * 100)
+    : 0
+
+  // Percentual real (pode ser > 100%)
+  const percentualReal = unidade.meta_valor > 0 
+    ? (unidade.valor_ganho / unidade.meta_valor) * 100
     : 0
 
   const smartMeta = useMemo(() => {
@@ -160,7 +167,8 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
     const elapsed = (clampedNowMs - start.getTime()) / rangeMs
 
     const expectedPercent = Math.min(100, Math.max(0, elapsed * 100))
-    const deviationPpRaw = percentualMeta - expectedPercent
+    // Usar percentualReal para calcular desvio correto quando meta é ultrapassada
+    const deviationPpRaw = percentualReal - expectedPercent
     const deviationPp = Math.round(deviationPpRaw * 10) / 10
 
     // Tolerâncias: dentro de -5pp = "no ritmo"; abaixo disso começa alertar
@@ -366,6 +374,18 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
       }}
     >
       <CardContent className={cn("relative p-4", color.text)}>
+        {/* Marca d'água da imagem da unidade (se existir) */}
+        {unidade.imagem && (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden flex items-center justify-center">
+            <Image
+              src={unidade.imagem}
+              alt=""
+              fill
+              className="object-contain opacity-25"
+              unoptimized
+            />
+          </div>
+        )}
         {/* Overlay sutil para melhorar contraste sem alterar a paleta */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/10" />
         <div className="relative">
@@ -488,7 +508,7 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
             {/* Percentual e Total */}
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs opacity-90">
-                Atingido: <span className="font-bold">{percentualMeta.toFixed(1)}%</span>
+                Atingido: <span className="font-bold">{percentualReal.toFixed(1)}%</span>
                 {smartMeta.status !== 'no-meta' && smartMeta.status !== 'unknown' && (
                   <span className="ml-2 inline-flex items-center gap-2">
                     <span className="text-white/60">•</span>

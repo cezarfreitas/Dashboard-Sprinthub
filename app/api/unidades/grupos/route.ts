@@ -5,12 +5,13 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    // Lista grupos e suas unidades vinculadas (ids)
+    // Lista grupos ativos e suas unidades vinculadas (ids)
     const grupos = await executeQuery(`
       SELECT g.id, g.nome, g.descricao, g.ativo, g.created_at, g.updated_at,
              COUNT(u.id) as total_unidades
       FROM unidade_grupos g
-      LEFT JOIN unidades u ON u.grupo_id = g.id
+      LEFT JOIN unidades u ON u.grupo_id = g.id AND u.ativo = 1
+      WHERE g.ativo = 1
       GROUP BY g.id, g.nome, g.descricao, g.ativo, g.created_at, g.updated_at
       ORDER BY g.nome
     `) as any[]
@@ -18,7 +19,7 @@ export async function GET() {
     const unidadesPorGrupo = await executeQuery(`
       SELECT id, grupo_id
       FROM unidades
-      WHERE grupo_id IS NOT NULL
+      WHERE grupo_id IS NOT NULL AND ativo = 1
     `) as any[]
 
     const grupoIdToUnidades: Record<number, number[]> = {}

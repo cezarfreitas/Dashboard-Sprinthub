@@ -106,9 +106,12 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
       if (percentualRealCalc >= 100) {
         cor = 'gold'
         status = 'atingido'
-      } else if (percentualRealCalc >= 90) {
-        cor = 'green'
+      } else if (percentualRealCalc >= 95) {
+        cor = 'green-bright'
         status = 'quase-la'
+      } else if (percentualRealCalc >= 85) {
+        cor = 'green'
+        status = 'perto'
       } else if (percentualRealCalc >= 70) {
         cor = 'yellow'
         status = 'atencao'
@@ -145,10 +148,14 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
       status = 'atingido'
     } else if (percentualRealCalc >= 95) {
       // Muito perto de bater (falta menos de 5%)
-      cor = 'green'
+      cor = 'green-bright'
       status = 'quase-la'
-    } else if (projecaoPercentual >= 100) {
+    } else if (percentualRealCalc >= 85) {
+      // Perto de bater (falta menos de 15%)
       cor = 'green'
+      status = 'perto'
+    } else if (projecaoPercentual >= 100) {
+      cor = 'teal'
       status = 'no-caminho'
     } else if (projecaoPercentual >= 80) {
       cor = 'yellow'
@@ -173,29 +180,43 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
     switch (cor) {
       case 'gold':
         return {
-          primaria: '#eab308',
-          secundaria: '#fbbf24',
-          texto: '#ca8a04',
-          bg: '#fef9c3'
+          primaria: '#059669', // Verde esmeralda para meta batida
+          secundaria: '#10b981',
+          texto: '#047857',
+          bg: '#d1fae5'
+        }
+      case 'green-bright':
+        return {
+          primaria: '#10b981', // Verde esmeralda brilhante
+          secundaria: '#34d399',
+          texto: '#047857',
+          bg: '#d1fae5'
         }
       case 'green':
         return {
-          primaria: '#16a34a',
-          secundaria: '#22c55e',
+          primaria: '#22c55e', // Verde
+          secundaria: '#4ade80',
           texto: '#15803d',
           bg: '#dcfce7'
         }
+      case 'teal':
+        return {
+          primaria: '#14b8a6', // Teal
+          secundaria: '#2dd4bf',
+          texto: '#0f766e',
+          bg: '#ccfbf1'
+        }
       case 'yellow':
         return {
-          primaria: '#ea580c',
+          primaria: '#f97316', // Laranja
           secundaria: '#fb923c',
           texto: '#c2410c',
           bg: '#ffedd5'
         }
       case 'red':
         return {
-          primaria: '#dc2626',
-          secundaria: '#ef4444',
+          primaria: '#ef4444', // Vermelho
+          secundaria: '#f87171',
           texto: '#b91c1c',
           bg: '#fee2e2'
         }
@@ -216,9 +237,11 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
 
   const statusLabel =
     statusProjecao === 'atingido'
-      ? '🎉 Meta atingida!'
+      ? '🎉 Meta batida!'
       : statusProjecao === 'quase-la'
       ? '🔥 Quase lá!'
+      : statusProjecao === 'perto'
+      ? '💪 Perto!'
       : statusProjecao === 'no-caminho'
       ? '✅ No caminho'
       : statusProjecao === 'atencao'
@@ -235,18 +258,20 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
   const getStatusGradient = () => {
     switch (statusProjecao) {
       case 'atingido':
-        return 'from-yellow-500 to-amber-600' // Dourado para meta batida
+        return 'from-emerald-500 to-green-600' // Verde para meta batida
       case 'quase-la':
-        return 'from-green-500 to-emerald-600' // Verde para quase lá
+        return 'from-emerald-400 to-green-500' // Verde esmeralda brilhante para quase lá
+      case 'perto':
+        return 'from-green-400 to-emerald-500' // Verde para perto
       case 'no-caminho':
-        return 'from-teal-500 to-cyan-600' // Teal para no caminho
+        return 'from-teal-400 to-cyan-500' // Teal para no caminho
       case 'atencao':
-        return 'from-orange-500 to-amber-600' // Laranja para atenção
+        return 'from-orange-400 to-amber-500' // Laranja para atenção
       case 'risco':
       case 'abaixo':
-        return 'from-red-500 to-rose-600' // Vermelho para risco
+        return 'from-red-400 to-rose-500' // Vermelho para risco
       default:
-        return 'from-gray-500 to-slate-600'
+        return 'from-gray-400 to-slate-500'
     }
   }
 
@@ -370,7 +395,7 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
                   y="118"
                   textAnchor="middle"
                   className="text-2xl font-bold"
-                  fill={percentualReal >= 100 ? "#ca8a04" : percentualReal >= 95 ? "#16a34a" : "#1e40af"}
+                  fill={percentualReal >= 100 ? "#059669" : percentualReal >= 95 ? "#10b981" : percentualReal >= 85 ? "#16a34a" : "#1e40af"}
                 >
                   {percentualReal >= 100 ? Math.round(percentualReal) : Math.round(percentualMeta)}%
                 </text>
@@ -385,7 +410,8 @@ export const UnidadeMetaCard = memo(function UnidadeMetaCard({
                 >
                   {percentualReal >= 100 ? '🎉 Meta batida!' : 
                    percentualReal >= 95 ? '🔥 Quase lá!' :
-                   percentualReal >= 75 ? 'Continue assim!' :
+                   percentualReal >= 85 ? '💪 Perto!' :
+                   percentualReal >= 70 ? 'Continue assim!' :
                    percentualReal >= 50 ? 'Acelere!' :
                    'Vamos lá!'}
                 </text>

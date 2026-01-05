@@ -4,6 +4,7 @@ export interface PainelUnidade {
   name?: string
   nome_exibicao?: string
   grupo_id?: number | null
+  imagem?: string | null
   oportunidades_abertas: number
   oportunidades_ganhas: number
   oportunidades_perdidas: number

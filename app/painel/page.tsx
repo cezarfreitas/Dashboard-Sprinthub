@@ -398,7 +398,7 @@ export default function PainelPage() {
                             fontSize: '12px',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                           }}
-                          formatter={(value: number) => [value, 'Oportunidades']}
+                          formatter={(value) => [value, 'Oportunidades']}
                           labelFormatter={(label) => `Dia ${label}`}
                         />
                         <Line 
@@ -456,7 +456,7 @@ export default function PainelPage() {
                             fontSize: '12px',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                           }}
-                          formatter={(value: number) => [formatCurrency(value), 'Receita']}
+                          formatter={(value) => [formatCurrency(value as number), 'Receita']}
                           labelFormatter={(label) => `Dia ${label}`}
                         />
                         <Line 

@@ -230,9 +230,8 @@ export function Sidebar({ className }: SidebarProps) {
                   <div className="flex items-center justify-center">
                     <EmpresaLogo
                       src={empresaConfig?.logotipo}
-                      empresaNome={empresaConfig?.nome}
+                      alt={empresaConfig?.nome || 'Logo'}
                       className="h-8 w-auto object-contain"
-                      showFallbackIcon={true}
                     />
                   </div>
                 </TooltipTrigger>
@@ -245,9 +244,8 @@ export function Sidebar({ className }: SidebarProps) {
             <div className="flex items-center gap-2 min-w-0">
               <EmpresaLogo
                 src={empresaConfig?.logotipo}
-                empresaNome={empresaConfig?.nome}
+                alt={empresaConfig?.nome || 'Logo'}
                 className="h-8 w-auto object-contain"
-                showFallbackIcon={false}
               />
             </div>
           )}
