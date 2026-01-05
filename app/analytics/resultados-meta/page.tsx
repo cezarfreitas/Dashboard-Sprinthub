@@ -250,17 +250,16 @@ export default function ResultadosMetaPage() {
     return totalMeta > 0 ? (totalVendido / totalMeta) * 100 : 0
   }, [totalMeta, totalVendido])
 
-  const unidadesComMeta = useMemo(() => {
-    const filtered = unidadesData.filter(u => u.meta > 0)
-    
-    return filtered.sort((a, b) => {
+  // Ordenar todas as unidades
+  const unidadesOrdenadas = useMemo(() => {
+    return [...unidadesData].sort((a, b) => {
       let valueA: number | string
       let valueB: number | string
 
       switch (sortField) {
         case 'percentual':
-          valueA = a.meta > 0 ? (a.valorVendido / a.meta) * 100 : 0
-          valueB = b.meta > 0 ? (b.valorVendido / b.meta) * 100 : 0
+          valueA = a.meta > 0 ? (a.valorVendido / a.meta) * 100 : -1
+          valueB = b.meta > 0 ? (b.valorVendido / b.meta) * 100 : -1
           break
         case 'valor_vendido':
           valueA = a.valorVendido
@@ -271,8 +270,8 @@ export default function ResultadosMetaPage() {
           valueB = b.meta
           break
         case 'faltante':
-          valueA = Math.max(0, a.meta - a.valorVendido)
-          valueB = Math.max(0, b.meta - b.valorVendido)
+          valueA = a.meta > 0 ? Math.max(0, a.meta - a.valorVendido) : Infinity
+          valueB = b.meta > 0 ? Math.max(0, b.meta - b.valorVendido) : Infinity
           break
         case 'nome':
           valueA = a.nome.toLowerCase()
@@ -295,9 +294,13 @@ export default function ResultadosMetaPage() {
     })
   }, [unidadesData, sortField, sortDirection])
 
+  const unidadesComMeta = useMemo(() => {
+    return unidadesOrdenadas.filter(u => u.meta > 0)
+  }, [unidadesOrdenadas])
+
   const unidadesSemMeta = useMemo(() => {
-    return unidadesData.filter(u => u.meta === 0)
-  }, [unidadesData])
+    return unidadesOrdenadas.filter(u => u.meta === 0)
+  }, [unidadesOrdenadas])
 
   return (
     <ProtectedRoute>
@@ -358,13 +361,14 @@ export default function ResultadosMetaPage() {
                 {mesAtual}/{anoAtual}
               </Badge>
               <Badge variant="secondary" className="font-medium tabular-nums">
-                {unidadesComMeta.length} unidades com meta
+                {unidadesData.length} unidades
+                {unidadesComMeta.length > 0 && ` (${unidadesComMeta.length} com meta)`}
               </Badge>
             </div>
           </div>
 
           {/* Resumo Geral */}
-          {!loading && unidadesComMeta.length > 0 && (
+          {!loading && unidadesData.length > 0 && (
             <Card className="mb-6">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -411,59 +415,99 @@ export default function ResultadosMetaPage() {
                 </Card>
               ))}
             </div>
-          ) : unidadesComMeta.length > 0 ? (
+          ) : unidadesData.length > 0 ? (
             <>
               {/* Cards das Unidades com Meta */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {unidadesComMeta.map((unidade, index) => (
-                  <UnidadeMetaCard
-                    key={unidade.id}
-                    unidadeId={unidade.id}
-                    unidadeNome={unidade.nome}
-                    valorAtual={unidade.valorVendido}
-                    meta={unidade.meta}
-                    mes={mesAtual}
-                    ano={anoAtual}
-                    vendedores={unidade.vendedores}
-                    posicao={index + 1}
-                  />
-                ))}
-              </div>
+              {unidadesComMeta.length > 0 && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {unidadesComMeta.map((unidade, index) => (
+                    <UnidadeMetaCard
+                      key={unidade.id}
+                      unidadeId={unidade.id}
+                      unidadeNome={unidade.nome}
+                      valorAtual={unidade.valorVendido}
+                      meta={unidade.meta}
+                      mes={mesAtual}
+                      ano={anoAtual}
+                      vendedores={unidade.vendedores}
+                      posicao={index + 1}
+                    />
+                  ))}
+                </div>
+              )}
 
-              {/* Unidades sem Meta */}
+              {/* Unidades sem Meta - Exibir cards simplificados com valor vendido */}
               {unidadesSemMeta.length > 0 && (
-                <Card className="mt-6">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
+                <div className={unidadesComMeta.length > 0 ? "mt-6" : ""}>
+                  {unidadesComMeta.length > 0 && (
+                    <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
                       Unidades sem Meta Cadastrada
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {unidadesSemMeta.map((unidade) => (
-                        <div
-                          key={unidade.id}
-                          className="flex items-center justify-between rounded-lg border bg-muted/30 p-3"
-                        >
-                          <span className="text-sm font-medium">{unidade.nome}</span>
-                          <Badge variant="outline" className="text-xs">
-                            Sem meta
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </h2>
+                  )}
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {unidadesSemMeta.map((unidade) => (
+                      <Card key={unidade.id} className="border-dashed">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base font-medium flex items-center gap-2">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                              {unidade.nome}
+                            </CardTitle>
+                            <Badge variant="outline" className="text-xs">
+                              Sem meta
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1 rounded-lg border bg-muted/30 p-3">
+                              <div className="text-xs text-muted-foreground">Vendido no Mês</div>
+                              <div className="text-lg font-bold text-foreground">
+                                {formatCurrency(unidade.valorVendido)}
+                              </div>
+                            </div>
+                            <div className="space-y-1 rounded-lg border bg-muted/30 p-3">
+                              <div className="text-xs text-muted-foreground">Meta</div>
+                              <div className="text-lg font-bold text-muted-foreground">
+                                Não definida
+                              </div>
+                            </div>
+                          </div>
+                          {unidade.vendedores.length > 0 && (
+                            <div className="mt-3 pt-3 border-t">
+                              <div className="text-xs text-muted-foreground mb-2">
+                                Vendedores ({unidade.vendedores.length})
+                              </div>
+                              <div className="space-y-1">
+                                {unidade.vendedores.slice(0, 3).map((v) => (
+                                  <div key={v.vendedor_id} className="flex justify-between text-sm">
+                                    <span className="truncate">{v.vendedor_nome}</span>
+                                    <span className="font-medium">{formatCurrency(v.receita)}</span>
+                                  </div>
+                                ))}
+                                {unidade.vendedores.length > 3 && (
+                                  <div className="text-xs text-muted-foreground">
+                                    +{unidade.vendedores.length - 3} vendedores
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
               )}
             </>
           ) : (
             <Card>
               <CardContent className="py-12 text-center">
                 <Building2 className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm font-medium">Nenhuma unidade com meta encontrada</p>
+                <p className="text-sm font-medium">Nenhuma unidade encontrada</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Configure metas mensais para as unidades para visualizar os resultados.
+                  Cadastre unidades no sistema para visualizar os resultados.
                 </p>
               </CardContent>
             </Card>
