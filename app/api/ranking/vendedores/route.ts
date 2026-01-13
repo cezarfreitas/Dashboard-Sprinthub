@@ -143,10 +143,9 @@ export async function GET(request: NextRequest) {
         v.username,
         v.telephone,
         COUNT(DISTINCT o.id) as total_oportunidades,
-        COALESCE(SUM(CASE WHEN o.status = 'gain' THEN o.value ELSE 0 END), 0) as total_realizado,
-        GROUP_CONCAT(DISTINCT o.status) as status_list
+        COALESCE(SUM(o.value), 0) as total_realizado
       FROM vendedores v
-      LEFT JOIN oportunidades o ON o.user = v.id
+      INNER JOIN oportunidades o ON o.user = v.id
     `
 
     const params: any[] = []
@@ -237,7 +236,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Erro ao buscar ranking de vendedores:', error)
     return NextResponse.json(
       {
         success: false,

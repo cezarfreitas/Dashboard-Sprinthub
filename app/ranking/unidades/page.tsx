@@ -1,27 +1,15 @@
 'use client'
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { 
-  FaMedal,
-  FaTrophy,
-  FaCrown,
-  FaChartLine,
-  FaCalendarAlt,
-  FaBuilding
-} from 'react-icons/fa'
+import { FaChartLine, FaCalendarAlt, FaTrophy } from 'react-icons/fa'
 import { HiRefresh } from 'react-icons/hi'
 import PainelFiltersInline from '@/components/painel/PainelFiltersInline'
+import { RankingPodio, PodioItem } from '@/components/ranking/RankingPodio'
+import { RankingTable, RankingTableItem } from '@/components/ranking/RankingTable'
+import { useRankingFilters } from '@/hooks/ranking/useRankingFilters'
 
 interface RankingUnidade {
   unidade_id: number
@@ -34,9 +22,26 @@ interface RankingUnidade {
   medalha: 'ouro' | 'prata' | 'bronze' | null
 }
 
-const formatCurrency = (value: number): string => {
-  const numValue = Math.round(Number(value) || 0)
-  return `R$ ${numValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`
+// Transformar dados de unidade para componentes genéricos
+function transformUnidadeToPodio(unidade: RankingUnidade): PodioItem {
+  return {
+    id: unidade.unidade_id,
+    nome: unidade.unidade_nome,
+    total_realizado: unidade.total_realizado,
+    total_oportunidades: unidade.total_oportunidades,
+    medalha: unidade.medalha
+  }
+}
+
+function transformUnidadeToTable(unidade: RankingUnidade): RankingTableItem {
+  return {
+    id: unidade.unidade_id,
+    nome: unidade.unidade_nome,
+    total_realizado: unidade.total_realizado,
+    total_oportunidades: unidade.total_oportunidades,
+    posicao: unidade.posicao,
+    medalha: unidade.medalha
+  }
 }
 
 export default function RankingUnidadesPage() {
@@ -44,359 +49,132 @@ export default function RankingUnidadesPage() {
   const [rankingAnual, setRankingAnual] = useState<RankingUnidade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [mesAtual, setMesAtual] = useState(new Date().getMonth() + 1)
-  const [anoAtual, setAnoAtual] = useState(new Date().getFullYear())
-
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false)
   
-  // Estados para PainelFiltersInline
-  const periodoInicial = useMemo(() => {
-    const inicio = new Date()
-    const fim = new Date()
-    inicio.setDate(1)
-    inicio.setHours(0, 0, 0, 0)
-    fim.setHours(23, 59, 59, 999)
-    return {
-      inicio: inicio.toISOString().split('T')[0],
-      fim: fim.toISOString().split('T')[0]
-    }
-  }, [])
+  // Ref para AbortController
+  const abortControllerRef = useRef<AbortController | null>(null)
   
-  const [filtrosPainel, setFiltrosPainel] = useState(() => ({
-    unidadesSelecionadas: [] as number[],
-    periodoTipo: 'este-mes' as string,
-    periodoInicio: periodoInicial.inicio,
-    periodoFim: periodoInicial.fim,
-    funilSelecionado: 'todos',
-    grupoSelecionado: 'todos',
-    gainDateInicio: undefined as string | undefined,
-    gainDateFim: undefined as string | undefined
-  }))
+  // Hook de filtros compartilhado
+  const {
+    filtrosPainel,
+    handleFiltrosChange,
+    periodoInicial,
+    anoDoPeríodo,
+    tituloPeriodo,
+    filtrosAtivos,
+    funilNomeSelecionado,
+    grupoNomeSelecionado,
+    dataGanhoLabel,
+    unidadesList,
+    funis,
+    grupos
+  } = useRankingFilters()
   
-  const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
-  const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
-  const [grupos, setGrupos] = useState<Array<{ id: number; nome: string; unidadeIds?: number[] }>>([])
-  
-  const filtrosAtivos = useMemo(() => {
-    return filtrosPainel.unidadesSelecionadas.length > 0 ||
-           filtrosPainel.periodoTipo !== 'este-mes' ||
-           filtrosPainel.funilSelecionado !== 'todos' ||
-           filtrosPainel.grupoSelecionado !== 'todos' ||
-           filtrosPainel.gainDateInicio !== undefined ||
-           filtrosPainel.gainDateFim !== undefined
-  }, [filtrosPainel])
-  
-  // Formatar título do período
-  const tituloPeriodo = useMemo(() => {
-    const formatDate = (dateStr: string) => {
-      const [year, month, day] = dateStr.split('-')
-      return `${day}/${month}/${year}`
+  // Função para buscar rankings
+  const fetchRankings = useCallback(async () => {
+    // Cancelar requisição anterior se existir
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
     }
     
-    if (filtrosPainel.periodoInicio && filtrosPainel.periodoFim) {
-      return `${formatDate(filtrosPainel.periodoInicio)} a ${formatDate(filtrosPainel.periodoFim)}`
-    }
+    abortControllerRef.current = new AbortController()
+    const signal = abortControllerRef.current.signal
     
-    return `${new Date(2024, mesAtual - 1).toLocaleString('pt-BR', { month: 'long' })}/${anoAtual}`
-  }, [filtrosPainel.periodoInicio, filtrosPainel.periodoFim, mesAtual, anoAtual])
-
-  const funilNomeSelecionado = useMemo(() => {
-    if (!filtrosPainel.funilSelecionado || filtrosPainel.funilSelecionado === 'todos') return null
-    const id = Number(filtrosPainel.funilSelecionado)
-    const found = funis.find((f) => Number(f.id) === id)
-    return found?.funil_nome || `Funil ${filtrosPainel.funilSelecionado}`
-  }, [filtrosPainel.funilSelecionado, funis])
-
-  const grupoNomeSelecionado = useMemo(() => {
-    if (!filtrosPainel.grupoSelecionado || filtrosPainel.grupoSelecionado === 'todos') return null
-    const id = Number(filtrosPainel.grupoSelecionado)
-    const found = grupos.find((g) => Number(g.id) === id)
-    return found?.nome || `Grupo ${filtrosPainel.grupoSelecionado}`
-  }, [filtrosPainel.grupoSelecionado, grupos])
-
-  const dataGanhoLabel = useMemo(() => {
-    if (!filtrosPainel.gainDateInicio && !filtrosPainel.gainDateFim) return null
-    const inicio = filtrosPainel.gainDateInicio ? filtrosPainel.gainDateInicio.split('-').reverse().join('/') : '...'
-    const fim = filtrosPainel.gainDateFim ? filtrosPainel.gainDateFim.split('-').reverse().join('/') : '...'
-    return `Ganho: ${inicio} a ${fim}`
-  }, [filtrosPainel.gainDateInicio, filtrosPainel.gainDateFim])
-  
-  // Buscar unidades, funis e grupos
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [unidadesRes, funisRes, gruposRes] = await Promise.all([
-          fetch('/api/unidades'),
-          fetch('/api/funis'),
-          fetch('/api/unidades/grupos')
-        ])
-        
-        if (unidadesRes.ok) {
-          const unidadesData = await unidadesRes.json()
-          setUnidadesList(unidadesData.unidades?.map((u: any) => ({
-            id: u.id,
-            nome: u.nome || u.name || 'Sem nome'
-          })) || [])
-        }
-        
-        if (funisRes.ok) {
-          const funisData = await funisRes.json()
-          setFunis(funisData.funis || [])
-        }
-        
-        if (gruposRes.ok) {
-          const gruposData = await gruposRes.json()
-          setGrupos(gruposData.grupos || [])
-        }
-      } catch (err) {
-        // Silently fail
-      }
-    }
-    
-    fetchData()
-  }, [])
-  
-  // Função para calcular período baseado no tipo
-  const calcularPeriodo = useCallback((tipo: string) => {
-    const hoje = new Date()
-    const inicio = new Date()
-    const fim = new Date()
-
-    switch (tipo) {
-      case 'este-mes':
-        inicio.setDate(1)
-        inicio.setHours(0, 0, 0, 0)
-        fim.setHours(23, 59, 59, 999)
-        break
-      case 'mes-passado':
-        inicio.setMonth(hoje.getMonth() - 1, 1)
-        inicio.setHours(0, 0, 0, 0)
-        fim.setDate(0)
-        fim.setHours(23, 59, 59, 999)
-        break
-      case 'esta-semana':
-        const diaSemana = hoje.getDay()
-        inicio.setDate(hoje.getDate() - diaSemana)
-        inicio.setHours(0, 0, 0, 0)
-        fim.setHours(23, 59, 59, 999)
-        break
-      case 'semana-passada':
-        const diaSemanaAtual = hoje.getDay()
-        inicio.setDate(hoje.getDate() - diaSemanaAtual - 7)
-        inicio.setHours(0, 0, 0, 0)
-        fim.setDate(hoje.getDate() - diaSemanaAtual - 1)
-        fim.setHours(23, 59, 59, 999)
-        break
-      case 'este-ano':
-        inicio.setMonth(0, 1)
-        inicio.setHours(0, 0, 0, 0)
-        fim.setHours(23, 59, 59, 999)
-        break
-      case 'ano-anterior':
-        inicio.setFullYear(hoje.getFullYear() - 1, 0, 1)
-        inicio.setHours(0, 0, 0, 0)
-        fim.setFullYear(hoje.getFullYear() - 1, 11, 31)
-        fim.setHours(23, 59, 59, 999)
-        break
-      default:
-        return { inicio: '', fim: '' }
-    }
-
-    return {
-      inicio: inicio.toISOString().split('T')[0],
-      fim: fim.toISOString().split('T')[0]
-    }
-  }, [])
-
-  // Atualizar datas quando o tipo de período mudar
-  useEffect(() => {
-    if (filtrosPainel.periodoTipo !== 'personalizado') {
-      const { inicio, fim } = calcularPeriodo(filtrosPainel.periodoTipo)
-      if (inicio && fim) {
-        setFiltrosPainel(prev => ({
-          ...prev,
-          periodoInicio: inicio,
-          periodoFim: fim
-        }))
-      }
-    }
-  }, [filtrosPainel.periodoTipo, calcularPeriodo])
-
-  // Converter período para mes/ano para a API
-  useEffect(() => {
-    if (filtrosPainel.periodoInicio) {
-      const dataInicio = new Date(filtrosPainel.periodoInicio)
-      setMesAtual(dataInicio.getMonth() + 1)
-      setAnoAtual(dataInicio.getFullYear())
-    }
-  }, [filtrosPainel.periodoInicio])
-
-  const fetchData = async () => {
     setLoading(true)
     setError('')
     
     try {
-      const anoAtualParaAnual = new Date().getFullYear()
+      // Construir parâmetros para a API
+      const buildParams = (tipo: 'personalizado' | 'anual') => {
+        const params = new URLSearchParams()
+        params.set('tipo', tipo)
+        
+        if (tipo === 'personalizado') {
+          params.set('dataInicio', filtrosPainel.periodoInicio)
+          params.set('dataFim', filtrosPainel.periodoFim)
+        }
+        
+        if (tipo === 'anual') {
+          params.set('ano', String(anoDoPeríodo))
+        }
+        
+        // Filtros avançados
+        if (filtrosPainel.unidadesSelecionadas.length > 0) {
+          params.set('unidades', filtrosPainel.unidadesSelecionadas.join(','))
+        }
+        
+        if (filtrosPainel.funilSelecionado && filtrosPainel.funilSelecionado !== 'todos') {
+          params.set('funil', filtrosPainel.funilSelecionado)
+        }
+        
+        if (filtrosPainel.grupoSelecionado && filtrosPainel.grupoSelecionado !== 'todos') {
+          params.set('grupo', filtrosPainel.grupoSelecionado)
+        }
+        
+        if (filtrosPainel.gainDateInicio) {
+          params.set('gainDateInicio', filtrosPainel.gainDateInicio)
+        }
+        
+        if (filtrosPainel.gainDateFim) {
+          params.set('gainDateFim', filtrosPainel.gainDateFim)
+        }
+        
+        return params.toString()
+      }
       
-      // Buscar rankings (API de unidades só aceita tipo, mes, ano)
-      const [rankingMensalResponse, rankingAnualResponse] = await Promise.all([
-        fetch(`/api/ranking/unidades?tipo=mensal&mes=${mesAtual}&ano=${anoAtual}`),
-        fetch(`/api/ranking/unidades?tipo=anual&ano=${anoAtualParaAnual}`)
+      const paramsPeriodo = buildParams('personalizado')
+      const paramsAnual = buildParams('anual')
+      
+      const [rankingPeriodoRes, rankingAnualRes] = await Promise.all([
+        fetch(`/api/ranking/unidades?${paramsPeriodo}`, { signal }),
+        fetch(`/api/ranking/unidades?${paramsAnual}`, { signal })
       ])
 
-      const [rankingMensalData, rankingAnualData] = await Promise.all([
-        rankingMensalResponse.json(),
-        rankingAnualResponse.json()
+      if (signal.aborted) return
+
+      const [rankingPeriodoData, rankingAnualData] = await Promise.all([
+        rankingPeriodoRes.json(),
+        rankingAnualRes.json()
       ])
 
-      if (!rankingMensalResponse.ok) {
-        throw new Error(rankingMensalData.message || 'Erro ao carregar ranking do período')
+      if (!rankingPeriodoRes.ok) {
+        throw new Error(rankingPeriodoData.message || 'Erro ao carregar ranking do período')
       }
 
-      if (!rankingAnualResponse.ok) {
+      if (!rankingAnualRes.ok) {
         throw new Error(rankingAnualData.message || 'Erro ao carregar ranking anual')
       }
       
-      setRankingMensal(rankingMensalData.ranking || [])
+      setRankingMensal(rankingPeriodoData.ranking || [])
       setRankingAnual(rankingAnualData.ranking || [])
       
     } catch (err) {
+      // Ignorar erros de abort
+      if (err instanceof Error && err.name === 'AbortError') return
+      
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
       setRankingMensal([])
       setRankingAnual([])
     } finally {
-      setLoading(false)
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false)
+      }
     }
-  }
+  }, [filtrosPainel, anoDoPeríodo])
 
-  const getMedalIcon = (medalha: 'ouro' | 'prata' | 'bronze' | null) => {
-    switch (medalha) {
-      case 'ouro':
-        return <FaCrown className="h-6 w-6 text-yellow-500 drop-shadow-lg" />
-      case 'prata':
-        return <FaTrophy className="h-6 w-6 text-gray-400 drop-shadow-lg" />
-      case 'bronze':
-        return <FaMedal className="h-6 w-6 text-orange-600 drop-shadow-lg" />
-      default:
-        return null
-    }
-  }
-
-  const renderPodio = (ranking: RankingUnidade[]) => {
-    const top3 = ranking.slice(0, 3)
-    
-    if (top3.length === 0) {
-      return null
-    }
-
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-          {top3.map((unidade, index) => (
-            <div 
-              key={`podio-${unidade.unidade_id}`}
-              className={`
-                text-center p-3 sm:p-4 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-md
-                ${index === 0 ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20' : 
-                  index === 1 ? 'border-gray-400 bg-gray-50 dark:bg-gray-950/20' : 
-                  'border-orange-600 bg-orange-50 dark:bg-orange-950/20'}
-              `}
-            >
-              <div className="h-full flex flex-col justify-between">
-                <div className="flex justify-center mb-2">
-                  {getMedalIcon(unidade.medalha)}
-                </div>
-                <div className="space-y-2 flex-1 flex flex-col justify-center">
-                  <h4 className="font-bold text-sm">
-                    {unidade.unidade_nome}
-                  </h4>
-                  <div className="space-y-1">
-                    <div className="text-lg font-bold text-green-600">
-                      {formatCurrency(unidade.total_realizado)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {unidade.total_oportunidades} oportunidade{unidade.total_oportunidades !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  const renderTabelaRanking = (ranking: RankingUnidade[], titulo: string, icon?: React.ReactNode) => {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          {icon}
-          <h3 className="text-base font-semibold text-gray-900">{titulo}</h3>
-          <Badge variant="secondary" className="hidden sm:inline-flex">
-            {ranking.length} unidade{ranking.length !== 1 ? 's' : ''}
-          </Badge>
-        </div>
-        <div className="rounded-xl border bg-white overflow-x-auto">
-          <Table className="min-w-[640px]">
-            <TableHeader className="bg-gray-50">
-              <TableRow>
-                <TableHead className="text-center w-16">Pos</TableHead>
-                <TableHead>Unidade</TableHead>
-                <TableHead className="text-right">Total Vendas</TableHead>
-                <TableHead className="text-center">Ops</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ranking.map((unidade, idx) => (
-                <TableRow 
-                  key={`${titulo}-table-${unidade.unidade_id}`}
-                  className={[
-                    'hover:bg-gray-50',
-                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40',
-                    unidade.posicao <= 3 ? 'bg-amber-50/40' : ''
-                  ].join(' ')}
-                >
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center">
-                      {unidade.posicao <= 3 ? (
-                        getMedalIcon(unidade.medalha)
-                      ) : (
-                        <span className="font-semibold text-gray-600">
-                          #{unidade.posicao}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-sm text-gray-900">
-                      {unidade.unidade_nome}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm font-bold text-green-600">
-                    {formatCurrency(unidade.total_realizado)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <span className="font-semibold">{unidade.total_oportunidades}</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    )
-  }
-
+  // Efeito para buscar rankings quando filtros mudam
   useEffect(() => {
-    fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    mesAtual,
-    anoAtual
-  ])
+    if (filtrosPainel.periodoInicio && filtrosPainel.periodoFim) {
+      fetchRankings()
+    }
+    
+    // Cleanup
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [fetchRankings])
 
   if (loading) {
     return (
@@ -405,19 +183,19 @@ export default function RankingUnidadesPage() {
           <div className="p-6">
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-1">
-                <div className="h-7 w-64 bg-gray-100 rounded" />
-                <div className="h-4 w-80 bg-gray-100 rounded" />
+                <div className="h-7 w-64 bg-gray-100 rounded animate-pulse" />
+                <div className="h-4 w-80 bg-gray-100 rounded animate-pulse" />
               </div>
-              <div className="h-10 w-28 bg-gray-100 rounded" />
+              <div className="h-10 w-28 bg-gray-100 rounded animate-pulse" />
             </div>
           </div>
           <div className="border-t px-6 pt-4">
-            <div className="h-20 bg-gray-100 rounded-xl mb-6" />
+            <div className="h-20 bg-gray-100 rounded-xl mb-6 animate-pulse" />
           </div>
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div className="h-[420px] bg-gray-100 rounded-xl" />
-          <div className="h-[420px] bg-gray-100 rounded-xl" />
+          <div className="h-[420px] bg-gray-100 rounded-xl animate-pulse" />
+          <div className="h-[420px] bg-gray-100 rounded-xl animate-pulse" />
         </div>
       </div>
     )
@@ -434,7 +212,7 @@ export default function RankingUnidadesPage() {
           <div className="border-t px-6 pt-4">
             <PainelFiltersInline
               filtros={filtrosPainel}
-              setFiltros={setFiltrosPainel}
+              setFiltros={handleFiltrosChange}
               unidadesList={unidadesList}
               funis={funis}
               grupos={grupos}
@@ -448,7 +226,7 @@ export default function RankingUnidadesPage() {
             <div className="text-center">
               <h3 className="text-lg font-semibold text-red-800 mb-2">Erro ao carregar dados</h3>
               <p className="text-red-600 mb-4">{error}</p>
-              <Button onClick={fetchData} variant="outline">
+              <Button onClick={fetchRankings} variant="outline">
                 <HiRefresh className="h-4 w-4 mr-2" />
                 Tentar novamente
               </Button>
@@ -483,7 +261,6 @@ export default function RankingUnidadesPage() {
 
       {/* Filtros */}
       <div>
-        {/* Toggle mobile */}
         <div className="sm:hidden flex items-center justify-between pb-2">
           <span className="text-sm font-semibold text-gray-900">Filtros</span>
           <Button
@@ -500,7 +277,7 @@ export default function RankingUnidadesPage() {
         <div className={`${filtersOpenMobile ? 'block' : 'hidden'} sm:block`}>
           <PainelFiltersInline
             filtros={filtrosPainel}
-            setFiltros={setFiltrosPainel}
+            setFiltros={handleFiltrosChange}
             unidadesList={unidadesList}
             funis={funis}
             grupos={grupos}
@@ -525,8 +302,17 @@ export default function RankingUnidadesPage() {
           <CardContent className="p-4 sm:p-6 space-y-5 sm:space-y-6">
             {rankingMensal.length > 0 ? (
               <>
-                {renderPodio(rankingMensal)}
-                {renderTabelaRanking(rankingMensal, 'Ranking completo', <FaChartLine className="h-5 w-5 text-blue-500" />)}
+                <RankingPodio 
+                  items={rankingMensal.map(transformUnidadeToPodio)} 
+                  keyPrefix="unidade-periodo"
+                />
+                <RankingTable 
+                  items={rankingMensal.map(transformUnidadeToTable)} 
+                  titulo="Ranking completo"
+                  icon={<FaChartLine className="h-5 w-5 text-blue-500" />}
+                  keyPrefix="unidade-periodo"
+                  itemLabel="unidade"
+                />
               </>
             ) : (
               <div className="text-center py-10">
@@ -540,7 +326,7 @@ export default function RankingUnidadesPage() {
           <CardHeader className="bg-gray-50/60">
             <CardTitle className="text-base flex items-center gap-2 flex-wrap">
               <FaCalendarAlt className="h-4 w-4 text-emerald-600" />
-              Ranking anual • {anoAtual}
+              Ranking anual • {anoDoPeríodo}
               <span className="text-gray-300">•</span>
               <FaTrophy className="h-4 w-4 text-yellow-500" />
               <span>Pódio</span>
@@ -549,12 +335,21 @@ export default function RankingUnidadesPage() {
           <CardContent className="p-4 sm:p-6 space-y-5 sm:space-y-6">
             {rankingAnual.length > 0 ? (
               <>
-                {renderPodio(rankingAnual)}
-                {renderTabelaRanking(rankingAnual, 'Ranking completo', <FaCalendarAlt className="h-5 w-5 text-emerald-600" />)}
+                <RankingPodio 
+                  items={rankingAnual.map(transformUnidadeToPodio)} 
+                  keyPrefix="unidade-anual"
+                />
+                <RankingTable 
+                  items={rankingAnual.map(transformUnidadeToTable)} 
+                  titulo="Ranking completo"
+                  icon={<FaCalendarAlt className="h-5 w-5 text-emerald-600" />}
+                  keyPrefix="unidade-anual"
+                  itemLabel="unidade"
+                />
               </>
             ) : (
               <div className="text-center py-10">
-                <p className="text-muted-foreground">Nenhum dado encontrado para o ano {anoAtual}</p>
+                <p className="text-muted-foreground">Nenhum dado encontrado para o ano {anoDoPeríodo}</p>
               </div>
             )}
           </CardContent>

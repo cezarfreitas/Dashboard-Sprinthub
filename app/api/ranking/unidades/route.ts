@@ -3,15 +3,43 @@ import { executeQuery } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
+interface UnidadeData {
+  id: number
+  nome: string
+  responsavel: string
+  users: string | number[] | null
+  grupo_id: number | null
+}
+
+interface OportunidadeAgregada {
+  user_id: number
+  total_oportunidades: number
+  total_realizado: number
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const tipo = searchParams.get('tipo') || 'mensal' // mensal ou anual
+    const tipo = searchParams.get('tipo') || 'mensal'
     const mes = parseInt(searchParams.get('mes') || String(new Date().getMonth() + 1))
     const ano = parseInt(searchParams.get('ano') || String(new Date().getFullYear()))
+    
+    // Filtros avançados
+    const dataInicio = searchParams.get('dataInicio')
+    const dataFim = searchParams.get('dataFim')
+    const unidadesParam = searchParams.get('unidades')
+    const funilId = searchParams.get('funil')
+    const grupoId = searchParams.get('grupo')
+    const gainDateInicio = searchParams.get('gainDateInicio')
+    const gainDateFim = searchParams.get('gainDateFim')
+
+    // Parsear unidades selecionadas
+    const unidadesSelecionadas: number[] = unidadesParam
+      ? unidadesParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id))
+      : []
 
     // Buscar todas as unidades primeiro
-    const unidades = await executeQuery(`
+    let unidadesQuery = `
       SELECT 
         u.id,
         COALESCE(NULLIF(u.nome, ''), u.name, 'Sem Nome') as nome,
@@ -20,7 +48,8 @@ export async function GET(request: NextRequest) {
           v.name,
           'Não informado'
         ) as responsavel,
-        u.users
+        u.users,
+        u.grupo_id
       FROM unidades u
       LEFT JOIN vendedores v ON v.id = (
         CASE 
@@ -30,67 +59,171 @@ export async function GET(request: NextRequest) {
         END
       )
       WHERE u.ativo = 1
-      ORDER BY COALESCE(NULLIF(u.nome, ''), u.name)
-    `) as any[]
+    `
+    const unidadesParams: (number | string)[] = []
 
-    // Para cada unidade, buscar as vendas dos seus vendedores
-    const rankingPromises = unidades.map(async (unidade) => {
-      // Parsear os IDs dos vendedores do campo users (JSON)
+    // Filtrar por unidades específicas
+    if (unidadesSelecionadas.length > 0) {
+      unidadesQuery += ` AND u.id IN (${unidadesSelecionadas.map(() => '?').join(',')})`
+      unidadesParams.push(...unidadesSelecionadas)
+    }
+
+    // Filtrar por grupo
+    if (grupoId && grupoId !== 'todos') {
+      unidadesQuery += ` AND u.grupo_id = ?`
+      unidadesParams.push(parseInt(grupoId))
+    }
+
+    unidadesQuery += ` ORDER BY COALESCE(NULLIF(u.nome, ''), u.name)`
+
+    const unidades = await executeQuery(unidadesQuery, unidadesParams) as UnidadeData[]
+
+    // Extrair todos os vendedores de todas as unidades
+    const vendedorUnidadeMap = new Map<number, number[]>() // vendedor_id -> unidade_ids[]
+    const unidadeVendedoresMap = new Map<number, number[]>() // unidade_id -> vendedor_ids[]
+    const todosVendedorIds: number[] = []
+
+    unidades.forEach((unidade) => {
       let vendedorIds: number[] = []
+      
       if (unidade.users) {
         try {
           const users = typeof unidade.users === 'string' ? JSON.parse(unidade.users) : unidade.users
-          vendedorIds = Array.isArray(users) ? users : []
-        } catch (e) {
-          console.warn(`Erro ao parsear users da unidade ${unidade.id}:`, e)
+          if (Array.isArray(users)) {
+            vendedorIds = users.map((u: unknown) => {
+              // Pode ser número direto, string, ou objeto {id: number}
+              if (typeof u === 'number') return u
+              if (typeof u === 'string') {
+                const parsed = parseInt(u.trim())
+                return isNaN(parsed) ? null : parsed
+              }
+              if (typeof u === 'object' && u !== null) {
+                const obj = u as Record<string, unknown>
+                const id = obj.id || obj.user_id || obj.vendedor_id
+                if (typeof id === 'number') return id
+                if (typeof id === 'string') {
+                  const parsed = parseInt(id.trim())
+                  return isNaN(parsed) ? null : parsed
+                }
+              }
+              return null
+            }).filter((id): id is number => id !== null && !isNaN(id))
+          }
+        } catch {
+          // Silently ignore parse errors
         }
       }
 
-      if (vendedorIds.length === 0) {
-        return {
-          unidade_id: unidade.id,
-          unidade_nome: unidade.nome,
-          unidade_responsavel: unidade.responsavel,
-          total_oportunidades: 0,
-          total_realizado: 0,
-          total_vendedores: 0
+      unidadeVendedoresMap.set(unidade.id, vendedorIds)
+      
+      vendedorIds.forEach(vendedorId => {
+        if (!todosVendedorIds.includes(vendedorId)) {
+          todosVendedorIds.push(vendedorId)
         }
-      }
+        
+        const unidadesDoVendedor = vendedorUnidadeMap.get(vendedorId) || []
+        unidadesDoVendedor.push(unidade.id)
+        vendedorUnidadeMap.set(vendedorId, unidadesDoVendedor)
+      })
+    })
 
-      // Buscar vendas dos vendedores desta unidade
-      let query = `
-        SELECT 
-          COUNT(DISTINCT o.id) as total_oportunidades,
-          COALESCE(SUM(CASE WHEN o.status = 'gain' THEN o.value ELSE 0 END), 0) as total_realizado
-        FROM oportunidades o
-        WHERE o.user IN (${vendedorIds.map(() => '?').join(',')})
-      `
+    // Se não há vendedores, retornar ranking vazio
+    if (todosVendedorIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        ranking: [],
+        filtros: { tipo, mes: tipo === 'mensal' ? mes : null, ano, dataInicio, dataFim, unidades: unidadesSelecionadas, funil: funilId, grupo: grupoId, gainDateInicio, gainDateFim }
+      })
+    }
 
-      const params: any[] = [...vendedorIds]
+    // OTIMIZAÇÃO: Buscar todas as oportunidades de todos os vendedores em UMA ÚNICA QUERY
+    // IMPORTANTE: o.user é VARCHAR(100), então precisamos converter os IDs para string
+    let oportunidadesQuery = `
+      SELECT 
+        CAST(o.user AS UNSIGNED) as user_id,
+        COUNT(DISTINCT o.id) as total_oportunidades,
+        COALESCE(SUM(o.value), 0) as total_realizado
+      FROM oportunidades o
+    `
+    
+    // JOIN com colunas_funil se filtro de funil estiver ativo
+    if (funilId && funilId !== 'todos') {
+      oportunidadesQuery += ` INNER JOIN colunas_funil cf ON o.coluna_funil_id = cf.id AND cf.id_funil = ?`
+    }
+    
+    // o.user é VARCHAR, então usamos CAST para comparar com números
+    oportunidadesQuery += ` WHERE CAST(o.user AS UNSIGNED) IN (${todosVendedorIds.map(() => '?').join(',')})`
 
-      if (tipo === 'mensal') {
-        // Filtrar por mês e ano específicos - GMT-3
-        query += ` AND o.gain_date IS NOT NULL AND o.status = 'gain' AND MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?`
-        params.push(mes, ano)
-      } else if (tipo === 'anual') {
-        // Filtrar apenas por ano - GMT-3
-        query += ` AND o.gain_date IS NOT NULL AND o.status = 'gain' AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?`
-        params.push(ano)
-      }
+    const oportunidadesParams: (number | string)[] = []
+    
+    if (funilId && funilId !== 'todos') {
+      oportunidadesParams.push(parseInt(funilId))
+    }
+    
+    oportunidadesParams.push(...todosVendedorIds)
 
-      const resultado = await executeQuery(query, params) as any[]
+    // Filtrar por status gain
+    oportunidadesQuery += ` AND o.status = 'gain' AND o.gain_date IS NOT NULL`
+
+    // Aplicar filtros de data
+    if (tipo === 'personalizado' && dataInicio && dataFim) {
+      oportunidadesQuery += ` AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) >= ? AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) <= ?`
+      oportunidadesParams.push(dataInicio, dataFim)
+    } else if (tipo === 'mensal') {
+      oportunidadesQuery += ` AND MONTH(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ? AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?`
+      oportunidadesParams.push(mes, ano)
+    } else if (tipo === 'anual') {
+      oportunidadesQuery += ` AND YEAR(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) = ?`
+      oportunidadesParams.push(ano)
+    }
+
+    // Filtro adicional de data de ganho
+    if (gainDateInicio) {
+      oportunidadesQuery += ` AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) >= ?`
+      oportunidadesParams.push(gainDateInicio)
+    }
+    if (gainDateFim) {
+      oportunidadesQuery += ` AND DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) <= ?`
+      oportunidadesParams.push(gainDateFim)
+    }
+
+    oportunidadesQuery += ` GROUP BY CAST(o.user AS UNSIGNED)`
+
+    const oportunidadesPorVendedor = await executeQuery(oportunidadesQuery, oportunidadesParams) as OportunidadeAgregada[]
+
+    // Criar mapa de vendedor -> oportunidades
+    const vendedorOportunidadesMap = new Map<number, { total_oportunidades: number; total_realizado: number }>()
+    oportunidadesPorVendedor.forEach(item => {
+      vendedorOportunidadesMap.set(item.user_id, {
+        total_oportunidades: parseInt(String(item.total_oportunidades)) || 0,
+        total_realizado: parseFloat(String(item.total_realizado)) || 0
+      })
+    })
+
+    // Agregar por unidade
+    const ranking = unidades.map((unidade) => {
+      const vendedorIds = unidadeVendedoresMap.get(unidade.id) || []
+      
+      let totalOportunidades = 0
+      let totalRealizado = 0
+      
+      vendedorIds.forEach(vendedorId => {
+        const dados = vendedorOportunidadesMap.get(vendedorId)
+        if (dados) {
+          totalOportunidades += dados.total_oportunidades
+          totalRealizado += dados.total_realizado
+        }
+      })
 
       return {
         unidade_id: unidade.id,
         unidade_nome: unidade.nome,
         unidade_responsavel: unidade.responsavel,
-        total_oportunidades: parseInt(resultado[0]?.total_oportunidades || 0),
-        total_realizado: parseFloat(resultado[0]?.total_realizado || 0),
+        total_oportunidades: totalOportunidades,
+        total_realizado: totalRealizado,
         total_vendedores: vendedorIds.length
       }
     })
-
-    const ranking = await Promise.all(rankingPromises)
 
     // Filtrar unidades com vendas e ordenar
     const rankingFiltrado = ranking
@@ -110,12 +243,18 @@ export async function GET(request: NextRequest) {
       filtros: {
         tipo,
         mes: tipo === 'mensal' ? mes : null,
-        ano
+        ano,
+        dataInicio,
+        dataFim,
+        unidades: unidadesSelecionadas,
+        funil: funilId,
+        grupo: grupoId,
+        gainDateInicio,
+        gainDateFim
       }
     })
 
   } catch (error) {
-    console.error('Erro ao buscar ranking de unidades:', error)
     return NextResponse.json(
       {
         success: false,
@@ -126,4 +265,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
