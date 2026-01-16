@@ -246,6 +246,12 @@ export default function AcumuladoMesPage() {
         console.log('Granularidade:', gran)
       }
 
+      console.log(`📊 Dados recebidos (${gran}):`, data.dados?.length || 0, 'registros')
+      if (data.dados?.length > 0) {
+        console.log('Primeira entrada:', data.dados[0])
+        console.log('Última entrada:', data.dados[data.dados.length - 1])
+      }
+
       if (data.success && data.dados) {
         // Calcular acumulado
         let valorAcumulado = 0
