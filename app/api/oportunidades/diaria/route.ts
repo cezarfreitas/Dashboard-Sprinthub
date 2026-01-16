@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
     const userIdParam = searchParams.get('user_id')
     const funilIdParam = searchParams.get('funil_id')
     const allParam = searchParams.get('all') === '1'
-    const agruparPorMesParam = searchParams.get('agrupar_por_mes') === '1'
+    const granularidade = searchParams.get('granularidade') || (searchParams.get('agrupar_por_mes') === '1' ? 'mes' : 'dia')
 
     // Validações
     if (!tipo) {
@@ -348,11 +348,11 @@ export async function GET(request: NextRequest) {
     // Campos adicionais baseado no tipo
     const campoValor = tipo === 'ganhas' || tipo === 'perdidas' ? ', COALESCE(SUM(o.value), 0) as valor_total' : ''
 
-    // Query para agrupar por dia ou por mês
+    // Query para agrupar por granularidade
     let query: string
     
-    if (agruparPorMesParam) {
-      // Agrupamento por mês - usar DATE_FORMAT para criar data no primeiro dia do mês
+    if (granularidade === 'mes') {
+      // Agrupamento por mês
       query = `
         SELECT 
           DATE_FORMAT(${campoData}, '%Y-%m-01') as data,
@@ -366,8 +366,38 @@ export async function GET(request: NextRequest) {
         GROUP BY DATE_FORMAT(${campoData}, '%Y-%m-01'), MONTH(${campoData}), YEAR(${campoData})
         ORDER BY data ASC
       `
+    } else if (granularidade === 'semana') {
+      // Agrupamento por semana
+      query = `
+        SELECT 
+          DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY) as data,
+          DAY(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)) as dia,
+          MONTH(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)) as mes,
+          YEAR(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)) as ano,
+          COUNT(*) as total
+          ${campoValor}
+        FROM oportunidades o
+        ${whereClause}
+        GROUP BY data, dia, mes, ano
+        ORDER BY data ASC
+      `
+    } else if (granularidade === 'ano') {
+      // Agrupamento por ano
+      query = `
+        SELECT 
+          DATE_FORMAT(${campoData}, '%Y-01-01') as data,
+          1 as dia,
+          1 as mes,
+          YEAR(${campoData}) as ano,
+          COUNT(*) as total
+          ${campoValor}
+        FROM oportunidades o
+        ${whereClause}
+        GROUP BY DATE_FORMAT(${campoData}, '%Y-01-01'), YEAR(${campoData})
+        ORDER BY data ASC
+      `
     } else {
-      // Agrupamento por dia
+      // Agrupamento por dia (default)
       query = `
         SELECT 
           DATE(${campoData}) as data,
@@ -459,13 +489,30 @@ export async function GET(request: NextRequest) {
         // Filtrar apenas datas dentro do período especificado (usar datas validadas)
         if (!item.data) return false
         
-        // Quando agrupando por mês, não filtrar por data exata pois a data é sempre o dia 01 do mês
-        if (agruparPorMesParam) {
+        // Quando agrupando por granularidade maior que dia, não filtrar por data exata 
+        // pois a data pode ser o primeiro dia da semana, mês ou ano
+        if (granularidade === 'mes') {
           // Para agrupamento mensal, verificar se o mês/ano está dentro do período
           const itemAnoMes = item.data.substring(0, 7) // YYYY-MM
           const inicioAnoMes = dataInicioValida.substring(0, 7)
           const fimAnoMes = dataFimValida.substring(0, 7)
           return itemAnoMes >= inicioAnoMes && itemAnoMes <= fimAnoMes
+        } else if (granularidade === 'ano') {
+          // Para agrupamento anual, verificar se o ano está dentro do período
+          const itemAno = item.data.substring(0, 4) // YYYY
+          const inicioAno = dataInicioValida.substring(0, 4)
+          const fimAno = dataFimValida.substring(0, 4)
+          return itemAno >= inicioAno && itemAno <= fimAno
+        } else if (granularidade === 'semana') {
+          // Para agrupamento semanal, ser um pouco mais flexível pois o início da semana 
+          // pode estar um pouco antes da data de início selecionada
+          const itemDate = new Date(item.data + 'T00:00:00')
+          const inicioDate = new Date(dataInicioValida + 'T00:00:00')
+          const fimDate = new Date(dataFimValida + 'T23:59:59')
+          
+          // Se a semana começa antes do início mas termina depois do início, incluir
+          const fimSemana = new Date(itemDate.getTime() + 6 * 24 * 60 * 60 * 1000)
+          return (itemDate <= fimDate && fimSemana >= inicioDate)
         }
         
         return item.data >= dataInicioValida && item.data <= dataFimValida
@@ -540,7 +587,7 @@ export async function GET(request: NextRequest) {
       },
       total_geral: totalGeral,
       ...(campoValor ? { valor_total_geral: valorTotalGeral } : {}),
-      agrupamento: agruparPorMesParam ? 'mes' : 'dia',
+      agrupamento: granularidade,
       dados, // Agrupamento geral por dia ou mês
       ...(allParam ? { dados_por_vendedor: dadosPorVendedor } : {}), // Agrupamento por dia e vendedor (apenas se all=1)
       _debug: {

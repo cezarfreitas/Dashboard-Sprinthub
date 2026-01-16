@@ -275,15 +275,16 @@ export async function syncOportunidades(): Promise<{
 
               // Processar cada oportunidade
               for (const opp of oportunidades) {
+                // Normalizar ID: garantir que seja sempre string (o campo no banco é varchar(50))
+                // Definir antes do try para estar disponível no catch
+                const oportunidadeId = opp.id ? String(opp.id) : 'sem-id'
+                
                 try {
                   if (!opp.id) {
                     console.error('    ❌ Oportunidade sem ID, pulando:', opp)
                     erros++
                     continue
                   }
-
-                  // Normalizar ID: garantir que seja sempre string (o campo no banco é varchar(50))
-                  const oportunidadeId = String(opp.id)
 
                   // Mapear campos (API usa snake_case)
                   const title = opp.title || 'Sem título'

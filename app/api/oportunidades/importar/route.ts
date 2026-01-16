@@ -11,7 +11,7 @@ interface OportunidadeImport {
   lost_date?: string
   title: string
   value?: number
-  status?: 'open' | 'won' | 'lost'
+  status?: 'open' | 'won' | 'lost' | 'gain'
   user?: string
   unidade?: string
   loss_reason?: string

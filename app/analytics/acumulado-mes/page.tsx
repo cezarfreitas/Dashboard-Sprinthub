@@ -66,6 +66,7 @@ export default function AcumuladoMesPage() {
   const [dadosAcumulados, setDadosAcumulados] = useState<AcumuladoDiario[]>([])
   const [loadingGrafico, setLoadingGrafico] = useState(true)
   const [tipoGrafico, setTipoGrafico] = useState<'area' | 'coluna'>('area')
+  const [granularidade, setGranularidade] = useState<'dia' | 'semana' | 'mes' | 'ano'>('dia')
 
   const { mesAtual, anoAtual } = useMemo(() => {
     const dataAtual = new Date()
@@ -202,8 +203,17 @@ export default function AcumuladoMesPage() {
     }
   }, [])
 
+  // Effect: Definir granularidade padrão quando o período mudar
+  useEffect(() => {
+    if (periodoMaiorQueUmMes) {
+      setGranularidade('mes')
+    } else {
+      setGranularidade('dia')
+    }
+  }, [periodoMaiorQueUmMes])
+
   // Buscar dados acumulados dia a dia ou mês a mês
-  const fetchDadosAcumulados = useCallback(async (signal: AbortSignal, agruparPorMes: boolean) => {
+  const fetchDadosAcumulados = useCallback(async (signal: AbortSignal, gran: string) => {
     try {
       setLoadingGrafico(true)
 
@@ -214,12 +224,12 @@ export default function AcumuladoMesPage() {
         ? `&unidade_id=${filtros.unidadesSelecionadas.join(',')}`
         : ''
 
-      // Adicionar parâmetro de agrupamento por mês se necessário
-      const agruparParam = agruparPorMes ? '&agrupar_por_mes=1' : ''
+      // Adicionar parâmetro de granularidade
+      const granParam = `&granularidade=${gran}`
 
       // Buscar dados de ganhas
       const response = await fetch(
-        `/api/oportunidades/diaria?tipo=ganhas&data_inicio=${periodoInicio}&data_fim=${periodoFim}${unidadesParam}${agruparParam}`,
+        `/api/oportunidades/diaria?tipo=ganhas&data_inicio=${periodoInicio}&data_fim=${periodoFim}${unidadesParam}${granParam}`,
         { cache: 'no-store', signal }
       )
 
@@ -233,7 +243,7 @@ export default function AcumuladoMesPage() {
       if (data._debug) {
         console.log('API Debug:', data._debug)
         console.log('Período:', periodoInicio, '-', periodoFim)
-        console.log('Agrupar por mês:', agruparPorMes)
+        console.log('Granularidade:', gran)
       }
 
       if (data.success && data.dados) {
@@ -247,11 +257,18 @@ export default function AcumuladoMesPage() {
 
           // Criar label apropriado baseado no agrupamento
           let label: string
-          if (agruparPorMes) {
+          if (gran === 'mes') {
             // Para agrupamento mensal: "Jan/24", "Fev/24", etc.
             const mes = Number(item.mes)
             const ano = Number(item.ano)
             label = `${nomesMeses[mes - 1]}/${String(ano).slice(-2)}`
+          } else if (gran === 'semana') {
+            // Para agrupamento semanal: "Semana DD/MM"
+            const dataObj = new Date(item.data + 'T00:00:00')
+            label = `Sem ${String(dataObj.getDate()).padStart(2, '0')}/${String(dataObj.getMonth() + 1).padStart(2, '0')}`
+          } else if (gran === 'ano') {
+            // Para agrupamento anual: "2024"
+            label = String(item.ano)
           } else {
             // Para agrupamento diário: número do dia
             label = String(item.dia)
@@ -314,13 +331,13 @@ export default function AcumuladoMesPage() {
       return
     }
 
-    fetchDadosAcumulados(controller.signal, periodoMaiorQueUmMes)
+    fetchDadosAcumulados(controller.signal, granularidade)
 
     return () => {
       controller.abort()
       abortControllerRef.current = null
     }
-  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas.join(','), periodoMaiorQueUmMes, fetchDadosAcumulados])
+  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas.join(','), granularidade, fetchDadosAcumulados])
 
   const periodoLabel = useMemo(() => {
     if (filtros.periodoInicio && filtros.periodoFim) {
@@ -460,9 +477,45 @@ export default function AcumuladoMesPage() {
         <Card className="bg-white border-gray-200 shadow-sm mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-900 font-bold text-sm uppercase">
-                {periodoMaiorQueUmMes ? 'Receita Acumulada Mês a Mês' : 'Receita Acumulada Dia a Dia'}
-              </h3>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-gray-900 font-bold text-sm uppercase">
+                  Receita Acumulada
+                </h3>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant={granularidade === 'dia' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setGranularidade('dia')}
+                    className="h-7 px-2 text-[10px]"
+                  >
+                    Dia
+                  </Button>
+                  <Button
+                    variant={granularidade === 'semana' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setGranularidade('semana')}
+                    className="h-7 px-2 text-[10px]"
+                  >
+                    Semana
+                  </Button>
+                  <Button
+                    variant={granularidade === 'mes' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setGranularidade('mes')}
+                    className="h-7 px-2 text-[10px]"
+                  >
+                    Mês
+                  </Button>
+                  <Button
+                    variant={granularidade === 'ano' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setGranularidade('ano')}
+                    className="h-7 px-2 text-[10px]"
+                  >
+                    Ano
+                  </Button>
+                </div>
+              </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 text-sm">
                   <div className="flex items-center gap-2">
@@ -522,10 +575,10 @@ export default function AcumuladoMesPage() {
                         tick={{ fill: '#6b7280', fontSize: 11 }}
                         stroke="#d1d5db"
                         tickLine={false}
-                        interval={periodoMaiorQueUmMes ? 0 : 'preserveStartEnd'}
-                        angle={periodoMaiorQueUmMes && dadosAcumulados.length > 6 ? -45 : 0}
-                        textAnchor={periodoMaiorQueUmMes && dadosAcumulados.length > 6 ? 'end' : 'middle'}
-                        height={periodoMaiorQueUmMes && dadosAcumulados.length > 6 ? 50 : 30}
+                        interval={granularidade !== 'dia' ? 0 : 'preserveStartEnd'}
+                        angle={granularidade !== 'dia' && dadosAcumulados.length > 6 ? -45 : 0}
+                        textAnchor={granularidade !== 'dia' && dadosAcumulados.length > 6 ? 'end' : 'middle'}
+                        height={granularidade !== 'dia' && dadosAcumulados.length > 6 ? 50 : 30}
                       />
                       <YAxis 
                         tick={{ fill: '#6b7280', fontSize: 11 }}
@@ -551,12 +604,19 @@ export default function AcumuladoMesPage() {
                           return [value, name]
                         }}
                         labelFormatter={(label, payload) => {
-                          if (periodoMaiorQueUmMes && payload && payload[0]) {
+                          if (payload && payload[0]) {
                             const item = payload[0].payload as AcumuladoDiario
-                            const mesNome = nomesMeses[(item.mes || 1) - 1]
-                            return `${mesNome}/${item.ano}`
+                            if (granularidade === 'mes') {
+                              const mesNome = nomesMeses[(item.mes || 1) - 1]
+                              return `${mesNome}/${item.ano}`
+                            } else if (granularidade === 'semana') {
+                              return `${label} (Início da semana)`
+                            } else if (granularidade === 'ano') {
+                              return `Ano ${item.ano}`
+                            }
+                            return `Dia ${label}`
                           }
-                          return `Dia ${label}`
+                          return label
                         }}
                       />
                       <Legend 
@@ -599,10 +659,10 @@ export default function AcumuladoMesPage() {
                         tick={{ fill: '#6b7280', fontSize: 11 }}
                         stroke="#d1d5db"
                         tickLine={false}
-                        interval={periodoMaiorQueUmMes ? 0 : 'preserveStartEnd'}
-                        angle={periodoMaiorQueUmMes && dadosAcumulados.length > 6 ? -45 : 0}
-                        textAnchor={periodoMaiorQueUmMes && dadosAcumulados.length > 6 ? 'end' : 'middle'}
-                        height={periodoMaiorQueUmMes && dadosAcumulados.length > 6 ? 50 : 30}
+                        interval={granularidade !== 'dia' ? 0 : 'preserveStartEnd'}
+                        angle={granularidade !== 'dia' && dadosAcumulados.length > 6 ? -45 : 0}
+                        textAnchor={granularidade !== 'dia' && dadosAcumulados.length > 6 ? 'end' : 'middle'}
+                        height={granularidade !== 'dia' && dadosAcumulados.length > 6 ? 50 : 30}
                       />
                       <YAxis 
                         tick={{ fill: '#6b7280', fontSize: 11 }}
@@ -628,12 +688,19 @@ export default function AcumuladoMesPage() {
                           return [value, name]
                         }}
                         labelFormatter={(label, payload) => {
-                          if (periodoMaiorQueUmMes && payload && payload[0]) {
+                          if (payload && payload[0]) {
                             const item = payload[0].payload as AcumuladoDiario
-                            const mesNome = nomesMeses[(item.mes || 1) - 1]
-                            return `${mesNome}/${item.ano}`
+                            if (granularidade === 'mes') {
+                              const mesNome = nomesMeses[(item.mes || 1) - 1]
+                              return `${mesNome}/${item.ano}`
+                            } else if (granularidade === 'semana') {
+                              return `${label} (Início da semana)`
+                            } else if (granularidade === 'ano') {
+                              return `Ano ${item.ano}`
+                            }
+                            return `Dia ${label}`
                           }
-                          return `Dia ${label}`
+                          return label
                         }}
                       />
                       <Legend 
