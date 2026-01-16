@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
     let failed = 0
     
     // Tamanho do lote para processamento
-    const BATCH_SIZE = 100
+    const BATCH_SIZE = 300
 
     // Processar cada oportunidade
     for (let i = 0; i < oportunidades.length; i++) {

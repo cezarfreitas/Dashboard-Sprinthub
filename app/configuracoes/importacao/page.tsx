@@ -372,7 +372,7 @@ export default function ImportacaoPage() {
     }
 
     // Tamanho do lote para processamento
-    const BATCH_SIZE = 100
+    const BATCH_SIZE = 300
     const totalBatches = Math.ceil(validRows.length / BATCH_SIZE)
     
     try {
