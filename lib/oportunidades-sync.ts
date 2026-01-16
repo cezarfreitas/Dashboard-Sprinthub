@@ -80,7 +80,7 @@ function convertToMySQLDateTime(isoDate: string | null | undefined): string | nu
 }
 
 interface SprintHubOportunidade {
-  id: number
+  id: string | number
   title: string
   value: number | string
   crm_column?: number
@@ -282,6 +282,9 @@ export async function syncOportunidades(): Promise<{
                     continue
                   }
 
+                  // Normalizar ID: garantir que seja sempre string (o campo no banco é varchar(50))
+                  const oportunidadeId = String(opp.id)
+
                   // Mapear campos (API usa snake_case)
                   const title = opp.title || 'Sem título'
                   const value = typeof opp.value === 'string' ? parseFloat(opp.value || '0') : (opp.value || 0)
@@ -338,7 +341,7 @@ export async function syncOportunidades(): Promise<{
                   // Verificar se a oportunidade já existe
                   const existing = await executeQuery(
                     'SELECT id FROM oportunidades WHERE id = ?',
-                    [opp.id]
+                    [oportunidadeId]
                   ) as any[]
 
                   if (existing.length > 0) {
@@ -379,7 +382,7 @@ export async function syncOportunidades(): Promise<{
                         expectedCloseDate, saleChannel, campaign, user, lastColumnChange, lastStatusChange,
                         gainDate, lostDate, reopenDate, awaitColumnApproved, awaitColumnApprovedUser,
                         rejectAppro, rejectApproDesc, confInstallment, fields, dataLead, createDate, updateDate,
-                        archived, colunaFunilId, opp.id
+                        archived, colunaFunilId, oportunidadeId
                       ]
                     )
                     atualizados++
@@ -394,7 +397,7 @@ export async function syncOportunidades(): Promise<{
                         archived, coluna_funil_id, created_at)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
                       [
-                        opp.id, title, value, crmColumn, leadId, sequence, status, lossReason, gainReason,
+                        oportunidadeId, title, value, crmColumn, leadId, sequence, status, lossReason, gainReason,
                         expectedCloseDate, saleChannel, campaign, user, lastColumnChange, lastStatusChange,
                         gainDate, lostDate, reopenDate, awaitColumnApproved, awaitColumnApprovedUser,
                         rejectAppro, rejectApproDesc, confInstallment, fields, dataLead, createDate, updateDate,
@@ -407,7 +410,7 @@ export async function syncOportunidades(): Promise<{
                   totalOportunidades++
 
                 } catch (error) {
-                  console.error(`    ❌ Erro ao sincronizar oportunidade ${opp.id}:`, error)
+                  console.error(`    ❌ Erro ao sincronizar oportunidade ${oportunidadeId}:`, error)
                   erros++
                 }
               }

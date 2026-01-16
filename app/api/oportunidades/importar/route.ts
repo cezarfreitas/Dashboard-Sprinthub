@@ -319,45 +319,37 @@ export async function POST(request: NextRequest) {
         }
 
         // Usar ID da planilha ou gerar ID único
-        let uniqueId: bigint | string
+        // IMPORTANTE: O campo id no banco é varchar(50), então sempre usar string
+        let uniqueId: string
         if (op.id && String(op.id).trim() !== '') {
-          // Usar ID fornecido (pode ser string ou número)
+          // Usar ID fornecido (pode ser string ou número) - sempre converter para string
           uniqueId = String(op.id).trim()
         } else {
-          // Gerar ID único automaticamente
-          uniqueId = generateUniqueId()
+          // Gerar ID único automaticamente - converter bigint para string
+          uniqueId = String(generateUniqueId())
         }
         
-        // Determinar status
-        let status = op.status || 'open'
-        if (!op.status) {
-          if (op.gain_date) {
-            status = 'won'
-          } else if (op.lost_date) {
-            status = 'lost'
-          }
-        }
+        // Determinar status (normalizar para 'gain' se for 'won' ou se tiver data de ganho)
+        let status = (op.status === 'won' || op.status === 'gain' || op.gain_date) ? 'gain' : (op.status === 'lost' || op.lost_date ? 'lost' : 'open')
 
         // Converter datas - usar formato MySQL diretamente
-        console.log(`📅 Processando datas para oportunidade ${uniqueId}:`)
-        console.log(`   createDate original: "${op.createDate}" (tipo: ${typeof op.createDate})`)
+        console.log(`📅 Processando datas para oportunidade ${uniqueId}: status=${status}`)
+        console.log(`   gain_date original: "${op.gain_date}"`)
         
         const parsedCreateDate = parseDate(op.createDate)
-        console.log(`   createDate parseada: "${parsedCreateDate}"`)
-        
         const createDate = parsedCreateDate || (() => {
           const now = new Date()
           const year = now.getFullYear()
           const month = String(now.getMonth() + 1).padStart(2, '0')
           const day = String(now.getDate()).padStart(2, '0')
-          const defaultDate = `${year}-${month}-${day} 00:00:00`
-          console.log(`   createDate usando padrão: "${defaultDate}"`)
-          return defaultDate
+          return `${year}-${month}-${day} 00:00:00`
         })()
         
-        console.log(`   createDate final: "${createDate}"`)
-        const gainDate = status === 'won' ? parseDate(op.gain_date) : null
+        // Aceitar gainDate se o status for 'gain'
+        const gainDate = status === 'gain' ? parseDate(op.gain_date) : null
         const lostDate = status === 'lost' ? parseDate(op.lost_date) : null
+        
+        console.log(`   gainDate final: "${gainDate}"`)
 
         // Converter valor - lidar com formatos como "R$ 200,00", "200,00", "200.00", etc.
         let value = 0
@@ -441,7 +433,7 @@ export async function POST(request: NextRequest) {
         `
 
         await executeQuery(upsertQuery, [
-          uniqueId.toString(),
+          uniqueId,
           op.title.trim(),
           value,
           status,

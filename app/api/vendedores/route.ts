@@ -122,7 +122,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const sprintHubUrl = `${urlPatch}/user?apitoken=${apiToken}&i=${groupId}`
+    // noblock=1 para trazer apenas usuários não bloqueados
+    const sprintHubUrl = `${urlPatch}/user?apitoken=${apiToken}&i=${groupId}&noblock=1`
     
     const response = await fetch(sprintHubUrl, {
       method: 'GET',
@@ -199,7 +200,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const sprintHubUrl = `${urlPatch}/user?apitoken=${apiToken}&i=${groupId}`
+    // noblock=1 para trazer apenas usuários não bloqueados
+    const sprintHubUrl = `${urlPatch}/user?apitoken=${apiToken}&i=${groupId}&noblock=1`
     
     const response = await fetch(sprintHubUrl, {
       method: 'GET',

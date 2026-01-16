@@ -71,7 +71,8 @@ export async function syncVendedoresFromSprintHub(type: 'manual' | 'scheduled' =
   try {
     // Normalizar URL (remover barra final se existir)
     const normalizedUrl = urlPatch.endsWith('/') ? urlPatch.slice(0, -1) : urlPatch
-    const sprintHubUrl = `${normalizedUrl}/user?apitoken=${apiToken}&i=${groupId}`
+    // noblock=1 para trazer apenas usuários não bloqueados
+    const sprintHubUrl = `${normalizedUrl}/user?apitoken=${apiToken}&i=${groupId}&noblock=1`
     
     const response = await fetch(sprintHubUrl, {
       method: 'GET',
@@ -125,12 +126,14 @@ export async function syncVendedoresFromSprintHub(type: 'manual' | 'scheduled' =
         const lastAction = vendedor.last_action ? new Date(vendedor.last_action).toISOString().slice(0, 19).replace('T', ' ') : null
 
         // Usar INSERT ... ON DUPLICATE KEY UPDATE para inserir ou atualizar
+        // Novos vendedores: ativo=1, status='active'
+        // Vendedores existentes: mantém ativo e status atuais (não sobrescreve)
         const result = await executeQuery(`
           INSERT INTO vendedores (
             id, name, lastName, email, cpf, username, birthDate, telephone, photo,
             admin, branch, position_company, skills, state, city, whatsapp_automation,
-            last_login, last_action, status, synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
+            last_login, last_action, ativo, status, synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'active', NOW())
           ON DUPLICATE KEY UPDATE
             name = VALUES(name),
             lastName = VALUES(lastName),

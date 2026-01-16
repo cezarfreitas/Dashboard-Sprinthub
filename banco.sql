@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: projetos_bancointeli:3306
--- Tempo de geração: 29/12/2025 às 14:05
+-- Tempo de geração: 16/01/2026 às 12:14
 -- Versão do servidor: 9.5.0
 -- Versão do PHP: 8.2.27
 
@@ -53,21 +53,6 @@ CREATE TABLE `configuracoes` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Despejando dados para a tabela `configuracoes`
---
-
-INSERT INTO `configuracoes` (`id`, `chave`, `valor`, `descricao`, `tipo`, `created_at`, `updated_at`) VALUES
-(1, 'theme', 'light', 'Tema da aplicação (light/dark)', 'string', '2025-09-27 13:18:44', '2025-11-21 03:40:21'),
-(3, 'notifications_enabled', 'true', 'Notificações habilitadas', 'boolean', '2025-09-27 13:18:53', '2025-11-04 04:02:05'),
-(4, 'auto_refresh_interval', '30000', 'Intervalo de atualização automática em ms', 'number', '2025-09-27 13:18:53', '2025-11-04 04:02:05'),
-(5, 'dashboard_layout', 'grid', 'Layout do dashboard (grid/list)', 'string', '2025-09-27 13:18:53', '2025-11-04 04:02:05'),
-(6, 'empresa_nome', 'Grupo Inteli', 'Nome da empresa', 'string', '2025-12-05 12:04:55', '2025-12-22 20:23:49'),
-(7, 'empresa_email', 'diego@grupointeli.com', 'Email da empresa', 'string', '2025-12-05 12:04:55', '2025-12-22 20:23:50'),
-(8, 'empresa_descricao', 'O Grupo Inteli, fundado em 2005 em Santa Catarina, começou com o objetivo de transformar o mercado de mídia externa. ', 'Descrição da empresa', 'string', '2025-12-05 12:04:55', '2025-12-22 20:23:50'),
-(9, 'empresa_logotipo', '/api/uploads/logos/logo-1765905800978.png', 'URL do logotipo da empresa', 'string', '2025-12-05 12:04:55', '2025-12-22 20:23:50'),
-(10, 'empresa_cor_principal', '#426ff5', 'Cor principal da empresa', 'string', '2025-12-05 12:04:55', '2025-12-22 20:23:50');
 
 -- --------------------------------------------------------
 
@@ -199,7 +184,7 @@ CREATE TABLE `notificacao_oportunidades` (
 --
 
 CREATE TABLE `oportunidades` (
-  `id` bigint UNSIGNED NOT NULL,
+  `id` varchar(50) NOT NULL,
   `title` varchar(255) NOT NULL,
   `value` decimal(15,2) DEFAULT '0.00',
   `crm_column` varchar(100) DEFAULT NULL,
@@ -350,7 +335,10 @@ CREATE TABLE `vendedores` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `ativo` tinyint(1) DEFAULT '1',
-  `unidade_id` int DEFAULT NULL
+  `unidade_id` int DEFAULT NULL,
+  `senha` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Senha do consultor (hash bcrypt)',
+  `reset_token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Token para recuperação de senha',
+  `reset_token_expires` datetime DEFAULT NULL COMMENT 'Data de expiração do token de reset'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -518,13 +506,12 @@ ALTER TABLE `usuarios_sistema`
 ALTER TABLE `vendedores`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `email` (`email`),
-  ADD UNIQUE KEY `username` (`username`),
   ADD KEY `idx_email` (`email`),
-  ADD KEY `idx_username` (`username`),
   ADD KEY `idx_status` (`status`),
   ADD KEY `idx_synced_at` (`synced_at`),
   ADD KEY `idx_ativo` (`ativo`),
-  ADD KEY `idx_unidade_id` (`unidade_id`);
+  ADD KEY `idx_unidade_id` (`unidade_id`),
+  ADD KEY `idx_reset_token` (`reset_token`);
 
 --
 -- Índices de tabela `vendedores_ausencias`
@@ -545,7 +532,7 @@ ALTER TABLE `vendedores_ausencias`
 -- AUTO_INCREMENT de tabela `configuracoes`
 --
 ALTER TABLE `configuracoes`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de tabela `cron_sync_history`

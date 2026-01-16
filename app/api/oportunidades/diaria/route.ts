@@ -52,7 +52,7 @@ function parseJSON(value: any): any[] {
   return []
 }
 
-// Função para construir filtro de unidades (retorna array de user IDs de vendedores ativos)
+// Função para construir filtro de unidades (retorna array de user IDs de vendedores)
 async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<number[]> {
   if (!unidadeIdsParam) return []
 
@@ -73,10 +73,11 @@ async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<numbe
     return []
   }
 
-  const todosVendedoresAtivos = await executeQuery(
-    'SELECT id FROM vendedores WHERE ativo = 1'
+  // Buscar todos os vendedores (qualquer status)
+  const todosVendedores = await executeQuery(
+    'SELECT id FROM vendedores'
   ) as any[]
-  const vendedoresAtivosSet = new Set(todosVendedoresAtivos.map(v => v.id))
+  const vendedoresSet = new Set(todosVendedores.map(v => v.id))
 
   const todosVendedoresIds = new Set<number>()
   unidades.forEach(unidade => {
@@ -104,7 +105,8 @@ async function buildUnidadeFilter(unidadeIdsParam: string | null): Promise<numbe
       
       if (id != null && !isNaN(Number(id))) {
         const userId = Number(id)
-        if (vendedoresAtivosSet.has(userId)) {
+        // Aceitar vendedores com qualquer status
+        if (vendedoresSet.has(userId)) {
           todosVendedoresIds.add(userId)
         }
       }
@@ -129,6 +131,7 @@ export async function GET(request: NextRequest) {
     const userIdParam = searchParams.get('user_id')
     const funilIdParam = searchParams.get('funil_id')
     const allParam = searchParams.get('all') === '1'
+    const agruparPorMesParam = searchParams.get('agrupar_por_mes') === '1'
 
     // Validações
     if (!tipo) {
@@ -261,7 +264,9 @@ export async function GET(request: NextRequest) {
         break
       case 'ganhas':
         campoData = 'o.gain_date'
-        condicaoStatus = "AND o.gain_date IS NOT NULL AND o.status = 'gain'"
+        // Considerar ganhas como tendo gain_date preenchido (compatível com API de unidades)
+        // Também aceitar status 'gain' ou 'won' para compatibilidade com diferentes fontes de dados
+        condicaoStatus = "AND o.gain_date IS NOT NULL"
         break
       case 'perdidas':
         campoData = 'o.lost_date'
@@ -281,12 +286,11 @@ export async function GET(request: NextRequest) {
         )
     }
 
-    // Filtro de data usando GMT-3 (America/Sao_Paulo)
-    // Converte a data do banco (UTC) para GMT-3 antes de comparar
-    whereClauses.push(`DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) >= CAST(? AS DATE)`)
-    queryParams.push(dataInicioValida)
-    whereClauses.push(`DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) <= CAST(? AS DATE)`)
-    queryParams.push(dataFimValida)
+    // Filtro de data - usar comparação direta compatível com API de unidades
+    whereClauses.push(`${campoData} >= ?`)
+    queryParams.push(dataInicioValida + ' 00:00:00')
+    whereClauses.push(`${campoData} <= ?`)
+    queryParams.push(dataFimValida + ' 23:59:59')
 
     // Filtro de unidades
     let userIds: number[] = []
@@ -329,37 +333,67 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')} ${condicaoStatus}` : `WHERE ${condicaoStatus.trim()}`
+    // Construir WHERE clause - condicaoStatus já começa com AND, então só precisa remover o AND inicial se não houver outras cláusulas
+    let whereClause: string
+    if (whereClauses.length > 0) {
+      whereClause = `WHERE ${whereClauses.join(' AND ')} ${condicaoStatus}`
+    } else if (condicaoStatus) {
+      // Remove o AND inicial se condicaoStatus começar com AND
+      const statusClean = condicaoStatus.trim().replace(/^AND\s+/i, '')
+      whereClause = `WHERE ${statusClean}`
+    } else {
+      whereClause = ''
+    }
 
     // Campos adicionais baseado no tipo
     const campoValor = tipo === 'ganhas' || tipo === 'perdidas' ? ', COALESCE(SUM(o.value), 0) as valor_total' : ''
 
-    // Query para agrupar por dia (usando timezone GMT-3)
-    const query = `
-      SELECT 
-        DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as data,
-        DAY(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as dia,
-        MONTH(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as mes,
-        YEAR(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as ano,
-        COUNT(*) as total
-        ${campoValor}
-      FROM oportunidades o
-      ${whereClause}
-      GROUP BY DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), DAY(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), MONTH(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), YEAR(CONVERT_TZ(${campoData}, '+00:00', '-03:00'))
-      ORDER BY data ASC
-    `
+    // Query para agrupar por dia ou por mês
+    let query: string
+    
+    if (agruparPorMesParam) {
+      // Agrupamento por mês - usar DATE_FORMAT para criar data no primeiro dia do mês
+      query = `
+        SELECT 
+          DATE_FORMAT(${campoData}, '%Y-%m-01') as data,
+          1 as dia,
+          MONTH(${campoData}) as mes,
+          YEAR(${campoData}) as ano,
+          COUNT(*) as total
+          ${campoValor}
+        FROM oportunidades o
+        ${whereClause}
+        GROUP BY DATE_FORMAT(${campoData}, '%Y-%m-01'), MONTH(${campoData}), YEAR(${campoData})
+        ORDER BY data ASC
+      `
+    } else {
+      // Agrupamento por dia
+      query = `
+        SELECT 
+          DATE(${campoData}) as data,
+          DAY(${campoData}) as dia,
+          MONTH(${campoData}) as mes,
+          YEAR(${campoData}) as ano,
+          COUNT(*) as total
+          ${campoValor}
+        FROM oportunidades o
+        ${whereClause}
+        GROUP BY DATE(${campoData}), DAY(${campoData}), MONTH(${campoData}), YEAR(${campoData})
+        ORDER BY data ASC
+      `
+    }
 
     const resultados = await executeQuery(query, queryParams) as any[]
 
-    // Query para agrupar por dia E por vendedor (apenas se all=1) - usando timezone GMT-3
+    // Query para agrupar por dia E por vendedor (apenas se all=1)
     let resultadosPorVendedor: any[] = []
     if (allParam) {
       const queryPorVendedor = `
         SELECT 
-          DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as data,
-          DAY(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as dia,
-          MONTH(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as mes,
-          YEAR(CONVERT_TZ(${campoData}, '+00:00', '-03:00')) as ano,
+          DATE(${campoData}) as data,
+          DAY(${campoData}) as dia,
+          MONTH(${campoData}) as mes,
+          YEAR(${campoData}) as ano,
           CAST(o.user AS UNSIGNED) as vendedor_id,
           COALESCE(CONCAT(v.name, ' ', v.lastName), CONCAT(v.name, ''), 'Sem vendedor') as vendedor_nome,
           COUNT(*) as total
@@ -367,7 +401,7 @@ export async function GET(request: NextRequest) {
         FROM oportunidades o
         LEFT JOIN vendedores v ON CAST(o.user AS UNSIGNED) = v.id
         ${whereClause}
-        GROUP BY DATE(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), DAY(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), MONTH(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), YEAR(CONVERT_TZ(${campoData}, '+00:00', '-03:00')), CAST(o.user AS UNSIGNED), v.name, v.lastName
+        GROUP BY DATE(${campoData}), DAY(${campoData}), MONTH(${campoData}), YEAR(${campoData}), CAST(o.user AS UNSIGNED), v.name, v.lastName
         ORDER BY data ASC, vendedor_nome ASC
       `
 
@@ -424,6 +458,16 @@ export async function GET(request: NextRequest) {
       .filter(item => {
         // Filtrar apenas datas dentro do período especificado (usar datas validadas)
         if (!item.data) return false
+        
+        // Quando agrupando por mês, não filtrar por data exata pois a data é sempre o dia 01 do mês
+        if (agruparPorMesParam) {
+          // Para agrupamento mensal, verificar se o mês/ano está dentro do período
+          const itemAnoMes = item.data.substring(0, 7) // YYYY-MM
+          const inicioAnoMes = dataInicioValida.substring(0, 7)
+          const fimAnoMes = dataFimValida.substring(0, 7)
+          return itemAnoMes >= inicioAnoMes && itemAnoMes <= fimAnoMes
+        }
+        
         return item.data >= dataInicioValida && item.data <= dataFimValida
       })
 
@@ -496,8 +540,15 @@ export async function GET(request: NextRequest) {
       },
       total_geral: totalGeral,
       ...(campoValor ? { valor_total_geral: valorTotalGeral } : {}),
-      dados, // Agrupamento geral por dia (mantém compatibilidade)
+      agrupamento: agruparPorMesParam ? 'mes' : 'dia',
+      dados, // Agrupamento geral por dia ou mês
       ...(allParam ? { dados_por_vendedor: dadosPorVendedor } : {}), // Agrupamento por dia e vendedor (apenas se all=1)
+      _debug: {
+        resultados_brutos: resultados.length,
+        dados_filtrados: dados.length,
+        where_clause: whereClause,
+        query_params_count: queryParams.length
+      },
       ...(Object.keys(queryParams).length > 0 ? {
         filtros: {
           ...(unidadeIdParam ? { unidade_id: unidadeIdParam } : {}),
