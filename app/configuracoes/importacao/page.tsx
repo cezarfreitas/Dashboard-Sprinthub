@@ -31,7 +31,7 @@ const SYSTEM_FIELDS = [
 // Palavras-chave para mapeamento inteligente
 const FIELD_KEYWORDS: Record<string, string[]> = {
   id: ['id', 'código', 'codigo', 'code', 'identificador', 'chave', 'key', 'id_oportunidade', 'oportunidade_id'],
-  createDate: ['criação', 'criacao', 'created', 'data criação', 'data criacao', 'dt criação', 'dt criacao', 'data_criacao', 'createdate', 'created_at', 'data de criação'],
+  createDate: ['criação', 'criacao', 'created', 'data criação', 'data criacao', 'dt criação', 'dt criacao', 'data_criacao', 'createdate', 'created_at', 'data de criação', 'data de criacao', 'data de criação', 'data de criacao'],
   gain_date: ['ganho', 'data ganho', 'dt ganho', 'gain', 'won', 'data_ganho', 'gain_date', 'data de ganho', 'fechamento', 'data fechamento'],
   lost_date: ['perda', 'data perda', 'dt perda', 'lost', 'data_perda', 'lost_date', 'data de perda'],
   title: ['título', 'titulo', 'title', 'nome', 'name', 'oportunidade', 'opportunity', 'negócio', 'negocio', 'deal'],
@@ -156,14 +156,78 @@ export default function ImportacaoPage() {
 
     try {
       const data = await selectedFile.arrayBuffer()
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true })
+      // Usar raw: false para tentar manter datas como strings quando possível
+      const workbook = XLSX.read(data, { type: 'array', cellDates: false, cellNF: false })
       
       // Pegar primeira planilha
       const sheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[sheetName]
       
-      // Converter para JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'dd/mm/yyyy' })
+      // Converter para JSON - tentar manter datas como strings
+      // Primeiro tentar com raw: false para ver se mantém como string
+      let jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+        header: 1, 
+        raw: false, 
+        defval: '',
+        dateNF: 'dd/mm/yyyy' // Formato de data esperado
+      })
+      
+      // Função para converter datas para formato DD/MM/YYYY
+      const convertToDDMMYYYY = (cell: any): any => {
+        if (cell === null || cell === undefined || cell === '') return cell
+        
+        // Se for número e estiver no range de datas do Excel (36526 a 45658 para 2000-2025)
+        if (typeof cell === 'number' && cell > 36500 && cell < 50000) {
+          // Converter número serial do Excel para data DD/MM/YYYY
+          const excelEpoch = new Date(1899, 11, 30)
+          const date = new Date(excelEpoch.getTime() + (cell - 1) * 86400000)
+          if (!isNaN(date.getTime())) {
+            const day = String(date.getDate()).padStart(2, '0')
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          }
+        }
+        
+        // Se for string, verificar se é uma data no formato M/D/YY ou M/D/YYYY (americano)
+        if (typeof cell === 'string') {
+          const dateStr = cell.trim()
+          // Padrão para M/D/YY ou M/D/YYYY ou MM/DD/YY ou MM/DD/YYYY
+          const americanDatePattern = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/
+          const match = dateStr.match(americanDatePattern)
+          
+          if (match) {
+            const month = parseInt(match[1], 10)
+            const day = parseInt(match[2], 10)
+            let year = parseInt(match[3], 10)
+            
+            // Se o ano tem apenas 2 dígitos, converter para 4 dígitos
+            if (year < 100) {
+              year = year <= 50 ? 2000 + year : 1900 + year
+            }
+            
+            // Validar se é uma data válida (mês entre 1-12, dia entre 1-31)
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+              // Verificar se é formato americano (primeiro número <= 12 e segundo > 12) ou se ambos são <= 12
+              // Se o primeiro número é <= 12 e o segundo é > 12, é formato americano
+              // Se ambos são <= 12, assumir formato americano (M/D)
+              if (month <= 12 && day <= 31) {
+                // Converter para formato brasileiro DD/MM/YYYY
+                const dayStr = String(day).padStart(2, '0')
+                const monthStr = String(month).padStart(2, '0')
+                return `${dayStr}/${monthStr}/${year}`
+              }
+            }
+          }
+        }
+        
+        return cell
+      }
+      
+      // Processar todas as células e converter datas para DD/MM/YYYY
+      jsonData = jsonData.map((row: any) => {
+        return row.map((cell: any) => convertToDDMMYYYY(cell))
+      })
       
       if (jsonData.length < 2) {
         setError('A planilha deve ter pelo menos um cabeçalho e uma linha de dados')
@@ -420,7 +484,7 @@ export default function ImportacaoPage() {
         'Título': 'Exemplo de Oportunidade',
         'Valor': '10000',
         'Status': 'open',
-        'Responsável': 'João Silva',
+        'Responsável': 'joao.silva',
         'Unidade': 'Matriz',
         'Data de Ganho': '',
         'Data de Perda': '',
@@ -433,7 +497,7 @@ export default function ImportacaoPage() {
         'Título': 'Oportunidade Ganha',
         'Valor': '25000',
         'Status': 'won',
-        'Responsável': 'Maria Santos',
+        'Responsável': 'maria.santos',
         'Unidade': 'Filial SP',
         'Data de Ganho': '20/01/2024',
         'Data de Perda': '',
@@ -446,7 +510,7 @@ export default function ImportacaoPage() {
         'Título': 'Oportunidade Perdida',
         'Valor': '15000',
         'Status': 'lost',
-        'Responsável': 'Pedro Oliveira',
+        'Responsável': 'pedro.oliveira',
         'Unidade': 'Filial RJ',
         'Data de Ganho': '',
         'Data de Perda': '25/01/2024',
@@ -910,7 +974,7 @@ export default function ImportacaoPage() {
                   <Badge variant="secondary" className="text-xs">Opcional</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Nome do vendedor/consultor responsável pela oportunidade
+                  Username (user) do vendedor/consultor responsável pela oportunidade. O sistema buscará automaticamente o vendedor pelo username.
                 </p>
               </div>
               
