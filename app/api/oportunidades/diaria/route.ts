@@ -368,9 +368,10 @@ export async function GET(request: NextRequest) {
       `
     } else if (granularidade === 'semana') {
       // Agrupamento por semana (início da semana = segunda-feira)
+      // Usar DATE() para garantir agrupamento único por semana
       query = `
         SELECT 
-          DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY) as data,
+          DATE(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)) as data,
           DAY(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)) as dia,
           MONTH(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)) as mes,
           YEAR(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)) as ano,
@@ -378,11 +379,7 @@ export async function GET(request: NextRequest) {
           ${campoValor}
         FROM oportunidades o
         ${whereClause}
-        GROUP BY 
-          DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY),
-          DAY(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)),
-          MONTH(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY)),
-          YEAR(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY))
+        GROUP BY DATE(DATE_SUB(${campoData}, INTERVAL WEEKDAY(${campoData}) DAY))
         ORDER BY data ASC
       `
     } else if (granularidade === 'ano') {
