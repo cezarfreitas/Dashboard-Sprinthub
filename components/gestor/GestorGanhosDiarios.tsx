@@ -602,7 +602,7 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
                     return (
                       <TableCell
                         key={`${vendedor.vendedor_id}-${data}`}
-                        className={`text-center text-[11px] py-2.5 px-1 border-l border-slate-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-green-50 hover:scale-105 transition-all duration-200' : ''}`}
+                        className={`text-center text-[11px] py-2.5 px-1 border-l border-slate-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-green-50 transition-colors' : ''}`}
                         onClick={() => quantidade > 0 && handleCelulaClick(vendedor.vendedor_id, vendedor.vendedor_nome, data, quantidade)}
                       >
                         {dados && dados.valor > 0 ? (
@@ -617,7 +617,7 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
                     )
                   })}
                   <TableCell 
-                    className={`text-center bg-blue-50 border-l-2 border-blue-300 px-3 py-2.5 text-xs ${vendedor.total_quantidade > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
+                    className={`text-center bg-blue-50 border-l-2 border-blue-300 px-3 py-2.5 text-xs ${vendedor.total_quantidade > 0 ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
                     onClick={() => vendedor.total_quantidade > 0 && handleTotalVendedorClick(vendedor.vendedor_id, vendedor.vendedor_nome, vendedor.total_quantidade)}
                   >
                     <div className="flex flex-col">
@@ -639,7 +639,7 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
                     return (
                       <TableCell
                         key={`total-${data}`}
-                        className={`text-center font-bold text-[11px] py-2.5 px-1 border-l border-slate-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-green-50 hover:scale-105 transition-all duration-200' : ''}`}
+                        className={`text-center font-bold text-[11px] py-2.5 px-1 border-l border-slate-200 ${quantidade > 0 ? 'cursor-pointer hover:bg-green-50 transition-colors' : ''}`}
                         onClick={() => quantidade > 0 && handleTotalDiaClick(data, quantidade)}
                       >
                         {dadosDia && dadosDia.valor_total > 0 ? (

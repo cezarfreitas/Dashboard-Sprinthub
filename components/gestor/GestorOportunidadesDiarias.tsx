@@ -595,7 +595,7 @@ export const GestorOportunidadesDiarias = memo(function GestorOportunidadesDiari
                     return (
                       <TableCell
                         key={`${vendedor.vendedor_id}-${data}`}
-                        className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-blue-600 cursor-pointer hover:bg-blue-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
+                        className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-blue-600 cursor-pointer hover:bg-blue-50 transition-colors' : 'text-gray-400'}`}
                         onClick={() => quantidade > 0 && handleCelulaClick(vendedor.vendedor_id, vendedor.vendedor_nome, data, quantidade)}
                       >
                         {quantidade > 0 ? quantidade : '-'}
@@ -603,7 +603,7 @@ export const GestorOportunidadesDiarias = memo(function GestorOportunidadesDiari
                     )
                   })}
                   <TableCell 
-                    className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-blue-700 ${vendedor.total > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
+                    className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-blue-700 ${vendedor.total > 0 ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
                     onClick={() => vendedor.total > 0 && handleTotalVendedorClick(vendedor.vendedor_id, vendedor.vendedor_nome, vendedor.total)}
                   >
                     {vendedor.total}
@@ -621,7 +621,7 @@ export const GestorOportunidadesDiarias = memo(function GestorOportunidadesDiari
                     return (
                       <TableCell
                         key={`total-${data}`}
-                        className={`text-center font-extrabold text-sm py-2.5 px-2 border-l border-slate-200 ${totalDia > 0 ? 'text-blue-700 cursor-pointer hover:bg-blue-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
+                        className={`text-center font-extrabold text-sm py-2.5 px-2 border-l border-slate-200 ${totalDia > 0 ? 'text-blue-700 cursor-pointer hover:bg-blue-50 transition-colors' : 'text-gray-400'}`}
                         onClick={() => totalDia > 0 && handleTotalDiaClick(data, totalDia)}
                       >
                         {totalDia > 0 ? totalDia : '-'}

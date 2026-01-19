@@ -297,7 +297,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
                     key={etapa.coluna_id}
                     className={`text-center text-sm py-2.5 px-1 font-bold border-l border-slate-200 ${
                       etapa.total_abertas > 0 
-                        ? 'text-blue-600 cursor-pointer hover:bg-blue-50 hover:scale-105 transition-all duration-200' 
+                        ? 'text-blue-600 cursor-pointer hover:bg-blue-50 transition-colors' 
                         : 'text-gray-400'
                     }`}
                     onClick={() => etapa.total_abertas > 0 && handleCelulaClick(etapa, 'todas')}
@@ -306,7 +306,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
                   </TableCell>
                 ))}
                 <TableCell 
-                  className="text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-2 py-2.5 text-sm text-blue-700 cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200"
+                  className="text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-2 py-2.5 text-sm text-blue-700 cursor-pointer hover:bg-blue-100 transition-colors"
                   onClick={() => totalAbertas > 0 && handleCelulaClick({ coluna_id: null, nome_coluna: 'Todas as Etapas' } as any, 'todas')}
                 >
                   {totalAbertas}
@@ -323,7 +323,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
                     key={etapa.coluna_id}
                     className={`text-center py-2.5 px-1 border-l border-slate-200 ${
                       etapa.total_com_valor > 0 
-                        ? 'cursor-pointer hover:bg-green-50 hover:scale-105 transition-all duration-200' 
+                        ? 'cursor-pointer hover:bg-green-50 transition-colors' 
                         : ''
                     }`}
                     onClick={() => etapa.total_com_valor > 0 && handleCelulaClick(etapa, 'com_valor')}
@@ -359,7 +359,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
                     key={etapa.coluna_id}
                     className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${
                       etapa.total_abertas_10_dias > 0 
-                        ? 'text-orange-600 cursor-pointer hover:bg-orange-50 hover:scale-105 transition-all duration-200' 
+                        ? 'text-orange-600 cursor-pointer hover:bg-orange-50 transition-colors' 
                         : 'text-gray-400'
                     }`}
                     onClick={() => etapa.total_abertas_10_dias > 0 && handleCelulaClick(etapa, '10_dias')}
@@ -385,7 +385,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
                     key={etapa.coluna_id}
                     className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${
                       etapa.total_abertas_30_dias > 0 
-                        ? 'text-red-600 cursor-pointer hover:bg-red-50 hover:scale-105 transition-all duration-200' 
+                        ? 'text-red-600 cursor-pointer hover:bg-red-50 transition-colors' 
                         : 'text-gray-400'
                     }`}
                     onClick={() => etapa.total_abertas_30_dias > 0 && handleCelulaClick(etapa, '30_dias')}
@@ -394,7 +394,7 @@ export const ConsultorFunilEtapas = memo(function ConsultorFunilEtapas({
                   </TableCell>
                 ))}
                 <TableCell 
-                  className="text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-2 py-2.5 text-sm text-red-700 cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200"
+                  className="text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-2 py-2.5 text-sm text-red-700 cursor-pointer hover:bg-blue-100 transition-colors"
                   onClick={() => totalAbertas30Dias > 0 && handleCelulaClick({ coluna_id: null, nome_coluna: 'Todas as Etapas' } as any, '30_dias')}
                 >
                   {totalAbertas30Dias}

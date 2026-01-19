@@ -65,6 +65,7 @@ const menuItems: MenuItem[] = [
     submenu: [
       { title: "Motivos de Perda", href: "/analytics/motivos-perda" },
       { title: "Resultados / Meta", href: "/analytics/resultados-meta" },
+      { title: "Receita Mensal", href: "/analytics/receita-mensal" },
       { title: "Acumulado Mês", href: "/analytics/acumulado-mes" }
     ]
   },

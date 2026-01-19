@@ -80,9 +80,14 @@ export const ConsultorEstatisticasCards = memo(function ConsultorEstatisticasCar
           <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-white flex-shrink-0" />
         </div>
         <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white truncate">{formatCurrency(props.ganhosValorTotal)}</p>
-        <p className="text-[10px] sm:text-xs text-green-100 mt-0.5 sm:mt-1 font-medium truncate">
-          {props.ganhosTotalOportunidades} ops
-        </p>
+        <div className="flex items-center justify-between mt-0.5 sm:mt-1">
+          <p className="text-[10px] sm:text-xs text-green-100 font-medium truncate">
+            {props.ganhosTotalOportunidades} ops
+          </p>
+          <p className="text-[10px] sm:text-xs text-green-100 font-bold bg-green-800/30 px-1.5 py-0.5 rounded-full">
+            {props.taxaGanhas.toFixed(1)}%
+          </p>
+        </div>
       </div>
 
       {/* Card: Perdidas */}

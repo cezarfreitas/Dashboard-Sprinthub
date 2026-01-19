@@ -5,9 +5,11 @@ import { useGestorDashboard } from "@/hooks/gestor/useGestorDashboard"
 import { GestorEstatisticasCards } from "@/components/gestor/GestorEstatisticasCards"
 import { GestorPeriodoFilter } from "@/components/gestor/GestorPeriodoFilter"
 import { GestorBarraProgressoMeta } from "@/components/gestor/GestorBarraProgressoMeta"
+import { GestorMetaVendedores } from "@/components/gestor/GestorMetaVendedores"
 import { GestorMatrizMotivosPerda } from "@/components/gestor/GestorMatrizMotivosPerda"
 import { GestorOportunidadesDiarias } from "@/components/gestor/GestorOportunidadesDiarias"
 import { GestorGanhosDiarios } from "@/components/gestor/GestorGanhosDiarios"
+import { GestorFunilEtapas } from "@/components/gestor/GestorFunilEtapas"
 import { AppFooter } from "@/components/app-footer"
 
 export default function GestorDashboard() {
@@ -96,8 +98,23 @@ export default function GestorDashboard() {
             ticketTotalVendas={cardsData?.ticketTotalVendas || 0}
             ticketValorTotal={cardsData?.ticketValorTotal || 0}
             />
+            {cardsData?.ganhosMeta > 0 && (
+              <GestorMetaVendedores
+                unidadeId={unidadeSelecionada}
+                mes={getPeriodoDatas() ? new Date().getMonth() + 1 : undefined}
+                ano={getPeriodoDatas() ? new Date().getFullYear() : undefined}
+                metaTotal={cardsData?.ganhosMeta || 0}
+                realizadoTotal={cardsData?.ganhosValorTotalMes || 0}
+              />
+            )}
             {unidadeSelecionada && getPeriodoDatas() && (
               <>
+                <GestorFunilEtapas
+                  unidadeId={unidadeSelecionada}
+                  dataInicio={getPeriodoDatas().dataInicio}
+                  dataFim={getPeriodoDatas().dataFim}
+                  funilId={funilSelecionado ? Number(funilSelecionado) : null}
+                />
                 <GestorOportunidadesDiarias
                   unidadeId={unidadeSelecionada}
                   dataInicio={getPeriodoDatas().dataInicio}

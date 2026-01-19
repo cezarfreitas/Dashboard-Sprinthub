@@ -438,7 +438,7 @@ export const ConsultorMatrizMotivosPerda = memo(function ConsultorMatrizMotivosP
                     </div>
                   </TableCell>
                   <TableCell 
-                    className="text-center text-sm font-bold py-2.5 px-2 text-red-600 cursor-pointer hover:bg-red-50 hover:scale-105 transition-all duration-200"
+                    className="text-center text-sm font-bold py-2.5 px-2 text-red-600 cursor-pointer hover:bg-red-50 transition-colors"
                     onClick={() => handleMotivoClick(motivo)}
                   >
                     {motivo.total_oportunidades}

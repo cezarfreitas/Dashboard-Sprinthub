@@ -402,7 +402,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-blue-600 cursor-pointer hover:bg-blue-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
+                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-blue-600 cursor-pointer hover:bg-blue-50 transition-colors' : 'text-gray-400'}`}
                       onClick={() => handleCelulaClick(data, 'criadas', quantidade)}
                     >
                       {quantidade > 0 ? quantidade : '-'}
@@ -410,7 +410,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   )
                 })}
                 <TableCell 
-                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-blue-700 ${totalCriadas > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
+                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-blue-700 ${totalCriadas > 0 ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
                   onClick={() => handleTotalClick('criadas', totalCriadas)}
                 >
                   {totalCriadas}
@@ -428,7 +428,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-red-600 cursor-pointer hover:bg-red-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
+                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-red-600 cursor-pointer hover:bg-red-50 transition-colors' : 'text-gray-400'}`}
                       onClick={() => handleCelulaClick(data, 'perdidas', quantidade)}
                     >
                       {quantidade > 0 ? quantidade : '-'}
@@ -436,7 +436,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   )
                 })}
                 <TableCell 
-                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-red-700 ${totalPerdidas > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
+                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-red-700 ${totalPerdidas > 0 ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
                   onClick={() => handleTotalClick('perdidas', totalPerdidas)}
                 >
                   {totalPerdidas}
@@ -454,7 +454,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-green-600 cursor-pointer hover:bg-green-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
+                      className={`text-center text-sm py-2.5 px-2 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-green-600 cursor-pointer hover:bg-green-50 transition-colors' : 'text-gray-400'}`}
                       onClick={() => handleCelulaClick(data, 'ganhas', quantidade)}
                     >
                       {quantidade > 0 ? quantidade : '-'}
@@ -462,7 +462,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   )
                 })}
                 <TableCell 
-                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-green-700 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
+                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-sm text-green-700 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
                   onClick={() => handleTotalClick('ganhas', totalGanhasQtd)}
                 >
                   {totalGanhasQtd}
@@ -481,7 +481,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   return (
                     <TableCell
                       key={data}
-                      className={`text-center text-[11px] py-2.5 px-1 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-green-600 cursor-pointer hover:bg-green-50 hover:scale-105 transition-all duration-200' : 'text-gray-400'}`}
+                      className={`text-center text-[11px] py-2.5 px-1 font-bold border-l border-slate-200 ${quantidade > 0 ? 'text-green-600 cursor-pointer hover:bg-green-50 transition-colors' : 'text-gray-400'}`}
                       onClick={() => handleCelulaClick(data, 'ganhas', quantidade)}
                     >
                       {valor > 0 ? formatCurrency(valor) : '-'}
@@ -489,7 +489,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
                   )
                 })}
                 <TableCell 
-                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-[11px] text-green-700 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-blue-100 hover:scale-105 transition-all duration-200' : ''}`}
+                  className={`text-center bg-blue-50 font-extrabold border-l-2 border-blue-300 px-3 py-2.5 text-[11px] text-green-700 ${totalGanhasQtd > 0 ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
                   onClick={() => handleTotalClick('ganhas', totalGanhasQtd)}
                 >
                   {formatCurrency(totalGanhasValor)}

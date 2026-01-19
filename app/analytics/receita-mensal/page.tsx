@@ -8,40 +8,41 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BarChart3, Calendar, TrendingUp, BarChart2 } from "lucide-react"
-import { 
-  AreaChart, 
-  Area, 
+import {
+  AreaChart,
+  Area,
   BarChart,
   Bar,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   Legend,
   LabelList
 } from 'recharts'
 
-interface AcumuladoDiario {
+interface DadoPeriodo {
   dia: number
   data: string
-  valor_acumulado: number
-  quantidade_acumulada: number
+  valor_total: number
+  quantidade_total: number
   mes?: number
   ano?: number
   label?: string
-  valor_acumulado_ano_anterior?: number
-  quantidade_acumulada_ano_anterior?: number
+  valor_total_ano_anterior?: number
+  quantidade_total_ano_anterior?: number
 }
 
-export default function AcumuladoMesPage() {
+export default function ReceitaMensalPage() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [exporting, setExporting] = useState(false)
 
-  // Período inicial (mês atual)
+  // Período inicial (últimos 12 meses)
   const periodoInicial = useMemo(() => {
-    const inicio = new Date()
     const fim = new Date()
+    const inicio = new Date()
+    inicio.setMonth(inicio.getMonth() - 11)
     inicio.setDate(1)
     inicio.setHours(0, 0, 0, 0)
     fim.setHours(23, 59, 59, 999)
@@ -53,7 +54,7 @@ export default function AcumuladoMesPage() {
 
   const [filtros, setFiltros] = useState(() => ({
     unidadesSelecionadas: [] as number[],
-    periodoTipo: 'este-mes' as string,
+    periodoTipo: 'personalizado' as string,
     periodoInicio: periodoInicial.inicio,
     periodoFim: periodoInicial.fim,
     funilSelecionado: 'todos',
@@ -65,10 +66,10 @@ export default function AcumuladoMesPage() {
   const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
   const [grupos, setGrupos] = useState<Array<{ id: number; nome: string; unidadeIds?: number[] }>>([])
   const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
-  const [dadosAcumulados, setDadosAcumulados] = useState<AcumuladoDiario[]>([])
+  const [dadosPeriodo, setDadosPeriodo] = useState<DadoPeriodo[]>([])
   const [loadingGrafico, setLoadingGrafico] = useState(true)
-  const [tipoGrafico, setTipoGrafico] = useState<'area' | 'coluna'>('area')
-  const [granularidade, setGranularidade] = useState<'dia' | 'semana' | 'mes' | 'ano'>('dia')
+  const [tipoGrafico, setTipoGrafico] = useState<'area' | 'coluna'>('coluna')
+  const [granularidade, setGranularidade] = useState<'dia' | 'semana' | 'mes' | 'ano'>('mes')
 
   const { mesAtual, anoAtual } = useMemo(() => {
     const dataAtual = new Date()
@@ -122,11 +123,11 @@ export default function AcumuladoMesPage() {
       switch (tipo) {
         case 'este-mes':
           inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-          fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0) // Último dia do mês atual
+          fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
           break
         case 'mes-passado':
           inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
-          fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0) // Último dia do mês anterior
+          fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0)
           break
         case 'esta-semana':
           const diaSemana = hoje.getDay()
@@ -140,17 +141,16 @@ export default function AcumuladoMesPage() {
           break
         case 'este-ano':
           inicio = new Date(hoje.getFullYear(), 0, 1)
-          fim = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()) // Até hoje
+          fim = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
           break
         case 'ano-anterior':
-          inicio = new Date(hoje.getFullYear() - 1, 0, 1) // 01/01 do ano anterior
-          fim = new Date(hoje.getFullYear() - 1, 11, 31) // 31/12 do ano anterior
+          inicio = new Date(hoje.getFullYear() - 1, 0, 1)
+          fim = new Date(hoje.getFullYear() - 1, 11, 31)
           break
         default:
           return { inicio: '', fim: '' }
       }
 
-      // Formatar para YYYY-MM-DD
       const formatDate = (d: Date) => {
         const year = d.getFullYear()
         const month = String(d.getMonth() + 1).padStart(2, '0')
@@ -167,11 +167,10 @@ export default function AcumuladoMesPage() {
 
   const filtrosAtivos = useMemo(() => {
     return filtros.unidadesSelecionadas.length > 0 ||
-           filtros.periodoTipo !== 'este-mes' ||
+           filtros.periodoTipo !== 'personalizado' ||
            filtros.funilSelecionado !== 'todos' ||
            filtros.grupoSelecionado !== 'todos'
   }, [filtros])
-
 
   const fetchFunis = useCallback(async () => {
     try {
@@ -214,8 +213,8 @@ export default function AcumuladoMesPage() {
     setGranularidade(granularidadeSugerida)
   }, [granularidadeSugerida])
 
-  // Buscar dados acumulados dia a dia ou mês a mês
-  const fetchDadosAcumulados = useCallback(async (signal: AbortSignal, gran: string) => {
+  // Buscar dados por período (não acumulado)
+  const fetchDadosPeriodo = useCallback(async (signal: AbortSignal, gran: string) => {
     try {
       setLoadingGrafico(true)
 
@@ -226,10 +225,8 @@ export default function AcumuladoMesPage() {
         ? `&unidade_id=${filtros.unidadesSelecionadas.join(',')}`
         : ''
 
-      // Adicionar parâmetro de granularidade
       const granParam = `&granularidade=${gran}`
 
-      // Buscar dados de ganhas
       const response = await fetch(
         `/api/oportunidades/diaria?tipo=ganhas&data_inicio=${periodoInicio}&data_fim=${periodoFim}${unidadesParam}${granParam}`,
         { cache: 'no-store', signal }
@@ -241,11 +238,10 @@ export default function AcumuladoMesPage() {
 
       if (signal.aborted) return
 
-      // Se for granularidade anual ou mensal, buscar dados do período anterior para comparação
+      // Se for granularidade anual ou mensal, buscar dados do periodo anterior para comparação
       let dadosPeriodoAnterior: any[] = []
       if ((gran === 'ano' || gran === 'mes') && data.success && data.dados && data.dados.length > 0) {
         try {
-          // Calcular período do ano anterior
           const inicioDate = new Date(periodoInicio + 'T00:00:00')
           const fimDate = new Date(periodoFim + 'T00:00:00')
 
@@ -257,7 +253,7 @@ export default function AcumuladoMesPage() {
           const periodoInicioAnterior = inicioAnoAnterior.toISOString().split('T')[0]
           const periodoFimAnterior = fimAnoAnterior.toISOString().split('T')[0]
 
-          console.log('🔍 Buscando ano anterior:', periodoInicioAnterior, '-', periodoFimAnterior)
+          console.log('🔍 [Receita Mensal] Buscando ano anterior:', periodoInicioAnterior, '-', periodoFimAnterior)
 
           const responseAnterior = await fetch(
             `/api/oportunidades/diaria?tipo=ganhas&data_inicio=${periodoInicioAnterior}&data_fim=${periodoFimAnterior}${unidadesParam}${granParam}`,
@@ -268,29 +264,19 @@ export default function AcumuladoMesPage() {
             const dataAnterior = await responseAnterior.json()
             if (dataAnterior.success && dataAnterior.dados) {
               dadosPeriodoAnterior = dataAnterior.dados
-              console.log('✅ Dados periodo anterior:', dadosPeriodoAnterior)
+              console.log('✅ [Receita Mensal] Dados periodo anterior:', dadosPeriodoAnterior)
             }
           }
         } catch (err) {
-          console.error('❌ Erro ao buscar ano anterior:', err)
+          console.error('❌ [Receita Mensal] Erro ao buscar ano anterior:', err)
         }
       }
 
       if (data.success && data.dados) {
-        // Calcular acumulado
-        let valorAcumulado = 0
-        let quantidadeAcumulada = 0
-
         // Criar mapa de dados do periodo anterior (ano ou mes)
         const mapaPeriodoAnterior = new Map<string, { valor: number; quantidade: number }>()
         if ((gran === 'ano' || gran === 'mes') && dadosPeriodoAnterior.length > 0) {
-          let valorAcumuladoAnterior = 0
-          let quantidadeAcumuladaAnterior = 0
-
           dadosPeriodoAnterior.forEach((item: any) => {
-            valorAcumuladoAnterior += Number(item.valor_total || 0)
-            quantidadeAcumuladaAnterior += Number(item.total || 0)
-
             // Para mes: usar "ano-mes" como chave (ex: "2023-12")
             // Para ano: usar apenas "ano" como chave (ex: "2023")
             const chave = gran === 'mes'
@@ -298,33 +284,26 @@ export default function AcumuladoMesPage() {
               : String(item.ano)
 
             mapaPeriodoAnterior.set(chave, {
-              valor: valorAcumuladoAnterior,
-              quantidade: quantidadeAcumuladaAnterior
+              valor: Number(item.valor_total || 0),
+              quantidade: Number(item.total || 0)
             })
           })
-          console.log('📊 Mapa periodo anterior:', Array.from(mapaPeriodoAnterior.entries()))
+          console.log('📊 [Receita Mensal] Mapa periodo anterior:', Array.from(mapaPeriodoAnterior.entries()))
         }
 
-        const dadosComAcumulado = data.dados.map((item: any) => {
-          valorAcumulado += Number(item.valor_total || 0)
-          quantidadeAcumulada += Number(item.total || 0)
-
-          // Criar label apropriado baseado no agrupamento
+        // NÃO calcular acumulado - usar valores diretos
+        const dadosFormatados = data.dados.map((item: any) => {
           let label: string
           if (gran === 'mes') {
-            // Para agrupamento mensal: "Jan/24", "Fev/24", etc.
             const mes = Number(item.mes)
             const ano = Number(item.ano)
             label = `${nomesMeses[mes - 1]}/${String(ano).slice(-2)}`
           } else if (gran === 'semana') {
-            // Para agrupamento semanal: "Semana DD/MM"
             const dataObj = new Date(item.data + 'T00:00:00')
             label = `Sem ${String(dataObj.getDate()).padStart(2, '0')}/${String(dataObj.getMonth() + 1).padStart(2, '0')}`
           } else if (gran === 'ano') {
-            // Para agrupamento anual: "2024"
             label = String(item.ano)
           } else {
-            // Para agrupamento diário: número do dia
             label = String(item.dia)
           }
 
@@ -334,7 +313,7 @@ export default function AcumuladoMesPage() {
             const anoAtual = Number(item.ano)
             const chaveAnterior = String(anoAtual - 1)
             dadosAnterior = mapaPeriodoAnterior.get(chaveAnterior)
-            console.log(`🔎 Ano ${anoAtual}: buscando ${anoAtual - 1} no mapa ->`, dadosAnterior)
+            console.log(`🔎 [Receita Mensal] Ano ${anoAtual}: buscando ${anoAtual - 1} no mapa ->`, dadosAnterior)
           } else if (gran === 'mes') {
             const anoAtual = Number(item.ano)
             const mesAtual = Number(item.mes)
@@ -342,7 +321,7 @@ export default function AcumuladoMesPage() {
             const anoAnterior = anoAtual - 1
             const chaveAnterior = `${anoAnterior}-${String(mesAtual).padStart(2, '0')}`
             dadosAnterior = mapaPeriodoAnterior.get(chaveAnterior)
-            console.log(`🔎 Mês ${anoAtual}-${String(mesAtual).padStart(2, '0')}: buscando ${chaveAnterior} no mapa ->`, dadosAnterior)
+            console.log(`🔎 [Receita Mensal] Mês ${anoAtual}-${String(mesAtual).padStart(2, '0')}: buscando ${chaveAnterior} no mapa ->`, dadosAnterior)
           }
 
           return {
@@ -351,30 +330,30 @@ export default function AcumuladoMesPage() {
             mes: item.mes,
             ano: item.ano,
             label,
-            valor_acumulado: valorAcumulado,
-            quantidade_acumulada: quantidadeAcumulada,
+            valor_total: Number(item.valor_total || 0),
+            quantidade_total: Number(item.total || 0),
             ...((gran === 'ano' || gran === 'mes') && dadosAnterior ? {
-              valor_acumulado_ano_anterior: dadosAnterior.valor,
-              quantidade_acumulada_ano_anterior: dadosAnterior.quantidade
+              valor_total_ano_anterior: dadosAnterior.valor,
+              quantidade_total_ano_anterior: dadosAnterior.quantidade
             } : {})
           }
         })
 
-        console.log('📈 Dados finais com comparação:', dadosComAcumulado)
+        console.log('📈 [Receita Mensal] Dados finais com comparação:', dadosFormatados)
 
-        setDadosAcumulados(dadosComAcumulado)
+        setDadosPeriodo(dadosFormatados)
       } else {
-        setDadosAcumulados([])
+        setDadosPeriodo([])
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
-      setDadosAcumulados([])
+      setDadosPeriodo([])
     } finally {
       setLoadingGrafico(false)
     }
   }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas, periodoInicial, nomesMeses])
 
-  // Effect 1: Atualizar período quando o tipo mudar
+  // Effect: Atualizar período quando o tipo mudar
   useEffect(() => {
     if (filtros.periodoTipo !== 'personalizado') {
       const { inicio, fim } = calcularPeriodo(filtros.periodoTipo)
@@ -408,13 +387,13 @@ export default function AcumuladoMesPage() {
       return
     }
 
-    fetchDadosAcumulados(controller.signal, granularidade)
+    fetchDadosPeriodo(controller.signal, granularidade)
 
     return () => {
       controller.abort()
       abortControllerRef.current = null
     }
-  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas.join(','), granularidade, fetchDadosAcumulados])
+  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas.join(','), granularidade, fetchDadosPeriodo])
 
   const periodoLabel = useMemo(() => {
     if (filtros.periodoInicio && filtros.periodoFim) {
@@ -425,15 +404,14 @@ export default function AcumuladoMesPage() {
     return 'Período não definido'
   }, [filtros.periodoInicio, filtros.periodoFim])
 
-  // Valor total acumulado (último valor do array)
-  const totalAcumulado = useMemo(() => {
-    if (dadosAcumulados.length === 0) return { valor: 0, quantidade: 0 }
-    const ultimo = dadosAcumulados[dadosAcumulados.length - 1]
+  // Totais do período
+  const totaisPeriodo = useMemo(() => {
+    if (dadosPeriodo.length === 0) return { valor: 0, quantidade: 0 }
     return {
-      valor: ultimo.valor_acumulado,
-      quantidade: ultimo.quantidade_acumulada
+      valor: dadosPeriodo.reduce((sum, item) => sum + item.valor_total, 0),
+      quantidade: dadosPeriodo.reduce((sum, item) => sum + item.quantidade_total, 0)
     }
-  }, [dadosAcumulados])
+  }, [dadosPeriodo])
 
   // Aplicar filtro de grupo sobre as unidades selecionadas
   const filtrosParaGrid = useMemo(() => {
@@ -461,7 +439,6 @@ export default function AcumuladoMesPage() {
       unidadesSelecionadas: unidadesIdsAplicadas
     }
   }, [filtros, grupos])
-
 
   const handleExportExcel = useCallback(async () => {
     if (exporting) return
@@ -498,13 +475,13 @@ export default function AcumuladoMesPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `acumulado_${periodoInicio}_a_${periodoFim}.xlsx`
+      a.download = `receita_mensal_${periodoInicio}_a_${periodoFim}.xlsx`
       document.body.appendChild(a)
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-    } catch {
-      // Evitar console.*; falha silenciosa (página já mostra dados sem bloquear)
+    } catch (error) {
+      console.error('Erro ao exportar:', error)
     } finally {
       setExporting(false)
     }
@@ -519,7 +496,7 @@ export default function AcumuladoMesPage() {
             <div className="space-y-1">
               <div className="flex items-center gap-3">
                 <BarChart3 className="h-7 w-7 text-blue-600" />
-                <h1 className="text-2xl font-bold text-gray-900">Acumulado do Período</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Receita Mensal</h1>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Calendar className="h-4 w-4" />
@@ -550,14 +527,14 @@ export default function AcumuladoMesPage() {
           showGainDateFilter={false}
         />
 
-        {/* Gráfico de Acumulado */}
+        {/* Gráfico de Receita */}
         <Card className="bg-white border-gray-200 shadow-sm mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <h3 className="text-gray-900 font-bold text-sm uppercase">
-                    Receita Acumulada
+                    Receita por Período
                   </h3>
                   <span className="text-xs text-gray-500">
                     ({diasDoPeriodo} {diasDoPeriodo === 1 ? 'dia' : 'dias'})
@@ -630,7 +607,7 @@ export default function AcumuladoMesPage() {
                   </Button>
                 </div>
                 {/* Indicador de períodos comparados */}
-                {(granularidade === 'ano' || granularidade === 'mes') && dadosAcumulados.some(d => d.valor_acumulado_ano_anterior) && (
+                {(granularidade === 'ano' || granularidade === 'mes') && dadosPeriodo.some(d => d.valor_total_ano_anterior) && (
                   <div className="flex items-center gap-3 mt-2 text-xs">
                     <div className="flex items-center gap-1.5">
                       <div className="w-3 h-3 rounded-sm bg-green-500"></div>
@@ -673,11 +650,11 @@ export default function AcumuladoMesPage() {
                 <div className="flex items-center gap-2 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">Total:</span>
-                    <span className="font-bold text-green-600">{formatCurrency(totalAcumulado.valor)}</span>
+                    <span className="font-bold text-green-600">{formatCurrency(totaisPeriodo.valor)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">Vendas:</span>
-                    <span className="font-bold text-blue-600">{totalAcumulado.quantidade}</span>
+                    <span className="font-bold text-blue-600">{totaisPeriodo.quantidade}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 border-l pl-4">
@@ -704,10 +681,10 @@ export default function AcumuladoMesPage() {
                 </div>
               </div>
             </div>
-            
+
             {loadingGrafico ? (
               <Skeleton className="h-[250px] w-full bg-gray-100" />
-            ) : dadosAcumulados.length === 0 ? (
+            ) : dadosPeriodo.length === 0 ? (
               <div className="h-[250px] flex items-center justify-center text-gray-500">
                 Nenhum dado disponível para o período selecionado
               </div>
@@ -715,29 +692,29 @@ export default function AcumuladoMesPage() {
               <div className="h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
                   {tipoGrafico === 'area' ? (
-                    <AreaChart data={dadosAcumulados} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <AreaChart data={dadosPeriodo} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <defs>
-                        <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorValorMensal" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
                           <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
                         </linearGradient>
-                        <linearGradient id="colorValorAnterior" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorValorMensalAnterior" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.2}/>
                           <stop offset="95%" stopColor="#94a3b8" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        dataKey="label" 
+                      <XAxis
+                        dataKey="label"
                         tick={{ fill: '#6b7280', fontSize: 11 }}
                         stroke="#d1d5db"
                         tickLine={false}
                         interval={granularidade !== 'dia' ? 0 : 'preserveStartEnd'}
-                        angle={granularidade !== 'dia' && dadosAcumulados.length > 6 ? -45 : 0}
-                        textAnchor={granularidade !== 'dia' && dadosAcumulados.length > 6 ? 'end' : 'middle'}
-                        height={granularidade !== 'dia' && dadosAcumulados.length > 6 ? 50 : 30}
+                        angle={granularidade !== 'dia' && dadosPeriodo.length > 6 ? -45 : 0}
+                        textAnchor={granularidade !== 'dia' && dadosPeriodo.length > 6 ? 'end' : 'middle'}
+                        height={granularidade !== 'dia' && dadosPeriodo.length > 6 ? 50 : 30}
                       />
-                      <YAxis 
+                      <YAxis
                         tick={{ fill: '#6b7280', fontSize: 11 }}
                         stroke="#d1d5db"
                         tickLine={false}
@@ -747,7 +724,7 @@ export default function AcumuladoMesPage() {
                           return `R$ ${value}`
                         }}
                       />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{
                           backgroundColor: '#ffffff',
                           border: '1px solid #e5e7eb',
@@ -757,13 +734,13 @@ export default function AcumuladoMesPage() {
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                         }}
                         formatter={(value, name) => {
-                          if (name === 'valor_acumulado') return [formatCurrency(value as number), 'Receita Acumulada']
-                          if (name === 'valor_acumulado_ano_anterior') return [formatCurrency(value as number), 'Ano Anterior']
+                          if (name === 'valor_total') return [formatCurrency(value as number), 'Receita do Período']
+                          if (name === 'valor_total_ano_anterior') return [formatCurrency(value as number), 'Ano Anterior']
                           return [value, name]
                         }}
                         labelFormatter={(label, payload) => {
                           if (payload && payload[0]) {
-                            const item = payload[0].payload as AcumuladoDiario
+                            const item = payload[0].payload as DadoPeriodo
                             if (granularidade === 'mes') {
                               const mesNome = nomesMeses[(item.mes || 1) - 1]
                               return `${mesNome}/${item.ano}`
@@ -777,41 +754,41 @@ export default function AcumuladoMesPage() {
                           return label
                         }}
                       />
-                      <Legend 
-                        verticalAlign="top" 
+                      <Legend
+                        verticalAlign="top"
                         height={36}
                         formatter={(value) => {
-                          if (value === 'valor_acumulado') return 'Receita Acumulada'
-                          if (value === 'valor_acumulado_ano_anterior') return 'Ano Anterior'
+                          if (value === 'valor_total') return 'Receita do Período'
+                          if (value === 'valor_total_ano_anterior') return 'Ano Anterior'
                           return value
                         }}
                       />
                       {/* Linha do periodo anterior (para granularidade anual ou mensal) */}
-                      {(granularidade === 'ano' || granularidade === 'mes') && dadosAcumulados.some(d => d.valor_acumulado_ano_anterior) && (
+                      {(granularidade === 'ano' || granularidade === 'mes') && dadosPeriodo.some(d => d.valor_total_ano_anterior) && (
                         <Area
                           type="monotone"
-                          dataKey="valor_acumulado_ano_anterior"
+                          dataKey="valor_total_ano_anterior"
                           stroke="#94a3b8"
                           strokeWidth={2}
                           strokeDasharray="5 5"
                           fillOpacity={1}
-                          fill="url(#colorValorAnterior)"
+                          fill="url(#colorValorMensalAnterior)"
                           dot={{ fill: '#94a3b8', r: 3, strokeWidth: 0 }}
                           activeDot={{ r: 6, fill: '#94a3b8', stroke: '#fff', strokeWidth: 2 }}
                         />
                       )}
                       <Area
                         type="monotone"
-                        dataKey="valor_acumulado"
+                        dataKey="valor_total"
                         stroke="#22c55e"
                         strokeWidth={2}
                         fillOpacity={1}
-                        fill="url(#colorValor)"
+                        fill="url(#colorValorMensal)"
                         dot={{ fill: '#22c55e', r: 3, strokeWidth: 0 }}
                         activeDot={{ r: 6, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
                       >
                         <LabelList
-                          dataKey="valor_acumulado"
+                          dataKey="valor_total"
                           position="top"
                           style={{ fill: '#059669', fontSize: '11px', fontWeight: '600' }}
                           formatter={(value) => {
@@ -825,19 +802,19 @@ export default function AcumuladoMesPage() {
                       </Area>
                     </AreaChart>
                   ) : (
-                    <BarChart data={dadosAcumulados} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <BarChart data={dadosPeriodo} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        dataKey="label" 
+                      <XAxis
+                        dataKey="label"
                         tick={{ fill: '#6b7280', fontSize: 11 }}
                         stroke="#d1d5db"
                         tickLine={false}
                         interval={granularidade !== 'dia' ? 0 : 'preserveStartEnd'}
-                        angle={granularidade !== 'dia' && dadosAcumulados.length > 6 ? -45 : 0}
-                        textAnchor={granularidade !== 'dia' && dadosAcumulados.length > 6 ? 'end' : 'middle'}
-                        height={granularidade !== 'dia' && dadosAcumulados.length > 6 ? 50 : 30}
+                        angle={granularidade !== 'dia' && dadosPeriodo.length > 6 ? -45 : 0}
+                        textAnchor={granularidade !== 'dia' && dadosPeriodo.length > 6 ? 'end' : 'middle'}
+                        height={granularidade !== 'dia' && dadosPeriodo.length > 6 ? 50 : 30}
                       />
-                      <YAxis 
+                      <YAxis
                         tick={{ fill: '#6b7280', fontSize: 11 }}
                         stroke="#d1d5db"
                         tickLine={false}
@@ -847,7 +824,7 @@ export default function AcumuladoMesPage() {
                           return `R$ ${value}`
                         }}
                       />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{
                           backgroundColor: '#ffffff',
                           border: '1px solid #e5e7eb',
@@ -857,13 +834,13 @@ export default function AcumuladoMesPage() {
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                         }}
                         formatter={(value, name) => {
-                          if (name === 'valor_acumulado') return [formatCurrency(value as number), 'Receita Acumulada']
-                          if (name === 'valor_acumulado_ano_anterior') return [formatCurrency(value as number), 'Ano Anterior']
+                          if (name === 'valor_total') return [formatCurrency(value as number), 'Receita do Período']
+                          if (name === 'valor_total_ano_anterior') return [formatCurrency(value as number), 'Ano Anterior']
                           return [value, name]
                         }}
                         labelFormatter={(label, payload) => {
                           if (payload && payload[0]) {
-                            const item = payload[0].payload as AcumuladoDiario
+                            const item = payload[0].payload as DadoPeriodo
                             if (granularidade === 'mes') {
                               const mesNome = nomesMeses[(item.mes || 1) - 1]
                               return `${mesNome}/${item.ano}`
@@ -877,24 +854,24 @@ export default function AcumuladoMesPage() {
                           return label
                         }}
                       />
-                      <Legend 
-                        verticalAlign="top" 
+                      <Legend
+                        verticalAlign="top"
                         height={36}
                         formatter={(value) => {
-                          if (value === 'valor_acumulado') return 'Receita Acumulada'
-                          if (value === 'valor_acumulado_ano_anterior') return 'Ano Anterior'
+                          if (value === 'valor_total') return 'Receita do Período'
+                          if (value === 'valor_total_ano_anterior') return 'Ano Anterior'
                           return value
                         }}
                       />
                       {/* Barra do periodo anterior (para granularidade anual ou mensal) */}
-                      {(granularidade === 'ano' || granularidade === 'mes') && dadosAcumulados.some(d => d.valor_acumulado_ano_anterior) && (
+                      {(granularidade === 'ano' || granularidade === 'mes') && dadosPeriodo.some(d => d.valor_total_ano_anterior) && (
                         <Bar
-                          dataKey="valor_acumulado_ano_anterior"
+                          dataKey="valor_total_ano_anterior"
                           fill="#94a3b8"
                           radius={[4, 4, 0, 0]}
                         >
                           <LabelList
-                            dataKey="valor_acumulado_ano_anterior"
+                            dataKey="valor_total_ano_anterior"
                             position="top"
                             style={{ fill: '#64748b', fontSize: '11px', fontWeight: '600' }}
                             formatter={(value) => {
@@ -908,12 +885,12 @@ export default function AcumuladoMesPage() {
                         </Bar>
                       )}
                       <Bar
-                        dataKey="valor_acumulado"
+                        dataKey="valor_total"
                         fill="#22c55e"
                         radius={[4, 4, 0, 0]}
                       >
                         <LabelList
-                          dataKey="valor_acumulado"
+                          dataKey="valor_total"
                           position="top"
                           style={{ fill: '#059669', fontSize: '11px', fontWeight: '600' }}
                           formatter={(value) => {
