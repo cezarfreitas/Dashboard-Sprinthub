@@ -1,0 +1,481 @@
+/* Otimização específica para TV 1080x1920 (Portrait) */
+
+/* Viewport fixo */
+@media screen and (min-width: 1080px) and (max-width: 1080px) 
+       and (min-height: 1920px) and (max-height: 1920px) {
+  
+  html, body {
+    width: 1080px !important;
+    height: 1920px !important;
+    overflow-x: hidden;
+  }
+  
+  /* Zoom geral para melhor aproveitamento */
+  body {
+    zoom: 1.1;
+  }
+}
+
+/* Para qualquer orientação portrait */
+@media (orientation: portrait) {
+  
+  /* Container principal */
+  #__next {
+    width: 100vw;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  
+  /* Ajustes de fonte base */
+  html {
+    font-size: 16px; /* Base para leitura à distância */
+  }
+  
+  /* Cards - Evitar overflow e controle de altura */
+  .bg-gradient-to-br,
+  .bg-gradient-to-r,
+  [class*="rounded-"] {
+    min-height: 120px;
+    max-height: 160px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+  
+  /* Todos os textos dentro dos cards */
+  .bg-gradient-to-br *,
+  .bg-gradient-to-r * {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Valores principais - tamanhos compactos */
+  .text-xl { font-size: 1.25rem !important; line-height: 1.3; }
+  .text-2xl { font-size: 1.5rem !important; line-height: 1.3; }
+  .text-3xl { font-size: 1.875rem !important; line-height: 1.2; }
+  .text-4xl { font-size: 2.25rem !important; line-height: 1.2; }
+  .text-5xl { font-size: 2.75rem !important; line-height: 1.1; }
+  .text-6xl { font-size: 3rem !important; line-height: 1.1; }
+  
+  /* Evitar quebra de layout */
+  .text-3xl, .text-4xl, .text-5xl, .text-6xl {
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Grid otimizado para vertical */
+  .grid {
+    width: 100%;
+    overflow: hidden;
+  }
+  
+  /* Espaçamento entre elementos - reduzido */
+  .space-y-3 > * {
+    margin-bottom: 1rem;
+  }
+  
+  .space-y-4 > * {
+    margin-bottom: 1.25rem;
+  }
+  
+  .space-y-5 > * {
+    margin-bottom: 1.5rem;
+  }
+  
+  .space-y-6 > * {
+    margin-bottom: 1.75rem;
+  }
+  
+  .space-y-8 > * {
+    margin-bottom: 2rem;
+  }
+  
+  /* Containers com scroll suave */
+  .overflow-y-auto {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Animação do ícone refresh */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+/* Scroll suave */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Ocultar elementos desnecessários em TV */
+@media screen and (min-width: 1000px) {
+  /* Ocultar tooltips */
+  [role="tooltip"] {
+    display: none !important;
+  }
+  
+  /* Ocultar cursores hover */
+  * {
+    cursor: default !important;
+  }
+}
+
+/* Otimização de performance */
+* {
+  -webkit-backface-visibility: hidden;
+  -moz-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  -moz-perspective: 1000;
+  perspective: 1000;
+}
+
+/* Melhorar renderização de texto */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Cards com sombra mais forte */
+.shadow-sm, .shadow, .shadow-md, .shadow-lg {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Bordas mais visíveis */
+.border, .border-2, .border-4 {
+  border-width: 3px !important;
+}
+
+/* Contraste melhorado */
+.text-white {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Gradientes mais vibrantes */
+.bg-gradient-to-br, .bg-gradient-to-r {
+  background-size: 200% 200%;
+}
+
+/* ===== OTIMIZAÇÕES ESPECÍFICAS PARA CARDS DE UNIDADES ===== */
+
+/* Container TV específico */
+.tv-unidades-grid {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Grid de unidades - forçar 1 coluna */
+.tv-unidades-grid [class*="grid"],
+[class*="grid"][class*="md:grid-cols-2"],
+[class*="grid"][class*="lg:grid-cols-3"],
+[class*="grid"][class*="xl:grid-cols-4"] {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0.75rem !important;
+  width: 100% !important;
+}
+
+/* Cards de unidades - layout compacto */
+.tv-unidades-grid .rounded-2xl,
+.tv-unidades-grid [class*="rounded-2xl"] {
+  padding: 0.875rem 1rem !important;
+  border-radius: 0.875rem !important;
+  min-height: auto !important;
+  max-height: none !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Ocultar abas de visualização em TV */
+[role="tablist"] {
+  display: none !important;
+}
+
+/* Ajustar textos dos cards de unidades */
+.tv-unidades-grid h3,
+.tv-unidades-grid [class*="text-lg"],
+.tv-unidades-grid [class*="text-xl"] {
+  font-size: 1rem !important;
+  line-height: 1.3 !important;
+  margin-bottom: 0.375rem !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+  display: block !important;
+}
+
+/* Título do card (nome da unidade) */
+.tv-unidades-grid > div > div:first-child,
+.tv-unidades-grid [class*="rounded-2xl"] > div:first-child {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.tv-unidades-grid [class*="rounded-2xl"] > div:first-child * {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+}
+
+/* Métricas dos cards de unidades */
+.tv-unidades-grid [class*="text-"] {
+  font-size: 0.875rem !important;
+  line-height: 1.3 !important;
+}
+
+/* Valores monetários compactos (fora do grid 3 colunas) */
+.tv-unidades-grid [class*="font-bold"]:not([class*="grid-cols-3"] *),
+.tv-unidades-grid [class*="font-semibold"]:not([class*="grid-cols-3"] *) {
+  font-size: 0.875rem !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+  display: block !important;
+}
+
+/* Valores monetários DENTRO do grid 3 colunas */
+.tv-unidades-grid [class*="grid-cols-3"] [class*="font-bold"],
+.tv-unidades-grid [class*="grid-cols-3"] [class*="font-semibold"] {
+  font-size: 0.625rem !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+  display: block !important;
+}
+
+/* Barras de progresso menores */
+.tv-unidades-grid [class*="progress"],
+.tv-unidades-grid [class*="h-2"],
+.tv-unidades-grid [class*="h-3"],
+.tv-unidades-grid [class*="h-4"],
+.tv-unidades-grid [class*="h-6"] {
+  height: 1rem !important;
+  min-height: 1rem !important;
+}
+
+/* Badges e pills menores */
+.tv-unidades-grid [class*="rounded-full"],
+.tv-unidades-grid [class*="px-2"],
+.tv-unidades-grid [class*="py-1"] {
+  padding: 0.25rem 0.625rem !important;
+  font-size: 0.75rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Flex containers mais compactos */
+.tv-unidades-grid [class*="flex"] {
+  gap: 0.5rem !important;
+}
+
+/* Botões e ícones menores nos cards */
+.tv-unidades-grid button,
+.tv-unidades-grid svg:not(.lucide-arrow-up):not(.lucide-arrow-down) {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+}
+
+/* Ícones de navegação */
+.tv-unidades-grid .lucide-arrow-up,
+.tv-unidades-grid .lucide-arrow-down {
+  width: 1rem !important;
+  height: 1rem !important;
+}
+
+/* Ocultar elementos desnecessários em TV */
+.tv-unidades-grid [role="button"],
+.tv-unidades-grid button[class*="dropdown"] {
+  display: none !important;
+}
+
+/* Container principal dos cards */
+.tv-unidades-grid > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Garantir que nada ultrapasse */
+.tv-unidades-grid * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Container específico das métricas */
+.tv-unidades-grid [class*="bg-"][class*="rounded"] {
+  padding: 0.5rem !important;
+  margin: 0.25rem 0 !important;
+}
+
+/* Texto com quebra de linha se necessário (meta e atingido) */
+.tv-unidades-grid [class*="space-y-"] [class*="text-"],
+.tv-unidades-grid [class*="mb-"] [class*="text-"] {
+  font-size: 0.75rem !important;
+  line-height: 1.3 !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Percentuais e indicadores */
+.tv-unidades-grid [class*="text-"][class*="%"] {
+  font-size: 0.875rem !important;
+  white-space: nowrap !important;
+}
+
+/* === SEÇÃO CRÍTICA: ABERTAS/GANHAS/PERDIDAS === */
+
+/* Forçar grid a não crescer além do container */
+.tv-unidades-grid [class*="grid-cols-3"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Cada coluna do grid deve ocupar exatamente 1/3 */
+.tv-unidades-grid [class*="grid-cols-3"] > * {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  padding: 0.25rem 0.125rem !important;
+}
+
+/* Números de quantidade centralizados */
+.tv-unidades-grid [class*="grid-cols-3"] > * > *:first-child {
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  margin-bottom: 0.125rem !important;
+  text-align: center !important;
+}
+
+/* Labels (Abertas, Ganhas, Perdidas) */
+.tv-unidades-grid [class*="grid-cols-3"] > * > span:first-of-type {
+  font-size: 0.5rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.025em !important;
+  opacity: 0.9 !important;
+  display: block !important;
+  margin-bottom: 0.125rem !important;
+}
+
+/* Valores monetários - EXTRA COMPACTOS */
+.tv-unidades-grid [class*="grid-cols-3"] > * > *:last-child {
+  font-size: 0.5rem !important;
+  line-height: 1.1 !important;
+  font-weight: 600 !important;
+  display: block !important;
+  width: 100% !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  text-align: center !important;
+}
+
+/* Alternativa: Usar notação K/M para valores grandes */
+@supports (font-variant-numeric: tabular-nums) {
+  .tv-unidades-grid [class*="grid-cols-3"] > * > *:last-child {
+    font-variant-numeric: tabular-nums !important;
+  }
+}
+
+/* Números de métricas */
+.tv-unidades-grid [class*="text-2xl"],
+.tv-unidades-grid [class*="text-3xl"],
+.tv-unidades-grid [class*="text-4xl"] {
+  font-size: 1.5rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Remover espaçamentos excessivos */
+.tv-unidades-grid > div > div {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Grid interno dos cards (Abertas/Ganhas/Perdidas) */
+.tv-unidades-grid [class*="grid-cols-3"] {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.375rem !important;
+}
+
+/* Células do grid Abertas/Ganhas/Perdidas */
+.tv-unidades-grid [class*="grid-cols-3"] > div {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-align: center !important;
+  padding: 0.375rem !important;
+}
+
+/* Números grandes (quantidade) */
+.tv-unidades-grid [class*="grid-cols-3"] [class*="text-2xl"],
+.tv-unidades-grid [class*="grid-cols-3"] [class*="text-3xl"],
+.tv-unidades-grid [class*="grid-cols-3"] [class*="font-bold"]:first-child {
+  font-size: 1.25rem !important;
+  line-height: 1.2 !important;
+  display: block !important;
+  white-space: nowrap !important;
+}
+
+/* Valores monetários em Abertas/Ganhas/Perdidas */
+.tv-unidades-grid [class*="grid-cols-3"] [class*="text-xs"],
+.tv-unidades-grid [class*="grid-cols-3"] [class*="text-sm"] {
+  font-size: 0.625rem !important;
+  line-height: 1.2 !important;
+  display: block !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+}
+
+/* Textos secundários menores */
+.tv-unidades-grid [class*="text-sm"],
+.tv-unidades-grid [class*="text-xs"] {
+  font-size: 0.75rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Labels das métricas (Abertas, Ganhas, Perdidas) */
+.tv-unidades-grid span:not([class*="font-bold"]):not([class*="font-semibold"]) {
+  font-size: 0.625rem !important;
+  display: block !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Forçar truncamento em todos os textos do grid de métricas */
+.tv-unidades-grid [class*="grid-cols-3"] * {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+}
+
+/* Seção de meta compacta */
+.tv-unidades-grid [class*="space-y-"] {
+  gap: 0.5rem !important;
+}
+
+.tv-unidades-grid [class*="space-y-"] > * {
+  margin-top: 0.5rem !important;
+  margin-bottom: 0 !important;
+}

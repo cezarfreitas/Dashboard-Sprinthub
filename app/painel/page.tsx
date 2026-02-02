@@ -43,8 +43,8 @@ export default function PainelPage() {
     periodoTipo: 'este-mes' as string,
     periodoInicio: periodoInicial.inicio,
     periodoFim: periodoInicial.fim,
-    funilSelecionado: 'todos',
-    grupoSelecionado: 'todos',
+    funisSelecionados: [] as number[],
+    gruposSelecionados: [] as number[],
     gainDateInicio: undefined as string | undefined,
     gainDateFim: undefined as string | undefined
   }))
@@ -158,9 +158,19 @@ export default function PainelPage() {
   const filtrosAtivos = useMemo(() => {
     return filtros.unidadesSelecionadas.length > 0 ||
            filtros.periodoTipo !== 'este-mes' ||
-           filtros.funilSelecionado !== 'todos' ||
-           filtros.grupoSelecionado !== 'todos'
+           filtros.funisSelecionados.length > 0 ||
+           filtros.gruposSelecionados.length > 0
   }, [filtros])
+
+  // Strings para APIs que aceitam múltiplos ids separados por vírgula
+  const funilIdParam = useMemo(
+    () => (filtros.funisSelecionados.length > 0 ? filtros.funisSelecionados.join(',') : undefined),
+    [filtros.funisSelecionados]
+  )
+  const grupoIdParam = useMemo(
+    () => (filtros.gruposSelecionados.length > 0 ? filtros.gruposSelecionados.join(',') : undefined),
+    [filtros.gruposSelecionados]
+  )
 
   const periodoLabel = useMemo(() => {
     if (filtros.periodoInicio && filtros.periodoFim) {
@@ -189,15 +199,17 @@ export default function PainelPage() {
         ? `&unidade_id=${filtros.unidadesSelecionadas.join(',')}`
         : ''
 
+      const funilParam = funilIdParam ? `&funil_id=${funilIdParam}` : ''
+
       const granParam = `&granularidade=${gran}`
 
       const [responseCriadas, responseReceita] = await Promise.all([
         fetch(
-          `/api/oportunidades/diaria?tipo=criadas&data_inicio=${periodoInicio}&data_fim=${periodoFim}${unidadesParam}${granParam}`,
+          `/api/oportunidades/diaria?tipo=criadas&data_inicio=${periodoInicio}&data_fim=${periodoFim}${unidadesParam}${funilParam}${granParam}`,
           { cache: 'no-store', signal }
         ),
         fetch(
-          `/api/oportunidades/diaria?tipo=ganhas&data_inicio=${periodoInicio}&data_fim=${periodoFim}${unidadesParam}${granParam}`,
+          `/api/oportunidades/diaria?tipo=ganhas&data_inicio=${periodoInicio}&data_fim=${periodoFim}${unidadesParam}${funilParam}${granParam}`,
           { cache: 'no-store', signal }
         )
       ])
@@ -316,7 +328,7 @@ export default function PainelPage() {
     } finally {
       setLoadingGraficos(false)
     }
-  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas, periodoInicial, nomesMeses])
+  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas, funilIdParam, periodoInicial, nomesMeses])
 
   const fetchFunis = useCallback(async () => {
     try {
@@ -399,7 +411,7 @@ export default function PainelPage() {
       controller.abort()
       abortControllerRef.current = null
     }
-  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas.join(','), granularidadeGrafico, fetchGraficos])
+  }, [filtros.periodoInicio, filtros.periodoFim, filtros.unidadesSelecionadas.join(','), funilIdParam, granularidadeGrafico, fetchGraficos])
 
   return (
     <ProtectedRoute>
@@ -420,23 +432,24 @@ export default function PainelPage() {
           
           {(() => {
             // Aplicar filtro de grupo (se houver) sobre o multi-select de unidades.
-            const grupoSelecionadoId =
-              filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos' && filtros.grupoSelecionado !== 'undefined'
-                ? Number(filtros.grupoSelecionado)
-                : null
-
             const unidadesDoGrupo =
-              grupoSelecionadoId != null
-                ? (grupos.find(g => Number(g.id) === grupoSelecionadoId)?.unidadeIds || [])
+              filtros.gruposSelecionados.length > 0
+                ? Array.from(
+                    new Set(
+                      filtros.gruposSelecionados.flatMap(
+                        (id) => grupos.find((g) => g.id === id)?.unidadeIds || []
+                      )
+                    )
+                  )
                 : null
 
             const unidadesSelecionadas = filtros.unidadesSelecionadas || []
 
             const unidadesIdsAplicadas =
-              unidadesDoGrupo
-                ? (unidadesSelecionadas.length > 0
-                    ? unidadesSelecionadas.filter(id => unidadesDoGrupo.includes(id))
-                    : unidadesDoGrupo)
+              unidadesDoGrupo && unidadesDoGrupo.length > 0
+                ? unidadesSelecionadas.length > 0
+                  ? unidadesSelecionadas.filter((id) => unidadesDoGrupo.includes(id))
+                  : unidadesDoGrupo
                 : unidadesSelecionadas
 
             return (
@@ -444,7 +457,7 @@ export default function PainelPage() {
                 unidadesIds={unidadesIdsAplicadas}
                 periodoInicio={filtros.periodoInicio}
                 periodoFim={filtros.periodoFim}
-                funilId={filtros.funilSelecionado}
+                funilId={funilIdParam}
               />
             )
           })()}
@@ -452,38 +465,38 @@ export default function PainelPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
             <PainelHojeCard 
               unidadesIds={filtros.unidadesSelecionadas}
-              funilId={filtros.funilSelecionado}
-              grupoId={filtros.grupoSelecionado}
+              funilId={funilIdParam}
+              grupoId={grupoIdParam}
             />
             <PainelOportunidadesAbertasCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
-              funilId={filtros.funilSelecionado}
+              funilId={funilIdParam}
             />
             <PainelOportunidadesPerdidasCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
-              funilId={filtros.funilSelecionado}
+              funilId={funilIdParam}
             />
             <PainelOportunidadesGanhasCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
-              funilId={filtros.funilSelecionado}
+              funilId={funilIdParam}
             />
             <PainelTaxaConversaoCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
-              funilId={filtros.funilSelecionado}
+              funilId={funilIdParam}
             />
             <PainelTicketMedioCard 
               unidadesIds={filtros.unidadesSelecionadas}
               periodoInicio={filtros.periodoInicio}
               periodoFim={filtros.periodoFim}
-              funilId={filtros.funilSelecionado}
+              funilId={funilIdParam}
             />
           </div>
 

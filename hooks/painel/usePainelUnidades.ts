@@ -26,8 +26,8 @@ export function usePainelUnidades(
       periodoInicio: filtros.periodoInicio,
       periodoFim: filtros.periodoFim,
       unidades: filtros.unidadesSelecionadas?.sort().join(',') || '',
-      grupo: filtros.grupoSelecionado,
-      funil: filtros.funilSelecionado,
+      grupos: filtros.gruposSelecionados?.sort().join(',') || '',
+      funis: filtros.funisSelecionados?.sort().join(',') || '',
       gainDateInicio: filtros.gainDateInicio || '',
       gainDateFim: filtros.gainDateFim || ''
     })
@@ -35,8 +35,8 @@ export function usePainelUnidades(
     filtros.periodoInicio,
     filtros.periodoFim,
     filtros.unidadesSelecionadas?.join(','),
-    filtros.grupoSelecionado,
-    filtros.funilSelecionado,
+    filtros.gruposSelecionados?.join(','),
+    filtros.funisSelecionados?.join(','),
     filtros.gainDateInicio,
     filtros.gainDateFim
   ])
@@ -65,12 +65,12 @@ export function usePainelUnidades(
         params.append('unidade_id', filtros.unidadesSelecionadas.join(','))
       }
 
-      if (filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos' && filtros.grupoSelecionado !== 'undefined') {
-        params.append('grupo_id', String(filtros.grupoSelecionado))
+      if (filtros.gruposSelecionados && filtros.gruposSelecionados.length > 0) {
+        params.append('grupo_id', filtros.gruposSelecionados.join(','))
       }
 
-      if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos' && filtros.funilSelecionado !== 'undefined') {
-        params.append('funil_id', String(filtros.funilSelecionado))
+      if (filtros.funisSelecionados && filtros.funisSelecionados.length > 0) {
+        params.append('funil_id', filtros.funisSelecionados.join(','))
       }
 
       // Filtro por data de ganho (gain_date)

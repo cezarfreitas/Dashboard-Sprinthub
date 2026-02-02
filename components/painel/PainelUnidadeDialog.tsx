@@ -148,8 +148,8 @@ export const PainelUnidadeDialog = memo(function PainelUnidadeDialog({
           }
         }
 
-        if (filtros.funilSelecionado !== 'todos') {
-          params.append('funil_id', filtros.funilSelecionado)
+        if (filtros.funisSelecionados && filtros.funisSelecionados.length > 0) {
+          params.append('funil_id', filtros.funisSelecionados.join(','))
         }
 
         const endpoint = `/api/unidades/${unidadeId}/oportunidades-${status}?${params.toString()}`

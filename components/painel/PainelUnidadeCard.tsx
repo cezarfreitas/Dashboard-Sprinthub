@@ -420,21 +420,23 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
         </div>
         
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2">
+          <div className="flex items-center justify-between gap-1 bg-white/10 backdrop-blur-sm rounded-lg px-2 py-2">
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 onClickAbertas?.()
               }}
-              className="flex flex-col items-center gap-1 flex-1 cursor-pointer hover:bg-white/10 rounded p-1 transition-colors"
-              title="Ver oportunidades abertas"
+              className="flex flex-col items-center gap-0.5 flex-1 min-w-0 cursor-pointer hover:bg-white/10 rounded p-1 transition-colors"
+              title={`Ver oportunidades abertas - ${valorAbertoFormatado}`}
             >
-              <div className="flex items-center gap-1">
-                <TrendingUp className="h-3.5 w-3.5 opacity-90" />
-                <span className="text-xs opacity-90">Abertas</span>
+              <div className="flex items-center gap-0.5">
+                <TrendingUp className="h-3 w-3 opacity-90 flex-shrink-0" />
+                <span className="text-[10px] opacity-90 truncate">Abertas</span>
               </div>
               <span className="text-xs font-bold">{unidade.oportunidades_abertas}</span>
-              <span className="text-[10px] opacity-80">{valorAbertoFormatado}</span>
+              <span className="text-[9px] opacity-80 truncate w-full text-center" title={valorAbertoFormatado}>
+                {valorAbertoFormatado}
+              </span>
             </button>
             
             <button
@@ -442,15 +444,17 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
                 e.stopPropagation()
                 onClickGanhas?.()
               }}
-              className="flex flex-col items-center gap-1 flex-1 border-x border-white/20 px-2 cursor-pointer hover:bg-white/10 rounded p-1 transition-colors"
-              title="Ver oportunidades ganhas"
+              className="flex flex-col items-center gap-0.5 flex-1 min-w-0 border-x border-white/20 px-1 cursor-pointer hover:bg-white/10 rounded p-1 transition-colors"
+              title={`Ver oportunidades ganhas - ${valorFormatado}`}
             >
-              <div className="flex items-center gap-1">
-                <CheckCircle className="h-3.5 w-3.5 opacity-90" />
-                <span className="text-xs opacity-90">Ganhas</span>
+              <div className="flex items-center gap-0.5">
+                <CheckCircle className="h-3 w-3 opacity-90 flex-shrink-0" />
+                <span className="text-[10px] opacity-90 truncate">Ganhas</span>
               </div>
               <span className="text-xs font-bold">{unidade.oportunidades_ganhas}</span>
-              <span className="text-[10px] opacity-80">{valorFormatado}</span>
+              <span className="text-[9px] opacity-80 truncate w-full text-center" title={valorFormatado}>
+                {valorFormatado}
+              </span>
             </button>
             
             <button
@@ -458,15 +462,17 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
                 e.stopPropagation()
                 onClickPerdidas?.()
               }}
-              className="flex flex-col items-center gap-1 flex-1 cursor-pointer hover:bg-white/10 rounded p-1 transition-colors"
-              title="Ver oportunidades perdidas"
+              className="flex flex-col items-center gap-0.5 flex-1 min-w-0 cursor-pointer hover:bg-white/10 rounded p-1 transition-colors"
+              title={`Ver oportunidades perdidas - ${valorPerdidoFormatado}`}
             >
-              <div className="flex items-center gap-1">
-                <XCircle className="h-3.5 w-3.5 opacity-90" />
-                <span className="text-xs opacity-90">Perdidas</span>
+              <div className="flex items-center gap-0.5">
+                <XCircle className="h-3 w-3 opacity-90 flex-shrink-0" />
+                <span className="text-[10px] opacity-90 truncate">Perdidas</span>
               </div>
               <span className="text-xs font-bold">{unidade.oportunidades_perdidas}</span>
-              <span className="text-[10px] opacity-80">{valorPerdidoFormatado}</span>
+              <span className="text-[9px] opacity-80 truncate w-full text-center" title={valorPerdidoFormatado}>
+                {valorPerdidoFormatado}
+              </span>
             </button>
           </div>
 

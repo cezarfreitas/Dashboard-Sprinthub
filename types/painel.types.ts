@@ -19,8 +19,10 @@ export interface PainelFiltros {
   periodoTipo: string
   periodoInicio: string
   periodoFim: string
-  funilSelecionado: string
-  grupoSelecionado: string
+  /** IDs dos funis selecionados; vazio = todos */
+  funisSelecionados: number[]
+  /** IDs dos grupos selecionados; vazio = todos */
+  gruposSelecionados: number[]
   // Filtro opcional por data de ganho (gain_date)
   gainDateInicio?: string
   gainDateFim?: string

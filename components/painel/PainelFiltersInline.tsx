@@ -1,7 +1,7 @@
 'use client'
 
 import PainelUnidadeMultiSelect from './PainelUnidadeMultiSelect'
-import { Label } from '@/components/ui/label'
+import PainelMultiSelect from './PainelMultiSelect'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { X, Calendar } from 'lucide-react'
 
 interface PainelFiltersInlineProps {
@@ -20,8 +19,8 @@ interface PainelFiltersInlineProps {
     periodoTipo: string
     periodoInicio: string
     periodoFim: string
-    funilSelecionado: string
-    grupoSelecionado: string
+    funisSelecionados: number[]
+    gruposSelecionados: number[]
     gainDateInicio?: string
     gainDateFim?: string
   }
@@ -113,58 +112,28 @@ export default function PainelFiltersInline({
           </div>
         )}
 
-        {/* Funil */}
+        {/* Funil - multi-select */}
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs font-medium text-gray-600">Funil</span>
-          <Select
-            value={filtros.funilSelecionado}
-            onValueChange={(value) => setFiltros({ ...filtros, funilSelecionado: value })}
-          >
-            <SelectTrigger className="h-9 text-xs bg-white border-gray-300 text-gray-900 w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-white border-gray-200 text-gray-900">
-              <SelectItem value="todos" className="text-xs text-gray-900 focus:bg-gray-100 focus:text-gray-900">
-                Todos
-              </SelectItem>
-              {funis.map((funil) => (
-                <SelectItem
-                  key={funil.id}
-                  value={String(funil.id)}
-                  className="text-xs text-gray-900 focus:bg-gray-100 focus:text-gray-900"
-                >
-                  {funil.funil_nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <PainelMultiSelect
+            items={funis.map((f) => ({ id: f.id, label: f.funil_nome }))}
+            selectedIds={filtros.funisSelecionados}
+            onChange={(ids) => setFiltros({ ...filtros, funisSelecionados: ids })}
+            allLabel="Todos"
+            width="180px"
+          />
         </div>
 
-        {/* Grupo */}
+        {/* Grupo - multi-select */}
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs font-medium text-gray-600">Grupo</span>
-          <Select
-            value={filtros.grupoSelecionado}
-            onValueChange={(value) => setFiltros({ ...filtros, grupoSelecionado: value })}
-          >
-            <SelectTrigger className="h-9 text-xs bg-white border-gray-300 text-gray-900 w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-white border-gray-200 text-gray-900">
-              <SelectItem value="todos" className="text-xs text-gray-900 focus:bg-gray-100 focus:text-gray-900">
-                Todos
-              </SelectItem>
-              {grupos.map((grupo) => (
-                <SelectItem
-                  key={grupo.id}
-                  value={String(grupo.id)}
-                  className="text-xs text-gray-900 focus:bg-gray-100 focus:text-gray-900"
-                >
-                  {grupo.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <PainelMultiSelect
+            items={grupos.map((g) => ({ id: g.id, label: g.nome }))}
+            selectedIds={filtros.gruposSelecionados}
+            onChange={(ids) => setFiltros({ ...filtros, gruposSelecionados: ids })}
+            allLabel="Todos"
+            width="180px"
+          />
         </div>
 
         {/* Data de Ganho */}
@@ -209,8 +178,8 @@ export default function PainelFiltersInline({
                   periodoTipo: 'este-mes',
                   periodoInicio: periodoInicial.inicio,
                   periodoFim: periodoInicial.fim,
-                  funilSelecionado: 'todos',
-                  grupoSelecionado: 'todos',
+                  funisSelecionados: [],
+                  gruposSelecionados: [],
                   gainDateInicio: undefined,
                   gainDateFim: undefined
                 })
