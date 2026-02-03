@@ -30,6 +30,7 @@ interface GestorMetaVendedoresProps {
   ano?: number
   metaTotal: number
   realizadoTotal: number
+  funilId?: string | null
 }
 
 const formatCurrency = (value: number): string => {
@@ -59,7 +60,8 @@ export const GestorMetaVendedores = memo(function GestorMetaVendedores({
   mes,
   ano,
   metaTotal,
-  realizadoTotal
+  realizadoTotal,
+  funilId
 }: GestorMetaVendedoresProps) {
   const [loading, setLoading] = useState(false)
   const [vendedores, setVendedores] = useState<VendedorMeta[]>([])
@@ -72,11 +74,54 @@ export const GestorMetaVendedores = memo(function GestorMetaVendedores({
   const targetMes = mes ?? currentDate.getMonth() + 1
   const targetAno = ano ?? currentDate.getFullYear()
 
+  // Buscar detalhes dos vendedores quando parâmetros mudarem
   useEffect(() => {
-    if (unidadeId) {
-      fetchDetalhes()
+    if (!unidadeId) return
+
+    const fetchDetalhes = async () => {
+      try {
+        setLoading(true)
+
+        // Calcular período do mês
+        const primeiroDiaMes = new Date(targetAno, targetMes - 1, 1)
+        const ultimoDiaMes = new Date(targetAno, targetMes, 0)
+
+        const formatarData = (data: Date) => {
+          const ano = data.getFullYear()
+          const mes = String(data.getMonth() + 1).padStart(2, '0')
+          const dia = String(data.getDate()).padStart(2, '0')
+          return `${ano}-${mes}-${dia}`
+        }
+
+        const dataInicio = formatarData(primeiroDiaMes)
+        const dataFim = formatarData(ultimoDiaMes)
+
+        // OTIMIZAÇÃO: Usar API consolidada em vez de N+1 chamadas individuais
+        const params = new URLSearchParams()
+        params.append('unidade_id', unidadeId.toString())
+        params.append('data_inicio', dataInicio)
+        params.append('data_fim', dataFim)
+        if (funilId) {
+          params.append('funil_id', funilId)
+        }
+        
+        const response = await fetch(`/api/gestor/vendedores-stats?${params.toString()}`)
+        const data = await response.json()
+
+        if (data.success && Array.isArray(data.vendedores)) {
+          setVendedores(data.vendedores)
+        } else {
+          setVendedores([])
+        }
+      } catch {
+        setVendedores([])
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [unidadeId, targetMes, targetAno, metaTotal])
+
+    fetchDetalhes()
+  }, [unidadeId, targetMes, targetAno, metaTotal, funilId])
 
   const handleCelulaClick = async (vendedorId: number, vendedorNome: string, tipo: 'criadas' | 'abertas' | 'ganhas' | 'perdidas', quantidade: number) => {
     if (quantidade === 0) return
@@ -114,6 +159,11 @@ export const GestorMetaVendedores = memo(function GestorMetaVendedores({
       setTituloModal(`${quantidade} oportunidade(s) perdida(s) - ${vendedorNome}`)
     }
 
+    // Adicionar filtro de funil se selecionado
+    if (funilId) {
+      url += `&funil_id=${funilId}`
+    }
+
     try {
       const response = await fetch(url)
       const data = await response.json()
@@ -121,50 +171,10 @@ export const GestorMetaVendedores = memo(function GestorMetaVendedores({
       if (data.success && data.oportunidades) {
         setOportunidadesModal(data.oportunidades)
       }
-    } catch (error) {
-      console.error('Erro ao buscar oportunidades:', error)
+    } catch {
+      // Silently handle error
     } finally {
       setLoadingModal(false)
-    }
-  }
-
-  const fetchDetalhes = async () => {
-    if (!unidadeId) return
-
-    try {
-      setLoading(true)
-
-      // Calcular período do mês
-      const primeiroDiaMes = new Date(targetAno, targetMes - 1, 1)
-      const ultimoDiaMes = new Date(targetAno, targetMes, 0)
-
-      const formatarData = (data: Date) => {
-        const ano = data.getFullYear()
-        const mes = String(data.getMonth() + 1).padStart(2, '0')
-        const dia = String(data.getDate()).padStart(2, '0')
-        return `${ano}-${mes}-${dia}`
-      }
-
-      const dataInicio = formatarData(primeiroDiaMes)
-      const dataFim = formatarData(ultimoDiaMes)
-
-      // OTIMIZAÇÃO: Usar API consolidada em vez de N+1 chamadas individuais
-      // Antes: 30+ chamadas (5 por vendedor × 6 vendedores)
-      // Agora: 1 chamada única
-      const response = await fetch(
-        `/api/gestor/vendedores-stats?unidade_id=${unidadeId}&data_inicio=${dataInicio}&data_fim=${dataFim}`
-      )
-      const data = await response.json()
-
-      if (data.success && Array.isArray(data.vendedores)) {
-        setVendedores(data.vendedores)
-      } else {
-        setVendedores([])
-      }
-    } catch (error) {
-      setVendedores([])
-    } finally {
-      setLoading(false)
     }
   }
 

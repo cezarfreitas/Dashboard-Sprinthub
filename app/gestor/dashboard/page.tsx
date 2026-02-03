@@ -34,8 +34,17 @@ export default function GestorDashboard() {
 
   // OTIMIZAÇÃO: Memoizar resultado de getPeriodoDatas para evitar múltiplas chamadas por render
   const periodoDatas = useMemo(() => getPeriodoDatas(), [getPeriodoDatas])
-  const mesAtual = useMemo(() => new Date().getMonth() + 1, [])
-  const anoAtual = useMemo(() => new Date().getFullYear(), [])
+  
+  // Calcular mês/ano baseado no período selecionado (para metas)
+  // Se for "mês passado", usar o mês anterior; caso contrário, usar o mês da data de início do período
+  const { mesPeriodo, anoPeriodo } = useMemo(() => {
+    if (periodoDatas?.dataInicio) {
+      const [ano, mes] = periodoDatas.dataInicio.split('-').map(Number)
+      return { mesPeriodo: mes, anoPeriodo: ano }
+    }
+    const hoje = new Date()
+    return { mesPeriodo: hoje.getMonth() + 1, anoPeriodo: hoje.getFullYear() }
+  }, [periodoDatas?.dataInicio])
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -66,8 +75,8 @@ export default function GestorDashboard() {
               valorAtual={cardsData?.ganhosValorTotalMes || 0}
               meta={cardsData?.ganhosMeta || 0}
               unidadeId={unidadeSelecionada}
-              mes={mesAtual}
-              ano={anoAtual}
+              mes={mesPeriodo}
+              ano={anoPeriodo}
             />
             <GestorEstatisticasCards
               unidadeId={unidadeSelecionada}
@@ -104,10 +113,11 @@ export default function GestorDashboard() {
             />
             <GestorMetaVendedores
               unidadeId={unidadeSelecionada}
-              mes={mesAtual}
-              ano={anoAtual}
+              mes={mesPeriodo}
+              ano={anoPeriodo}
               metaTotal={cardsData?.ganhosMeta || 0}
               realizadoTotal={cardsData?.ganhosValorTotalMes || 0}
+              funilId={funilSelecionado}
             />
             {unidadeSelecionada && periodoDatas && (
               <>

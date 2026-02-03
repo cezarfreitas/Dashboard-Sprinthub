@@ -404,7 +404,9 @@ export const GestorOportunidadesDiarias = memo(function GestorOportunidadesDiari
     // new Date(year, month, 0) retorna último dia do mês ANTERIOR
     // Então para novembro (mês 11), usamos new Date(2025, 11, 0) que dá outubro (31 dias) - ERRADO!
     // Correto: new Date(2025, 12, 0) que dá novembro (30 dias) - CORRETO!
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+    // CORREÇÃO: Para obter os dias do mês atual, usar currentMonth diretamente
+    // new Date(year, month, 0) retorna o último dia do mês ANTERIOR (em 0-indexed)
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
     if (currentDay > daysInMonth) {
       currentDay = 1
       currentMonth++

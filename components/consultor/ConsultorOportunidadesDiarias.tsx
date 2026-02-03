@@ -66,12 +66,7 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
 
   // Função para abrir modal com oportunidades do dia
   const handleCelulaClick = async (data: string, tipo: 'criadas' | 'perdidas' | 'ganhas', quantidade: number) => {
-    console.log('🔥 handleCelulaClick chamado:', { data, tipo, quantidade, vendedorId })
-    
-    if (quantidade === 0) {
-      console.log('⚠️ quantidade é 0, retornando sem buscar')
-      return
-    }
+    if (quantidade === 0) return
 
     try {
       setLoadingModal(true)
@@ -84,22 +79,15 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
       params.append('data', data)
       params.append('tipo', tipo)
 
-      const url = `/api/consultor/oportunidades-por-data?${params.toString()}`
-      console.log('📡 Fazendo requisição para:', url)
-      
-      const response = await fetch(url)
+      const response = await fetch(`/api/consultor/oportunidades-por-data?${params.toString()}`)
       const result = await response.json()
-      
-      console.log('📥 Resposta da API:', result)
 
       if (result.success) {
         setOportunidadesModal(result.data || [])
       } else {
-        console.error('❌ API retornou erro:', result)
         setOportunidadesModal([])
       }
-    } catch (error) {
-      console.error('❌ Erro na requisição:', error)
+    } catch {
       setOportunidadesModal([])
     } finally {
       setLoadingModal(false)
@@ -283,7 +271,10 @@ export const ConsultorOportunidadesDiarias = memo(function ConsultorOportunidade
     
     currentDay++
     
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+    // CORREÇÃO: Para obter os dias do mês atual, usar currentMonth diretamente
+    // new Date(year, month, 0) retorna o último dia do mês ANTERIOR (em 0-indexed)
+    // Então para mês 2 (Fevereiro em 1-indexed), usamos new Date(year, 2, 0) = último dia de Fev
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
     if (currentDay > daysInMonth) {
       currentDay = 1
       currentMonth++

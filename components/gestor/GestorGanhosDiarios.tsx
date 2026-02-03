@@ -466,7 +466,9 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
     currentDay++
     
     // FIX: usar currentMonth + 1 para obter dias do mês ATUAL
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+    // CORREÇÃO: Para obter os dias do mês atual, usar currentMonth diretamente
+    // new Date(year, month, 0) retorna o último dia do mês ANTERIOR (em 0-indexed)
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
     if (currentDay > daysInMonth) {
       currentDay = 1
       currentMonth++
