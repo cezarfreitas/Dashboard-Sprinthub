@@ -113,12 +113,14 @@ interface GestorGanhosDiariosProps {
   unidadeId: number | null
   dataInicio: string
   dataFim: string
+  funilId?: string | null
 }
 
 export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
   unidadeId,
   dataInicio,
-  dataFim
+  dataFim,
+  funilId
 }: GestorGanhosDiariosProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -199,6 +201,9 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
       params.append('vendedor_id', vendedorId.toString())
       params.append('data', data)
       params.append('tipo', 'ganhas')
+      if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+        params.append('funil_id', funilId)
+      }
 
       const response = await fetch(`/api/gestor/oportunidades-por-vendedor-data?${params.toString()}`)
       const result = await response.json()
@@ -227,6 +232,9 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
       params.append('unidade_id', unidadeId?.toString() || '')
       params.append('data', data)
       params.append('tipo', 'ganhas')
+      if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+        params.append('funil_id', funilId)
+      }
 
       const response = await fetch(`/api/gestor/oportunidades-por-data?${params.toString()}`)
       const result = await response.json()
@@ -257,6 +265,9 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
       params.append('data_inicio', dataInicio)
       params.append('data_fim', dataFim)
       params.append('tipo', 'ganhas')
+      if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+        params.append('funil_id', funilId)
+      }
 
       const response = await fetch(`/api/gestor/oportunidades-por-vendedor-periodo?${params.toString()}`)
       const result = await response.json()
@@ -369,6 +380,9 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
         params.append('data_fim', dataFim)
         params.append('unidade_id', unidadeId.toString())
         params.append('all', '1')
+        if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+          params.append('funil_id', funilId)
+        }
 
         const response = await fetch(`/api/oportunidades/diaria?${params.toString()}`)
         const data = await response.json()
@@ -387,7 +401,7 @@ export const GestorGanhosDiarios = memo(function GestorGanhosDiarios({
     }
 
     fetchData()
-  }, [unidadeId, dataInicio, dataFim])
+  }, [unidadeId, dataInicio, dataFim, funilId])
 
   if (!unidadeId) {
     return null

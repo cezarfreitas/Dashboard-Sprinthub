@@ -61,10 +61,6 @@ export const GestorBarraProgressoMeta = memo(function GestorBarraProgressoMeta({
 
   const projecaoAtingeMeta = meta > 0 && projecaoValor >= meta
 
-  if (meta === 0 && valorAtual === 0) {
-    return null
-  }
-
   const handleOpenDialog = () => {
     if (unidadeId && meta > 0) {
       setDialogOpen(true)

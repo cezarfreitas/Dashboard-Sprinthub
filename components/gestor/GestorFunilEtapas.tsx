@@ -86,17 +86,12 @@ export function GestorFunilEtapas({
         const response = await fetch(`/api/vendedores/lista?unidade_id=${unidadeId}&ativo=1`)
         const data = await response.json()
         
-        console.log('📋 Vendedores carregados:', data)
-        
         if (data.success && Array.isArray(data.vendedores)) {
           setVendedores(data.vendedores)
-          console.log('✅ Vendedores definidos:', data.vendedores.length, 'vendedores')
         } else {
-          console.warn('⚠️ Resposta da API não tem vendedores:', data)
           setVendedores([])
         }
-      } catch (error) {
-        console.error('❌ Erro ao buscar vendedores:', error)
+      } catch {
         setVendedores([])
       }
     }
@@ -142,8 +137,6 @@ export function GestorFunilEtapas({
 
         const oportData = await oportResponse.json()
 
-        console.log('📊 Resposta API oportunidades-por-coluna:', oportData)
-
         if (!oportData.success) {
           throw new Error(oportData.message || 'Erro ao buscar oportunidades por coluna')
         }
@@ -160,7 +153,6 @@ export function GestorFunilEtapas({
         }>()
 
         if (oportData.success && Array.isArray(oportData.data)) {
-          console.log('📋 Dados recebidos da API:', oportData.data.length, 'registros')
           oportData.data.forEach((item: any) => {
             dadosPorColuna.set(item.coluna_funil_id, {
               total: Number(item.total) || 0,
@@ -172,7 +164,6 @@ export function GestorFunilEtapas({
               valorGanhasMes: Number(item.valor_ganhas_mes) || 0
             })
           })
-          console.log('🗺️ Mapa de dados por coluna:', Array.from(dadosPorColuna.entries()))
         }
 
         // 4. Montar dados combinando todas as colunas com suas contagens
@@ -192,10 +183,8 @@ export function GestorFunilEtapas({
           }
         }).sort((a: EtapaFunil, b: EtapaFunil) => a.sequencia - b.sequencia)
 
-        console.log('✅ Etapas montadas:', etapasArray)
         setEtapas(etapasArray)
-      } catch (error) {
-        console.error('Erro ao carregar etapas do funil:', error)
+      } catch {
         setEtapas([])
       } finally {
         setLoading(false)
@@ -258,7 +247,7 @@ export function GestorFunilEtapas({
         setOportunidadesModal(data.data)
       }
     } catch (error) {
-      console.error('Erro ao buscar oportunidades:', error)
+      // Silently handle error
     } finally {
       setLoadingModal(false)
     }

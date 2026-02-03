@@ -479,3 +479,46 @@ body {
   margin-top: 0.5rem !important;
   margin-bottom: 0 !important;
 }
+
+/* ===== ESTILOS ADICIONAIS PARA TV 1080x1920 ===== */
+
+/* Reset e configuração base para 1080x1920 */
+html.tv-mode, body.tv-mode {
+  width: 1080px;
+  height: 1920px;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Container principal */
+.tv-mode .min-h-screen, 
+.tv-mode .h-screen {
+  width: 1080px !important;
+  min-height: 1920px !important;
+}
+
+/* Scrollbar customizado */
+::-webkit-scrollbar {
+  width: 12px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Remove seleção de texto (para TV) */
+.tv-mode * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  cursor: default;
+}

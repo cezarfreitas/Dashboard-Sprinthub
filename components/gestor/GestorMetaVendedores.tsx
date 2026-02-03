@@ -134,23 +134,7 @@ export const GestorMetaVendedores = memo(function GestorMetaVendedores({
     try {
       setLoading(true)
 
-      // Buscar vendedores da unidade
-      const unidadeResponse = await fetch(`/api/unidades/${unidadeId}`)
-      const unidadeData = await unidadeResponse.json()
-
-      if (!unidadeData.success || !unidadeData.data?.users) {
-        console.error('Erro ao buscar vendedores da unidade')
-        setVendedores([])
-        return
-      }
-
-      // Buscar metas dos vendedores
-      const metaResponse = await fetch(
-        `/api/meta/stats?unidade_id=${unidadeId}&mes=${targetMes}&ano=${targetAno}`
-      )
-      const metaData = await metaResponse.json()
-
-      // Buscar realizados dos vendedores do mês
+      // Calcular período do mês
       const primeiroDiaMes = new Date(targetAno, targetMes - 1, 1)
       const ultimoDiaMes = new Date(targetAno, targetMes, 0)
 
@@ -164,181 +148,20 @@ export const GestorMetaVendedores = memo(function GestorMetaVendedores({
       const dataInicio = formatarData(primeiroDiaMes)
       const dataFim = formatarData(ultimoDiaMes)
 
-      // Extrair IDs dos vendedores
-      const vendedorIds = unidadeData.data.users
-        .map((u: any) => {
-          if (typeof u === 'object' && u !== null) {
-            return u.id || u.user_id || u.vendedor_id
-          } else if (typeof u === 'number') {
-            return u
-          } else if (typeof u === 'string') {
-            const parsed = parseInt(u.trim())
-            return !isNaN(parsed) ? parsed : null
-          }
-          return null
-        })
-        .filter((id: any) => id !== null)
+      // OTIMIZAÇÃO: Usar API consolidada em vez de N+1 chamadas individuais
+      // Antes: 30+ chamadas (5 por vendedor × 6 vendedores)
+      // Agora: 1 chamada única
+      const response = await fetch(
+        `/api/gestor/vendedores-stats?unidade_id=${unidadeId}&data_inicio=${dataInicio}&data_fim=${dataFim}`
+      )
+      const data = await response.json()
 
-      // Buscar TODOS os vendedores do banco (incluindo inativos) diretamente do MySQL
-      const vendedoresInfoResponse = await fetch(`/api/vendedores/mysql?limit=1000`)
-      const vendedoresInfoData = await vendedoresInfoResponse.json()
-      
-      console.log('📋 Vendedores carregados do MySQL:', vendedoresInfoData.vendedores?.length || 0)
-      
-      const vendedoresInfoMap = vendedoresInfoData.success && vendedoresInfoData.vendedores
-        ? vendedoresInfoData.vendedores.reduce((acc: any, v: any) => {
-            const nomeCompleto = `${v.name || ''} ${v.lastName || ''}`.trim()
-            acc[v.id] = nomeCompleto || `Vendedor ${v.id}`
-            console.log(`🔍 Mapeando vendedor ID ${v.id}: "${nomeCompleto}"`)
-            return acc
-          }, {})
-        : {}
-      
-      console.log('🗺️ Total de vendedores no mapa:', Object.keys(vendedoresInfoMap).length)
-
-      // Buscar realizado e estatísticas de cada vendedor
-      const realizadoPromises = vendedorIds.map(async (vendedorId: number) => {
-        // Buscar vendas ganhas no período (gain_date)
-        const statsVendasResponse = await fetch(
-          `/api/oportunidades/stats?status=won&gain_date_start=${dataInicio}&gain_date_end=${dataFim}&user_id=${vendedorId}`
-        )
-        const statsVendasData = await statsVendasResponse.json()
-        
-        // Buscar TODAS as oportunidades CRIADAS no período (sem filtro de status)
-        const statsCriadasResponse = await fetch(
-          `/api/oportunidades/stats?created_date_start=${dataInicio}&created_date_end=${dataFim}&user_id=${vendedorId}`
-        )
-        const statsCriadasData = await statsCriadasResponse.json()
-        
-        // Buscar vendas CRIADAS no período (independente de quando foram ganhas)
-        const statsVendasCriadasResponse = await fetch(
-          `/api/oportunidades/stats?status=won&created_date_start=${dataInicio}&created_date_end=${dataFim}&user_id=${vendedorId}`
-        )
-        const statsVendasCriadasData = await statsVendasCriadasResponse.json()
-        
-        // Buscar oportunidades abertas
-        const abertasResponse = await fetch(
-          `/api/oportunidades/stats?status=open&user_id=${vendedorId}`
-        )
-        const abertasData = await abertasResponse.json()
-        
-        // Buscar oportunidades perdidas no período (lost_date)
-        const perdidasResponse = await fetch(
-          `/api/oportunidades/stats?status=lost&lost_date_start=${dataInicio}&lost_date_end=${dataFim}&user_id=${vendedorId}`
-        )
-        const perdidasData = await perdidasResponse.json()
-        
-        const quantidadeVendas = statsVendasData.success ? Number(statsVendasData.data?.total_ganhas || 0) : 0
-        const realizado = statsVendasData.success ? Number(statsVendasData.data?.valor_ganhas || 0) : 0
-        const quantidadeOportunidades = statsCriadasData.success ? Number(statsCriadasData.data?.total || 0) : 0
-        const quantidadeVendasCriadasNoMes = statsVendasCriadasData.success ? Number(statsVendasCriadasData.data?.total_ganhas || 0) : 0
-        const quantidadeAbertas = abertasData.success ? Number(abertasData.data?.total_abertas || 0) : 0
-        const quantidadePerdidas = perdidasData.success ? Number(perdidasData.data?.total_perdidas || 0) : 0
-        
-        // Calcular taxa de conversão: vendas GANHAS no período / total CRIADAS no período
-        const taxaConversao = quantidadeOportunidades > 0 ? (quantidadeVendas / quantidadeOportunidades) * 100 : 0
-        
-        return {
-          vendedor_id: vendedorId,
-          realizado: realizado,
-          quantidade_vendas: quantidadeVendas,
-          quantidade_oportunidades: quantidadeOportunidades,
-          quantidade_abertas: quantidadeAbertas,
-          quantidade_perdidas: quantidadePerdidas,
-          quantidade_vendas_criadas_no_mes: quantidadeVendasCriadasNoMes,
-          taxa_conversao: taxaConversao
-        }
-      })
-
-      const realizados = await Promise.all(realizadoPromises)
-      const realizadoMap = realizados.reduce((acc, item) => {
-        acc[item.vendedor_id] = {
-          realizado: item.realizado,
-          quantidade_vendas: item.quantidade_vendas,
-          quantidade_oportunidades: item.quantidade_oportunidades,
-          quantidade_abertas: item.quantidade_abertas,
-          quantidade_perdidas: item.quantidade_perdidas,
-          quantidade_vendas_criadas_no_mes: item.quantidade_vendas_criadas_no_mes,
-          taxa_conversao: item.taxa_conversao
-        }
-        return acc
-      }, {} as Record<number, { realizado: number; quantidade_vendas: number; quantidade_oportunidades: number; quantidade_abertas: number; quantidade_perdidas: number; quantidade_vendas_criadas_no_mes: number; taxa_conversao: number }>)
-
-      // Criar mapa de metas
-      const metasMap = metaData.success && metaData.metas 
-        ? metaData.metas.reduce((acc: any, meta: any) => {
-            acc[meta.vendedor_id] = {
-              meta_valor: meta.meta_valor,
-              vendedor_nome: meta.vendedor_nome
-            }
-            return acc
-          }, {})
-        : {}
-
-      // Combinar metas e realizados para TODOS os vendedores da unidade
-      const vendedoresComDetalhes: VendedorMeta[] = vendedorIds.map((vendedorId: number) => {
-        const statsVendedor = realizadoMap[vendedorId] || { 
-          realizado: 0, 
-          quantidade_vendas: 0, 
-          quantidade_oportunidades: 0,
-          quantidade_abertas: 0,
-          quantidade_perdidas: 0,
-          quantidade_vendas_criadas_no_mes: 0,
-          taxa_conversao: 0
-        }
-        
-        const meta = metasMap[vendedorId]
-        const metaValor = meta?.meta_valor || 0
-        const realizado = statsVendedor.realizado
-        const diferenca = realizado - metaValor
-        const percentual = metaValor > 0 ? (realizado / metaValor) * 100 : 0
-
-        // Buscar nome do vendedor (prioridade: meta > vendedoresInfoMap > fallback)
-        const vendedorNome = meta?.vendedor_nome || 
-                            vendedoresInfoMap[vendedorId] || 
-                            `Vendedor ${vendedorId}`
-
-        // Log para debug do vendedor específico
-        if (vendedorId === 251) {
-          console.log(`🔍 Buscando nome para vendedor ID 251:`)
-          console.log(`  - Nome na meta: ${meta?.vendedor_nome || 'não encontrado'}`)
-          console.log(`  - Nome no mapa: ${vendedoresInfoMap[vendedorId] || 'não encontrado'}`)
-          console.log(`  - Nome final: ${vendedorNome}`)
-        }
-
-        return {
-          vendedor_id: vendedorId,
-          vendedor_nome: vendedorNome,
-          meta_valor: metaValor,
-          realizado,
-          diferenca,
-          percentual,
-          quantidade_vendas: statsVendedor.quantidade_vendas,
-          quantidade_oportunidades: statsVendedor.quantidade_oportunidades,
-          quantidade_abertas: statsVendedor.quantidade_abertas,
-          quantidade_perdidas: statsVendedor.quantidade_perdidas,
-          quantidade_vendas_criadas_no_mes: statsVendedor.quantidade_vendas_criadas_no_mes,
-          taxa_conversao: statsVendedor.taxa_conversao
-        }
-      })
-
-      // Ordenar: primeiro por percentual (vendedores com meta), depois por realizado (sem meta)
-      vendedoresComDetalhes.sort((a, b) => {
-        // Se ambos têm meta, ordenar por percentual
-        if (a.meta_valor > 0 && b.meta_valor > 0) {
-          return b.percentual - a.percentual
-        }
-        // Se apenas A tem meta, A vem primeiro
-        if (a.meta_valor > 0) return -1
-        // Se apenas B tem meta, B vem primeiro
-        if (b.meta_valor > 0) return 1
-        // Se nenhum tem meta, ordenar por realizado
-        return b.realizado - a.realizado
-      })
-
-      setVendedores(vendedoresComDetalhes)
+      if (data.success && Array.isArray(data.vendedores)) {
+        setVendedores(data.vendedores)
+      } else {
+        setVendedores([])
+      }
     } catch (error) {
-      console.error('Erro ao buscar detalhes das metas:', error)
       setVendedores([])
     } finally {
       setLoading(false)

@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const vendedorId = searchParams.get('vendedor_id')
     const data = searchParams.get('data')
     const tipo = searchParams.get('tipo') || 'criadas'
+    const funilIdParam = searchParams.get('funil_id')
 
     if (!unidadeId || !vendedorId || !data) {
       return NextResponse.json(
@@ -68,6 +69,23 @@ export async function GET(request: NextRequest) {
     } else if (tipo === 'ganhas') {
       query += ` AND DATE(o.gain_date) = ?`
       params.push(data)
+    }
+
+    // Filtro opcional por funil (aceita CSV: "2,4")
+    if (funilIdParam && funilIdParam !== 'todos' && funilIdParam !== 'undefined') {
+      const funilIds = funilIdParam
+        .split(',')
+        .map((id) => parseInt(id.trim()))
+        .filter((id) => !isNaN(id) && id > 0)
+
+      if (funilIds.length > 0) {
+        query += ` AND EXISTS (
+          SELECT 1 FROM colunas_funil cf
+          WHERE cf.id = o.coluna_funil_id
+            AND cf.id_funil IN (${funilIds.map(() => '?').join(',')})
+        )`
+        params.push(...funilIds)
+      }
     }
 
     query += ` ORDER BY o.createDate DESC`

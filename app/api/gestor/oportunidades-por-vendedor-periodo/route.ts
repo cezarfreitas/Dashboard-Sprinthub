@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const dataInicio = searchParams.get('data_inicio')
     const dataFim = searchParams.get('data_fim')
     const tipo = searchParams.get('tipo') || 'criadas'
+    const funilIdParam = searchParams.get('funil_id')
 
     if (!unidadeId || !vendedorId || !dataInicio || !dataFim) {
       return NextResponse.json(
@@ -69,6 +70,23 @@ export async function GET(request: NextRequest) {
     } else if (tipo === 'ganhas') {
       query += ` AND DATE(o.gain_date) BETWEEN ? AND ?`
       params.push(dataInicio, dataFim)
+    }
+
+    // Filtro opcional por funil (aceita CSV: "2,4")
+    if (funilIdParam && funilIdParam !== 'todos' && funilIdParam !== 'undefined') {
+      const funilIds = funilIdParam
+        .split(',')
+        .map((id) => parseInt(id.trim()))
+        .filter((id) => !isNaN(id) && id > 0)
+
+      if (funilIds.length > 0) {
+        query += ` AND EXISTS (
+          SELECT 1 FROM colunas_funil cf
+          WHERE cf.id = o.coluna_funil_id
+            AND cf.id_funil IN (${funilIds.map(() => '?').join(',')})
+        )`
+        params.push(...funilIds)
+      }
     }
 
     query += ` ORDER BY o.createDate DESC`

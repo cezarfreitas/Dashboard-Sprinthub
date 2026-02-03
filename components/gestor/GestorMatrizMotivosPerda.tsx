@@ -40,6 +40,7 @@ interface GestorMatrizMotivosPerdaProps {
   unidadeId: number | null
   dataInicio: string
   dataFim: string
+  funilId?: string | null
 }
 
 type SortField = 'motivo' | 'quantidade' | 'percentual' | 'tempo' | 'valor'
@@ -48,7 +49,8 @@ type SortDirection = 'asc' | 'desc' | null
 export const GestorMatrizMotivosPerda = memo(function GestorMatrizMotivosPerda({
   unidadeId,
   dataInicio,
-  dataFim
+  dataFim,
+  funilId
 }: GestorMatrizMotivosPerdaProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +73,9 @@ export const GestorMatrizMotivosPerda = memo(function GestorMatrizMotivosPerda({
         params.append('lost_date_start', dataInicio)
         params.append('lost_date_end', dataFim)
         params.append('all', '1')
+        if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
+          params.append('funil_id', funilId)
+        }
 
         const response = await fetch(`/api/oportunidades/lost?${params.toString()}`)
         const data = await response.json()
@@ -89,7 +94,7 @@ export const GestorMatrizMotivosPerda = memo(function GestorMatrizMotivosPerda({
     }
 
     fetchData()
-  }, [unidadeId, dataInicio, dataFim])
+  }, [unidadeId, dataInicio, dataFim, funilId])
 
   if (!unidadeId) {
     return null

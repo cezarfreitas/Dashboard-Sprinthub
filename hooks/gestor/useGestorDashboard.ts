@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 
 export interface GestorData {
@@ -80,6 +80,7 @@ export function useGestorDashboard() {
   const [exportando, setExportando] = useState(false)
   const [cardsData, setCardsData] = useState<any>(null)
   const [loadingCards, setLoadingCards] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const getPeriodoDatas = useCallback(() => {
     const agora = new Date()
@@ -214,7 +215,7 @@ export function useGestorDashboard() {
     }
   }, [gestor, unidadeSelecionada, getPeriodoDatas])
 
-  const fetchCardsData = useCallback(async () => {
+  const fetchCardsData = useCallback(async (signal?: AbortSignal) => {
     if (!unidadeSelecionada) {
       setCardsData(null)
       return
@@ -232,104 +233,102 @@ export function useGestorDashboard() {
         baseParams.append('funil_id', funilSelecionado)
       }
 
-      // 1. Buscar dados de HOJE (usando API /today)
-      const hojeParams = new URLSearchParams(baseParams)
-      const hojeResponse = await fetch(`/api/oportunidades/today?${hojeParams.toString()}`)
-      const hojeData = hojeResponse.ok ? await hojeResponse.json() : null
+      // Determinar mês/ano para meta baseado no período selecionado
+      let mesMeta: number
+      let anoMeta: number
+      
+      if (periodoFiltro === 'mes-passado') {
+        const hoje = new Date()
+        if (hoje.getMonth() === 0) {
+          mesMeta = 12
+          anoMeta = hoje.getFullYear() - 1
+        } else {
+          mesMeta = hoje.getMonth()
+          anoMeta = hoje.getFullYear()
+        }
+      } else if (periodoFiltro === 'personalizado' && dataInicioPersonalizada) {
+        const dataInicioDate = new Date(dataInicioPersonalizada)
+        mesMeta = dataInicioDate.getMonth() + 1
+        anoMeta = dataInicioDate.getFullYear()
+      } else {
+        const hoje = new Date()
+        mesMeta = hoje.getMonth() + 1
+        anoMeta = hoje.getFullYear()
+      }
 
-      // 2. Buscar ABERTAS (com all=1 para divisão por período)
+      // Preparar parâmetros para todas as chamadas
+      const hojeParams = new URLSearchParams(baseParams)
+
       const abertasParams = new URLSearchParams(baseParams)
       abertasParams.append('status', 'open')
       abertasParams.append('created_date_start', dataInicio)
       abertasParams.append('created_date_end', dataFim)
       abertasParams.append('all', '1')
-      const abertasResponse = await fetch(`/api/oportunidades/stats?${abertasParams.toString()}`)
-      const abertasData = abertasResponse.ok ? await abertasResponse.json() : null
 
-      // 3. Buscar PERDIDAS (com all=1)
       const perdidasParams = new URLSearchParams(baseParams)
       perdidasParams.append('status', 'lost')
       perdidasParams.append('lost_date_start', dataInicio)
       perdidasParams.append('lost_date_end', dataFim)
       perdidasParams.append('all', '1')
-      const perdidasResponse = await fetch(`/api/oportunidades/stats?${perdidasParams.toString()}`)
-      const perdidasData = perdidasResponse.ok ? await perdidasResponse.json() : null
 
-      // 4. Buscar GANHAS (com all=1 para taxa de conversão)
       const ganhasParams = new URLSearchParams(baseParams)
       ganhasParams.append('status', 'won')
       ganhasParams.append('gain_date_start', dataInicio)
       ganhasParams.append('gain_date_end', dataFim)
       ganhasParams.append('all', '1')
-      const ganhasResponse = await fetch(`/api/oportunidades/stats?${ganhasParams.toString()}`)
-      const ganhasData = ganhasResponse.ok ? await ganhasResponse.json() : null
 
-      // 5. Determinar mês/ano para meta baseado no período selecionado
-      // Para períodos mensais, usar o mês do período. Para outros, usar mês atual.
-      const { dataInicioObj } = getPeriodoDatas()
-      let mesMeta: number
-      let anoMeta: number
-      
-      // Determinar qual mês usar baseado no período
-      if (periodoFiltro === 'mes-passado') {
-        // Mês passado
-        const hoje = new Date()
-        if (hoje.getMonth() === 0) {
-          // Janeiro: mês passado é dezembro do ano anterior
-          mesMeta = 12
-          anoMeta = hoje.getFullYear() - 1
-        } else {
-          mesMeta = hoje.getMonth() // getMonth() retorna 0-11, então mês passado é getMonth()
-          anoMeta = hoje.getFullYear()
-        }
-      } else if (periodoFiltro === 'personalizado' && dataInicioPersonalizada) {
-        // Mês da data personalizada
-        const dataInicio = new Date(dataInicioPersonalizada)
-        mesMeta = dataInicio.getMonth() + 1
-        anoMeta = dataInicio.getFullYear()
-      } else {
-        // Para outros períodos (hoje, ontem, semanas, este-mes), usar mês atual
-        const hoje = new Date()
-        mesMeta = hoje.getMonth() + 1
-        anoMeta = hoje.getFullYear()
-      }
-      
-      // Buscar META MENSAL da unidade para o mês/ano determinado
       const metaStatsParams = new URLSearchParams()
       metaStatsParams.append('unidade_id', unidadeSelecionada.toString())
       metaStatsParams.append('mes', mesMeta.toString())
       metaStatsParams.append('ano', anoMeta.toString())
-      
-      const metaStatsResponse = await fetch(`/api/meta/stats?${metaStatsParams.toString()}`)
-      const metaStatsData = metaStatsResponse.ok ? await metaStatsResponse.json() : null
-      
-      // Extrair meta total da unidade
-      let metaTotal = 0
-      if (metaStatsData?.success && metaStatsData?.estatisticas) {
-        metaTotal = Number(metaStatsData.estatisticas.meta_total) || 0
-      }
 
-      // 6. Buscar GANHOS do MÊS determinado (não sempre do mês atual)
       const primeiroDiaMes = new Date(anoMeta, mesMeta - 1, 1)
       const ultimoDiaMes = new Date(anoMeta, mesMeta, 0)
-      
       const formatarData = (data: Date) => {
         const ano = data.getFullYear()
         const mes = String(data.getMonth() + 1).padStart(2, '0')
         const dia = String(data.getDate()).padStart(2, '0')
         return `${ano}-${mes}-${dia}`
       }
-      
       const dataInicioMes = formatarData(primeiroDiaMes)
       const dataFimMes = formatarData(ultimoDiaMes)
-      
+
       const ganhasMesParams = new URLSearchParams(baseParams)
       ganhasMesParams.append('status', 'won')
       ganhasMesParams.append('gain_date_start', dataInicioMes)
       ganhasMesParams.append('gain_date_end', dataFimMes)
-      
-      const ganhasMesResponse = await fetch(`/api/oportunidades/stats?${ganhasMesParams.toString()}`)
-      const ganhasMesData = ganhasMesResponse.ok ? await ganhasMesResponse.json() : null
+
+      // OTIMIZAÇÃO: Executar TODAS as chamadas em paralelo com Promise.all + AbortController
+      const [
+        hojeResponse,
+        abertasResponse,
+        perdidasResponse,
+        ganhasResponse,
+        metaStatsResponse,
+        ganhasMesResponse
+      ] = await Promise.all([
+        fetch(`/api/oportunidades/today?${hojeParams.toString()}`, { signal }),
+        fetch(`/api/oportunidades/stats?${abertasParams.toString()}`, { signal }),
+        fetch(`/api/oportunidades/stats?${perdidasParams.toString()}`, { signal }),
+        fetch(`/api/oportunidades/stats?${ganhasParams.toString()}`, { signal }),
+        fetch(`/api/meta/stats?${metaStatsParams.toString()}`, { signal }),
+        fetch(`/api/oportunidades/stats?${ganhasMesParams.toString()}`, { signal })
+      ])
+
+      // Processar respostas em paralelo
+      const [hojeData, abertasData, perdidasData, ganhasData, metaStatsData, ganhasMesData] = await Promise.all([
+        hojeResponse.ok ? hojeResponse.json() : null,
+        abertasResponse.ok ? abertasResponse.json() : null,
+        perdidasResponse.ok ? perdidasResponse.json() : null,
+        ganhasResponse.ok ? ganhasResponse.json() : null,
+        metaStatsResponse.ok ? metaStatsResponse.json() : null,
+        ganhasMesResponse.ok ? ganhasMesResponse.json() : null
+      ])
+
+      // Extrair meta total da unidade
+      const metaTotal = metaStatsData?.success && metaStatsData?.estatisticas
+        ? Number(metaStatsData.estatisticas.meta_total) || 0
+        : 0
 
       // Processar dados
       const cards: any = {
@@ -379,6 +378,10 @@ export function useGestorDashboard() {
 
       setCardsData(cards)
     } catch (error) {
+      // Ignorar erros de abort (esperados quando componente desmonta ou filtros mudam)
+      if (error instanceof Error && error.name === 'AbortError') {
+        return
+      }
       setCardsData(null)
     } finally {
       setLoadingCards(false)
@@ -386,7 +389,22 @@ export function useGestorDashboard() {
   }, [unidadeSelecionada, funilSelecionado, getPeriodoDatas, periodoFiltro, dataInicioPersonalizada])
 
   useEffect(() => {
-    fetchCardsData()
+    // Cancelar requisição anterior se houver
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    
+    // Criar novo AbortController
+    abortControllerRef.current = new AbortController()
+    
+    fetchCardsData(abortControllerRef.current.signal)
+    
+    // Cleanup: cancelar requisição ao desmontar ou quando deps mudarem
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [fetchCardsData])
 
   const handleLogout = useCallback(() => {
