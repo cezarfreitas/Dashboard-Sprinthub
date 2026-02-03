@@ -103,12 +103,12 @@ export default function RankingUnidadesPage() {
           params.set('unidades', filtrosPainel.unidadesSelecionadas.join(','))
         }
         
-        if (filtrosPainel.funilSelecionado && filtrosPainel.funilSelecionado !== 'todos') {
-          params.set('funil', filtrosPainel.funilSelecionado)
+        if (filtrosPainel.funisSelecionados.length > 0) {
+          params.set('funil', filtrosPainel.funisSelecionados.join(','))
         }
         
-        if (filtrosPainel.grupoSelecionado && filtrosPainel.grupoSelecionado !== 'todos') {
-          params.set('grupo', filtrosPainel.grupoSelecionado)
+        if (filtrosPainel.gruposSelecionados.length > 0) {
+          params.set('grupo', filtrosPainel.gruposSelecionados.join(','))
         }
         
         if (filtrosPainel.gainDateInicio) {

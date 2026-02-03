@@ -56,8 +56,8 @@ export default function AcumuladoMesPage() {
     periodoTipo: 'este-mes' as string,
     periodoInicio: periodoInicial.inicio,
     periodoFim: periodoInicial.fim,
-    funilSelecionado: 'todos',
-    grupoSelecionado: 'todos',
+    funisSelecionados: [] as number[],
+    gruposSelecionados: [] as number[],
     gainDateInicio: undefined as string | undefined,
     gainDateFim: undefined as string | undefined
   }))
@@ -168,8 +168,8 @@ export default function AcumuladoMesPage() {
   const filtrosAtivos = useMemo(() => {
     return filtros.unidadesSelecionadas.length > 0 ||
            filtros.periodoTipo !== 'este-mes' ||
-           filtros.funilSelecionado !== 'todos' ||
-           filtros.grupoSelecionado !== 'todos'
+           filtros.funisSelecionados.length > 0 ||
+           filtros.gruposSelecionados.length > 0
   }, [filtros])
 
 
@@ -437,22 +437,21 @@ export default function AcumuladoMesPage() {
 
   // Aplicar filtro de grupo sobre as unidades selecionadas
   const filtrosParaGrid = useMemo(() => {
-    const grupoSelecionadoId =
-      filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos' && filtros.grupoSelecionado !== 'undefined'
-        ? Number(filtros.grupoSelecionado)
-        : null
-
-    const unidadesDoGrupo =
-      grupoSelecionadoId != null
-        ? (grupos.find(g => Number(g.id) === grupoSelecionadoId)?.unidadeIds || [])
-        : null
+    // Obter todas as unidades dos grupos selecionados
+    let unidadesDoGrupo: number[] | null = null
+    if (filtros.gruposSelecionados.length > 0) {
+      unidadesDoGrupo = filtros.gruposSelecionados.flatMap(grupoId => {
+        const grupo = grupos.find(g => Number(g.id) === grupoId)
+        return grupo?.unidadeIds || []
+      })
+    }
 
     const unidadesSelecionadas = filtros.unidadesSelecionadas || []
 
     const unidadesIdsAplicadas =
       unidadesDoGrupo
         ? (unidadesSelecionadas.length > 0
-            ? unidadesSelecionadas.filter(id => unidadesDoGrupo.includes(id))
+            ? unidadesSelecionadas.filter(id => unidadesDoGrupo!.includes(id))
             : unidadesDoGrupo)
         : unidadesSelecionadas
 
@@ -480,12 +479,12 @@ export default function AcumuladoMesPage() {
 
       if (unidadesParam) params.set('unidade_id', unidadesParam)
 
-      if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos') {
-        params.set('funil_id', filtros.funilSelecionado)
+      if (filtros.funisSelecionados.length > 0) {
+        params.set('funil_id', filtros.funisSelecionados.join(','))
       }
 
-      if (filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos') {
-        params.set('grupo_id', filtros.grupoSelecionado)
+      if (filtros.gruposSelecionados.length > 0) {
+        params.set('grupo_id', filtros.gruposSelecionados.join(','))
       }
 
       const res = await fetch(`/api/analytics/acumulado-mes/export?${params.toString()}`, { cache: 'no-store' })

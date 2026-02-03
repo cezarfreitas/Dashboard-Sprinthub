@@ -8,8 +8,8 @@ export interface RankingFiltros {
   periodoTipo: string
   periodoInicio: string
   periodoFim: string
-  funilSelecionado: string
-  grupoSelecionado: string
+  funisSelecionados: number[]
+  gruposSelecionados: number[]
   gainDateInicio?: string
   gainDateFim?: string
 }
@@ -57,8 +57,8 @@ export function useRankingFilters(): UseRankingFiltersReturn {
     periodoTipo: 'este-mes',
     periodoInicio: periodoInicial.inicio,
     periodoFim: periodoInicial.fim,
-    funilSelecionado: 'todos',
-    grupoSelecionado: 'todos',
+    funisSelecionados: [],
+    gruposSelecionados: [],
     gainDateInicio: undefined,
     gainDateFim: undefined
   }))
@@ -81,8 +81,8 @@ export function useRankingFilters(): UseRankingFiltersReturn {
   const filtrosAtivos = useMemo(() => {
     return filtrosPainel.unidadesSelecionadas.length > 0 ||
            filtrosPainel.periodoTipo !== 'este-mes' ||
-           filtrosPainel.funilSelecionado !== 'todos' ||
-           filtrosPainel.grupoSelecionado !== 'todos' ||
+           filtrosPainel.funisSelecionados.length > 0 ||
+           filtrosPainel.gruposSelecionados.length > 0 ||
            filtrosPainel.gainDateInicio !== undefined ||
            filtrosPainel.gainDateFim !== undefined
   }, [filtrosPainel])
@@ -96,18 +96,22 @@ export function useRankingFilters(): UseRankingFiltersReturn {
   }, [filtrosPainel.periodoInicio, filtrosPainel.periodoFim])
 
   const funilNomeSelecionado = useMemo(() => {
-    if (!filtrosPainel.funilSelecionado || filtrosPainel.funilSelecionado === 'todos') return null
-    const id = Number(filtrosPainel.funilSelecionado)
-    const found = funis.find((f) => Number(f.id) === id)
-    return found?.funil_nome || `Funil ${filtrosPainel.funilSelecionado}`
-  }, [filtrosPainel.funilSelecionado, funis])
+    if (filtrosPainel.funisSelecionados.length === 0) return null
+    if (filtrosPainel.funisSelecionados.length === 1) {
+      const found = funis.find((f) => Number(f.id) === filtrosPainel.funisSelecionados[0])
+      return found?.funil_nome || `Funil ${filtrosPainel.funisSelecionados[0]}`
+    }
+    return `${filtrosPainel.funisSelecionados.length} funis`
+  }, [filtrosPainel.funisSelecionados, funis])
 
   const grupoNomeSelecionado = useMemo(() => {
-    if (!filtrosPainel.grupoSelecionado || filtrosPainel.grupoSelecionado === 'todos') return null
-    const id = Number(filtrosPainel.grupoSelecionado)
-    const found = grupos.find((g) => Number(g.id) === id)
-    return found?.nome || `Grupo ${filtrosPainel.grupoSelecionado}`
-  }, [filtrosPainel.grupoSelecionado, grupos])
+    if (filtrosPainel.gruposSelecionados.length === 0) return null
+    if (filtrosPainel.gruposSelecionados.length === 1) {
+      const found = grupos.find((g) => Number(g.id) === filtrosPainel.gruposSelecionados[0])
+      return found?.nome || `Grupo ${filtrosPainel.gruposSelecionados[0]}`
+    }
+    return `${filtrosPainel.gruposSelecionados.length} grupos`
+  }, [filtrosPainel.gruposSelecionados, grupos])
 
   const dataGanhoLabel = useMemo(() => {
     if (!filtrosPainel.gainDateInicio && !filtrosPainel.gainDateFim) return null

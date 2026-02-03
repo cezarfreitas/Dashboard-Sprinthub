@@ -33,8 +33,8 @@ interface FiltrosType {
   periodoTipo: string
   periodoInicio: string
   periodoFim: string
-  funilSelecionado: string
-  grupoSelecionado: string
+  funisSelecionados: number[]
+  gruposSelecionados: number[]
 }
 
 interface MotivoPerda {
@@ -76,8 +76,8 @@ export default function MotivosPerdaPage() {
     periodoTipo: 'este-mes',
     periodoInicio: periodoInicial.inicio,
     periodoFim: periodoInicial.fim,
-    funilSelecionado: 'todos',
-    grupoSelecionado: 'todos'
+    funisSelecionados: [],
+    gruposSelecionados: []
   })
   
   const [funis, setFunis] = useState<Array<{ id: number; funil_nome: string }>>([])
@@ -141,8 +141,8 @@ export default function MotivosPerdaPage() {
   const filtrosAtivos = useMemo(() => {
     return filtros.unidadesSelecionadas.length > 0 ||
            filtros.periodoTipo !== 'este-mes' ||
-           filtros.funilSelecionado !== 'todos' ||
-           filtros.grupoSelecionado !== 'todos'
+           filtros.funisSelecionados.length > 0 ||
+           filtros.gruposSelecionados.length > 0
   }, [filtros])
   
   const [loading, setLoading] = useState(false)
@@ -186,12 +186,12 @@ export default function MotivosPerdaPage() {
         params.append('unidades', filtros.unidadesSelecionadas.join(','))
       }
 
-      if (filtros.funilSelecionado && filtros.funilSelecionado !== 'todos') {
-        params.append('funil', filtros.funilSelecionado)
+      if (filtros.funisSelecionados.length > 0) {
+        params.append('funil', filtros.funisSelecionados.join(','))
       }
 
-      if (filtros.grupoSelecionado && filtros.grupoSelecionado !== 'todos') {
-        params.append('grupo', filtros.grupoSelecionado)
+      if (filtros.gruposSelecionados.length > 0) {
+        params.append('grupo', filtros.gruposSelecionados.join(','))
       }
       
       const apiUrl = `/api/oportunidades/lost?${params.toString()}`
@@ -308,8 +308,8 @@ export default function MotivosPerdaPage() {
     filtros.periodoInicio,
     filtros.periodoFim,
     filtros.unidadesSelecionadas,
-    filtros.funilSelecionado,
-    filtros.grupoSelecionado,
+    filtros.funisSelecionados,
+    filtros.gruposSelecionados,
     fetchData
   ])
 
