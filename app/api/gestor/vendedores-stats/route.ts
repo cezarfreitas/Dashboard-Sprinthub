@@ -178,10 +178,8 @@ export async function GET(request: NextRequest) {
 
     const statsResults = await executeQuery(statsQuery, queryParams) as any[]
 
-    // 3. Buscar metas dos vendedores
-    const hoje = new Date()
-    const mesMeta = hoje.getMonth() + 1
-    const anoMeta = hoje.getFullYear()
+    // 3. Buscar metas dos vendedores - usar mês/ano do período selecionado
+    const [anoMeta, mesMeta] = dataInicio.split('-').map(Number)
 
     const metasQuery = `
       SELECT vendedor_id, meta_valor
