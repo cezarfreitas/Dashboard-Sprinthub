@@ -45,7 +45,7 @@ export const AcumuladoMesTable = memo(function AcumuladoMesTable({
   mesAtual,
   anoAtual
 }: AcumuladoMesTableProps) {
-  const { unidades, loading, error } = usePainelUnidades(filtros, mesAtual, anoAtual)
+  const { unidades, loading, error } = usePainelUnidades(filtros)
   const [selectedUnidade, setSelectedUnidade] = useState<{ id: number; nome: string; status: 'abertas' | 'ganhas' | 'perdidas' } | null>(null)
   const [sortField, setSortField] = useState<SortField>('valor_ganho')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -227,8 +227,6 @@ export const AcumuladoMesTable = memo(function AcumuladoMesTable({
         unidadeNome={selectedUnidade?.nome || ''}
         status={selectedUnidade?.status || 'ganhas'}
         filtros={filtros}
-        mesAtual={mesAtual}
-        anoAtual={anoAtual}
         open={!!selectedUnidade}
         onOpenChange={(open) => {
           if (!open) {

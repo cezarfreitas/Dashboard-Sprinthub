@@ -312,7 +312,7 @@ export async function GET(request: NextRequest) {
 
     const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-    function buildCrescimentoFull(atual: FullStats, anterior: FullStats) {
+    const buildCrescimentoFull = (atual: FullStats, anterior: FullStats) => {
       return {
         novas_oportunidades: calcCrescimento(atual.novas_oportunidades, anterior.novas_oportunidades),
         oportunidades_ganhas: calcCrescimento(atual.oportunidades_ganhas, anterior.oportunidades_ganhas),

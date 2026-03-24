@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
       let totalPerdidas = 0, totalValorPerdidas = 0
       let somaLtG = 0, cntLtG = 0, somaLtP = 0, cntLtP = 0
 
-      const sortedKeys = [...allKeys.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+      const sortedKeys = Array.from(allKeys.entries()).sort((a, b) => a[1].localeCompare(b[1]))
 
       const linhas = sortedKeys.map(([key, label]) => {
         const linha = buildLinhaFromMaps(key, label, novasMap, ganhasMap, perdidasMap)
@@ -359,7 +359,7 @@ function buildResponse(
   let totalPerdidas = 0, totalValorPerdidas = 0
   let somaLtG = 0, cntLtG = 0, somaLtP = 0, cntLtP = 0
 
-  const sortedKeys = [...allKeys.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  const sortedKeys = Array.from(allKeys.entries()).sort((a, b) => a[1].localeCompare(b[1]))
 
   const linhas = sortedKeys.map(([key, label]) => {
     const linha = buildLinhaFromMaps(key, label, novasMap, ganhasMap, perdidasMap)
