@@ -70,6 +70,10 @@ const menuItems = [
       {
         title: "Comparativo de Vendas",
         href: "/analytics/comparativo-vendas"
+      },
+      {
+        title: "Processadas",
+        href: "/analytics/oportunidades-processadas"
       }
     ]
   },
