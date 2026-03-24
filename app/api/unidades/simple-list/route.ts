@@ -10,7 +10,6 @@ export async function GET() {
       FROM unidades
       WHERE name IS NOT NULL
       ORDER BY name ASC
-      LIMIT 10
     `) as any[]
 
     return NextResponse.json({
@@ -19,11 +18,10 @@ export async function GET() {
       unidades
     })
   } catch (error) {
-    console.error('Erro:', error)
+    console.error('Erro ao buscar lista de unidades:', error)
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
-      stack: error instanceof Error ? error.stack : null
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     }, { status: 500 })
   }
 }

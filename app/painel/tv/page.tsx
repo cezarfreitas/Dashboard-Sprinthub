@@ -160,10 +160,8 @@ export default function PainelTVPage() {
           </h2>
           <div className="overflow-hidden">
             <div className="tv-unidades-grid">
-              <PainelUnidadesGrid 
+              <PainelUnidadesGrid
                 filtros={filtros}
-                mesAtual={mesAtual}
-                anoAtual={anoAtual}
               />
             </div>
           </div>

@@ -86,28 +86,28 @@ export async function GET(
 
     // Oportunidades perdidas
     filtros.push('o.lost_date IS NOT NULL')
-    filtros.push('o.status IN (?, ?, ?)')
-    queryParams.push('lost', 'perdida', 'closed')
+    filtros.push('o.archived = 0')
 
-    // Filtro de período (por data de perda)
+    // Filtro de período por lost_date
     if (dataInicio && dataFim) {
       filtros.push('DATE(o.lost_date) BETWEEN ? AND ?')
       queryParams.push(dataInicio, dataFim)
     } else {
-      // Se não houver período, buscar do mês atual
+      // Sem período: buscar do mês atual
       const hoje = new Date()
-      const mesAtual = hoje.getMonth() + 1
-      const anoAtual = hoje.getFullYear()
       filtros.push('MONTH(o.lost_date) = ? AND YEAR(o.lost_date) = ?')
-      queryParams.push(mesAtual, anoAtual)
+      queryParams.push(hoje.getMonth() + 1, hoje.getFullYear())
     }
 
-    // Filtro de funil
+    // Filtro de funil (suporta múltiplos IDs separados por vírgula)
     let joinFunil = ''
     if (funilId) {
-      joinFunil = 'LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id'
-      filtros.push('cf.id_funil = ?')
-      queryParams.push(parseInt(funilId))
+      const funilIds = funilId.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id) && id > 0)
+      if (funilIds.length > 0) {
+        joinFunil = 'LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id'
+        filtros.push(`cf.id_funil IN (${funilIds.map(() => '?').join(',')})`)
+        queryParams.push(...funilIds)
+      }
     }
 
     // Buscar oportunidades perdidas - TODOS os campos incluindo JSONs

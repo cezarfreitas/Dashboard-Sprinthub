@@ -73,14 +73,11 @@ function PainelBarraProgressoMeta({
           paramsGanhos.append('funil_id', String(funilId))
         }
 
-        // Buscar meta do período
-        const mesMeta = new Date(periodoInicio + 'T00:00:00').getMonth() + 1
-        const anoMeta = new Date(periodoInicio + 'T00:00:00').getFullYear()
-        
+        // Buscar meta do período (suporta range multi-mês)
         const paramsMeta = new URLSearchParams()
-        paramsMeta.append('mes', String(mesMeta))
-        paramsMeta.append('ano', String(anoMeta))
-        
+        paramsMeta.append('periodo_inicio', periodoInicio)
+        paramsMeta.append('periodo_fim', periodoFim)
+
         if (unidadesIds.length > 0) {
           paramsMeta.append('unidade_id', unidadesIds.join(','))
         }
@@ -106,7 +103,8 @@ function PainelBarraProgressoMeta({
         ])
 
         if (dataGanhos.success && dataGanhos.data) {
-          setValorAtual(Number(dataGanhos.data.valor_total || 0))
+          // Usar valor_ganhas (somente ganhas) e não valor_total (todas as oportunidades)
+          setValorAtual(Number(dataGanhos.data.valor_ganhas ?? dataGanhos.data.valor_total ?? 0))
         } else {
           setValorAtual(0)
         }
@@ -246,124 +244,128 @@ function PainelBarraProgressoMeta({
         periodoLabel="do período"
       />
 
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 shadow-sm">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Target className="w-5 h-5 text-gray-700" />
-          <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-            {meta === 0 ? 'Vendas do Período:' : 'Meta do Período:'}
-          </span>
-        </div>
-        
+      <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 mb-4 shadow-sm">
         {meta > 0 ? (
-          <>
-            {/* Barra de Progresso */}
-            <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden flex-1">
-              <div 
+          <div className="flex items-center gap-4">
+            {/* Label */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Target className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                Meta do Período
+              </span>
+              {funilId && (
+                <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                  sem filtro de funil
+                </span>
+              )}
+            </div>
+
+            {/* Barra de progresso */}
+            <div className="relative h-5 bg-gray-100 rounded-full overflow-hidden flex-1">
+              <div
                 className={cn(
-                  "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-3",
+                  "absolute inset-y-0 left-0 transition-all duration-700 rounded-full flex items-center justify-end pr-2.5",
                   smartMeta.fillClass
                 )}
-                style={{ width: `${Math.max(3, Math.min(100, percentualMeta))}%` }}
+                style={{ width: `${Math.max(2, Math.min(100, percentualMeta))}%` }}
               >
                 {percentualMeta > 15 && (
-                  <span className="text-white text-xs font-bold">
+                  <span className="text-white text-[11px] font-bold drop-shadow-sm">
                     {percentualReal.toFixed(1)}%
                   </span>
                 )}
               </div>
-
-              {/* Marcador de projeção - linha dentro da barra */}
-              {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
+              {percentualMeta <= 15 && percentualMeta > 0 && (
+                <div className="absolute inset-0 flex items-center pl-2.5">
+                  <span className="text-gray-500 text-[11px] font-bold">{percentualReal.toFixed(1)}%</span>
+                </div>
+              )}
+              {/* Marcador esperado */}
+              {smartMeta.expectedMarkerPercent !== null && percentualMeta < 100 && (
                 <div
-                  className="absolute top-0 bottom-0 w-[2px] bg-blue-600 z-10"
-                  style={{ left: `${Math.min(100, smartMeta.projectedPercent)}%` }}
+                  className="absolute top-0 bottom-0 w-[2px] bg-gray-400/60 z-10"
+                  style={{ left: `${smartMeta.expectedMarkerPercent}%` }}
+                  title={`Esperado: ${smartMeta.expectedMarkerPercent.toFixed(1)}%`}
                 />
               )}
+              {/* Marcador de projeção */}
+              {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
+                <div
+                  className="absolute top-0 bottom-0 w-[2px] bg-blue-400 z-10"
+                  style={{ left: `${Math.min(100, smartMeta.projectedPercent)}%` }}
+                  title={`Projeção: ${formatCurrency(smartMeta.projectedValor)}`}
+                />
+              )}
+            </div>
 
-              {percentualMeta <= 15 && percentualMeta > 0 && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-gray-600 text-xs font-bold">
-                    {percentualReal.toFixed(1)}%
+            {/* Valores + badge + status */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="text-right">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wider">Atingido</div>
+                <div className="text-sm font-black text-gray-900 leading-tight">{formatCurrency(valorAtual)}</div>
+              </div>
+              <div className="text-gray-200 text-lg font-thin">/</div>
+              <div className="text-right">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wider">Meta</div>
+                <div className="text-sm font-bold text-gray-500 leading-tight">{formatCurrency(meta)}</div>
+              </div>
+              <div className={cn(
+                "px-2.5 py-1 rounded-lg text-sm font-black border",
+                percentualReal >= 100
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  : smartMeta.deviationPp !== null && smartMeta.deviationPp < -15
+                    ? "bg-red-50 border-red-200 text-red-600"
+                    : smartMeta.deviationPp !== null && smartMeta.deviationPp < -5
+                      ? "bg-amber-50 border-amber-200 text-amber-600"
+                      : "bg-green-50 border-green-200 text-green-700"
+              )}>
+                {percentualReal.toFixed(1)}%
+              </div>
+              {smartMeta.statusLabel && (
+                <div className="hidden lg:flex flex-col items-end shrink-0 min-w-[110px]">
+                  <span className={cn(
+                    "text-xs font-semibold whitespace-nowrap",
+                    smartMeta.deviationPp !== null && smartMeta.deviationPp < -15 ? "text-red-500"
+                    : smartMeta.deviationPp !== null && smartMeta.deviationPp < -5 ? "text-amber-500"
+                    : percentualReal >= 100 ? "text-emerald-600"
+                    : "text-green-600"
+                  )}>
+                    {smartMeta.statusLabel}
                   </span>
+                  {smartMeta.deviationPp !== null && percentualReal < 100 && (
+                    <span className="text-[10px] text-gray-400">
+                      desvio <span className={cn(
+                        "font-bold",
+                        smartMeta.deviationPp >= -5 ? "text-green-600"
+                        : smartMeta.deviationPp >= -15 ? "text-amber-500"
+                        : "text-red-500"
+                      )}>
+                        {smartMeta.deviationPp >= 0 ? '+' : ''}{smartMeta.deviationPp.toFixed(1)}pp
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
+                <div className="hidden lg:flex items-center gap-1.5 shrink-0 border-l border-gray-100 pl-3">
+                  <div className="w-2.5 h-[2px] bg-blue-400 rounded" />
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wider">Projeção</div>
+                    <div className="text-xs font-bold text-blue-600">{formatCurrency(smartMeta.projectedValor)}</div>
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Label de projeção - fora da barra, ao lado */}
-            {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <div className="w-3 h-[2px] bg-blue-600" />
-                <span className="text-[10px] font-bold text-blue-600 whitespace-nowrap">
-                  Proj: {formatCurrency(smartMeta.projectedValor)}
-                </span>
-              </div>
-            )}
-        
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="text-right">
-            <span className="text-xs text-gray-500">Atingido: </span>
-            <span className="text-sm font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
           </div>
-          <div className="text-gray-300">/</div>
-          <div className="text-right">
-            <span className="text-xs text-gray-500">Meta: </span>
-            <span className="text-sm font-bold text-gray-900">{formatCurrency(meta)}</span>
-          </div>
-          <div className="text-right min-w-[60px]">
-            <span className={cn(
-              "text-sm font-bold",
-              percentualReal >= 100 ? "text-emerald-600" : "text-green-600"
-            )}>
-              {percentualReal.toFixed(1)}%
-            </span>
-          </div>
-
-          {(smartMeta.statusLabel || smartMeta.deviationPp !== null || smartMeta.projectedPercent !== null) && (
-            <div className="hidden lg:flex flex-col items-end gap-0.5 min-w-[140px]">
-              {smartMeta.statusLabel && (
-                <span className={cn(
-                  "text-[11px] font-semibold",
-                  smartMeta.deviationPp !== null && smartMeta.deviationPp < -15
-                    ? "text-rose-600"
-                    : smartMeta.deviationPp !== null && smartMeta.deviationPp < -5
-                      ? "text-amber-600"
-                      : percentualMeta >= 100
-                        ? "text-emerald-600"
-                        : "text-emerald-500"
-                )}>
-                  {smartMeta.statusLabel}
-                  {smartMeta.deviationPp !== null && percentualMeta < 100 && (
-                    <span className="text-gray-500 font-bold">
-                      {' '}({smartMeta.deviationPp >= 0 ? '+' : ''}{smartMeta.deviationPp.toFixed(1)}pp)
-                    </span>
-                  )}
-                </span>
-              )}
-
-              {smartMeta.projectedPercent !== null && smartMeta.projectedValor !== null && percentualMeta < 100 && (
-                <span className="text-[11px] text-gray-500">
-                  Proj.: <span className="font-bold text-gray-900">{Math.min(200, smartMeta.projectedPercent).toFixed(0)}%</span>
-                  {' '}({formatCurrency(smartMeta.projectedValor)})
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-          </>
         ) : (
-          <div className="flex items-center gap-4 flex-shrink-0">
-            <div className="text-right">
-              <span className="text-xs text-gray-500">Total vendido: </span>
-              <span className="text-sm font-bold text-gray-900">{formatCurrency(valorAtual)}</span>
-            </div>
-            <div className="px-3 py-1 bg-orange-100 border border-orange-200 rounded-md">
-              <span className="text-xs text-orange-600">Sem meta cadastrada</span>
-            </div>
+          <div className="flex items-center gap-3">
+            <Target className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Vendas do Período</span>
+            <span className="text-base font-black text-gray-900">{formatCurrency(valorAtual)}</span>
+            <span className="text-[11px] text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-lg">Sem meta cadastrada</span>
           </div>
         )}
       </div>
-    </div>
     </>
   )
 }

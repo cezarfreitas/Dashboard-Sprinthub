@@ -11,8 +11,6 @@ export async function GET(request: NextRequest) {
     const data = searchParams.get('data') // Formato: YYYY-MM-DD
     const tipo = searchParams.get('tipo') // 'criadas', 'perdidas', 'ganhas'
 
-    console.log('🔍 [oportunidades-por-data] Parâmetros recebidos:', { vendedorId, data, tipo })
-
     if (!vendedorId) {
       return NextResponse.json(
         { success: false, message: 'vendedor_id é obrigatório' },
@@ -95,9 +93,6 @@ export async function GET(request: NextRequest) {
       params.push(vendedorId, data)
     }
 
-    console.log('🔍 [oportunidades-por-data] Query:', query.trim())
-    console.log('🔍 [oportunidades-por-data] Params:', params)
-
     const oportunidades = await executeQuery(query, params) as Array<{
       id: number
       title: string
@@ -109,31 +104,10 @@ export async function GET(request: NextRequest) {
       crm_column: string
     }>
 
-    console.log('✅ [oportunidades-por-data] Resultado:', { total: oportunidades.length, oportunidades })
-
-    // Debug: buscar quantas oportunidades ganhas existem para esse usuário sem filtro de data
-    if (tipo === 'ganhas' && oportunidades.length === 0) {
-      const debugQuery = `
-        SELECT o.id, o.title, o.gain_date, o.status, o.user, o.archived,
-               DATE(o.gain_date) as data_gain,
-               DATE(CONVERT_TZ(o.gain_date, '+00:00', '-03:00')) as data_gain_gmt3
-        FROM oportunidades o
-        WHERE CAST(o.user AS UNSIGNED) = ?
-          AND o.status = 'won'
-          AND o.archived = 0
-          AND o.gain_date IS NOT NULL
-        ORDER BY o.gain_date DESC
-        LIMIT 10
-      `
-      const debugResult = await executeQuery(debugQuery, [vendedorId])
-      console.log('🐛 [DEBUG] Oportunidades ganhas do usuário (sem filtro de data):', debugResult)
-    }
-
     return NextResponse.json({
       success: true,
       data: oportunidades,
-      total: oportunidades.length,
-      debug: { vendedorId, data, tipo }
+      total: oportunidades.length
     })
 
   } catch (error) {

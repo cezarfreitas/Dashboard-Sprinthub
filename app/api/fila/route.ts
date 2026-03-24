@@ -281,12 +281,12 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
+    console.error('Erro ao buscar filas de leads:', error)
     return NextResponse.json(
       {
         success: false,
         message: 'Erro ao buscar filas de leads',
-        error: error instanceof Error ? error.message : 'Erro desconhecido',
-        stack: error instanceof Error ? error.stack : undefined
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
       },
       { status: 500 }
     )

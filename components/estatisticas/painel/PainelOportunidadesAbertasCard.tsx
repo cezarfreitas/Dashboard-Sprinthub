@@ -97,7 +97,7 @@ function PainelOportunidadesAbertasCard({
         
         if (result.success && result.data) {
           const totalAbertas = Number(result.data.total_abertas_geral || result.data.total_abertas || result.data.total || 0)
-          const valorAbertas = Number(result.data.valor_abertas || result.data.valor_total || 0)
+          const valorAbertas = Number(result.data.valor_abertas ?? 0)
           const abertasNoPeriodo = Number(result.data.total_abertas_periodo || 0)
           const valorAbertasNoPeriodo = Number(result.data.valor_abertas_periodo || 0)
           const abertasForaPeriodo = Number(result.data.total_abertas_fora_periodo || 0)
@@ -140,10 +140,8 @@ function PainelOportunidadesAbertasCard({
             0
           )
           const valorAbertas = Number(
-            result.data.valor_abertas || 
-            result.data.valor_total || 
-            result.data.stats?.[0]?.valor_abertas || 
-            result.data.stats?.[0]?.valor_total || 
+            result.data.valor_abertas ??
+            result.data.stats?.[0]?.valor_abertas ??
             0
           )
           
@@ -193,14 +191,15 @@ function PainelOportunidadesAbertasCard({
   return (
     <Card className="bg-gradient-to-br from-primary to-primary/90 border-0 rounded-2xl">
       <CardContent className="p-4">
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <FolderOpen className="w-4 h-4 text-white/90" />
+            <div className="bg-white/15 rounded-lg p-1.5">
+              <FolderOpen className="w-4 h-4 text-white/90" />
+            </div>
             <span className="text-white/90 text-[10px] font-bold uppercase tracking-wider">
               OPORTUNIDADES ABERTAS
             </span>
           </div>
-          
           {loading ? (
             <Skeleton className="h-9 w-24 bg-primary-foreground/15" />
           ) : (
@@ -209,9 +208,9 @@ function PainelOportunidadesAbertasCard({
             </p>
           )}
 
-          <Separator className="bg-blue-500/30" />
+          <div className="border-t border-white/10 my-1" />
 
-          <div className="space-y-1 text-[10px]">
+          <div className="flex flex-col gap-0 text-[10px]">
             <div className="flex items-center justify-between">
               <span className="text-white/70">Valor Total:</span>
               {loading ? (
@@ -224,7 +223,7 @@ function PainelOportunidadesAbertasCard({
             </div>
             {periodoInicio && periodoFim && (
               <>
-                <div className="flex items-center justify-between pt-1 border-t border-blue-500/20">
+                <div className="flex items-center justify-between border-t border-white/10 pt-1 mt-1">
                   <span className="text-white/70">Criadas no período:</span>
                   {loading ? (
                     <Skeleton className="h-4 w-32 bg-blue-500/30" />
@@ -234,7 +233,7 @@ function PainelOportunidadesAbertasCard({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-t border-white/10 pt-1 mt-1">
                   <span className="text-white/70">Criadas em outros períodos:</span>
                   {loading ? (
                     <Skeleton className="h-4 w-32 bg-blue-500/30" />

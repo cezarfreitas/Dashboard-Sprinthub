@@ -245,28 +245,33 @@ export async function GET(request: NextRequest) {
         valor: Number(resultPerdidas[0]?.valor || 0)
       }
       
-      // Buscar meta do mês (se houver filtro de data, usar mês/ano da data inicial)
-      let mesMeta = null
-      let anoMeta = null
-      if (dateStart) {
-        const dataInicioObj = new Date(dateStart + 'T00:00:00')
-        mesMeta = dataInicioObj.getMonth() + 1
-        anoMeta = dataInicioObj.getFullYear()
+      // Buscar meta do período — somar todos os meses cobertos por dateStart..dateEnd
+      const mesesMeta: Array<{ mes: number; ano: number }> = []
+      if (dateStart && dateEnd) {
+        const [anoInicio, mesInicio] = dateStart.split('-').map(Number)
+        const [anoFim, mesFim] = dateEnd.split('-').map(Number)
+        let anoIt = anoInicio
+        let mesIt = mesInicio
+        while (anoIt < anoFim || (anoIt === anoFim && mesIt <= mesFim)) {
+          mesesMeta.push({ mes: mesIt, ano: anoIt })
+          mesIt++
+          if (mesIt > 12) { mesIt = 1; anoIt++ }
+        }
       } else {
         const hoje = new Date()
-        mesMeta = hoje.getMonth() + 1
-        anoMeta = hoje.getFullYear()
+        mesesMeta.push({ mes: hoje.getMonth() + 1, ano: hoje.getFullYear() })
       }
-      
-      // Buscar meta da unidade para o mês/ano
+
+      const mesAnoConditions = mesesMeta.map(() => '(mes = ? AND ano = ?)').join(' OR ')
+      const mesAnoParams: any[] = mesesMeta.flatMap(({ mes, ano }) => [mes, ano])
+
       const queryMeta = `
         SELECT COALESCE(SUM(meta_valor), 0) as meta_total
         FROM metas_mensais
-        WHERE unidade_id = ? 
-          AND mes = ? 
-          AND ano = ?
+        WHERE unidade_id = ?
+          AND (${mesAnoConditions})
       `
-      const resultMeta = await executeQuery(queryMeta, [unidade.id, mesMeta, anoMeta]) as any[]
+      const resultMeta = await executeQuery(queryMeta, [unidade.id, ...mesAnoParams]) as any[]
       const metaValor = Number(resultMeta[0]?.meta_total || 0)
       
       // Calcular percentual atingido

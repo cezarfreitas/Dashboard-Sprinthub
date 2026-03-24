@@ -10,9 +10,7 @@ interface UsePainelUnidadesReturn {
 }
 
 export function usePainelUnidades(
-  filtros: PainelFiltros,
-  mesAtual: number,
-  anoAtual: number
+  filtros: PainelFiltros
 ): UsePainelUnidadesReturn {
   const { user, loading: authLoading } = useAuthSistema()
   const [unidades, setUnidades] = useState<PainelUnidade[]>([])

@@ -171,14 +171,15 @@ function PainelOportunidadesPerdidasCard({
   return (
     <Card className="bg-gradient-to-br from-red-600 to-red-700 border-0 rounded-2xl">
       <CardContent className="p-4">
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <XCircle className="w-4 h-4 text-white/90" />
+            <div className="bg-white/15 rounded-lg p-1.5">
+              <XCircle className="w-4 h-4 text-white/90" />
+            </div>
             <span className="text-white/90 text-[10px] font-bold uppercase tracking-wider">
               OPORTUNIDADES PERDIDAS
             </span>
           </div>
-          
           {loading ? (
             <Skeleton className="h-9 w-24 bg-red-500/30" />
           ) : (
@@ -187,44 +188,41 @@ function PainelOportunidadesPerdidasCard({
             </p>
           )}
 
-          <Separator className="bg-red-500/30" />
+          <div className="border-t border-white/10 my-1" />
 
-          <div className="space-y-1 text-[10px]">
+          <div className="flex flex-col gap-0 text-[10px]">
             <div className="flex items-center justify-between">
-              <span className="text-white/70">Total de Oportunidades:</span>
+              <span className="text-white/70">Valor Total:</span>
               {loading ? (
-                <Skeleton className="h-4 w-16 bg-red-500/30" />
+                <Skeleton className="h-4 w-28 bg-red-500/30" />
               ) : (
                 <span className="text-white font-semibold">
-                  {totalFormatado}
+                  {formatCurrency(perdidasValorTotal)}
                 </span>
               )}
             </div>
-            
+
             {perdidasPeriodo !== null && perdidasForaPeriodo !== null && (
               <>
-                <Separator className="bg-red-500/20 my-1" />
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/60">Criadas Dentro (CreateDate):</span>
-                    {loading ? (
-                      <Skeleton className="h-4 w-32 bg-red-500/30" />
-                    ) : (
-                      <span className="text-white/90 font-medium">
-                        {perdidasPeriodo.total.toLocaleString('pt-BR')} ({formatCurrency(perdidasPeriodo.valor)})
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/60">Criadas Fora (CreateDate):</span>
-                    {loading ? (
-                      <Skeleton className="h-4 w-32 bg-red-500/30" />
-                    ) : (
-                      <span className="text-white/90 font-medium">
-                        {perdidasForaPeriodo.total.toLocaleString('pt-BR')} ({formatCurrency(perdidasForaPeriodo.valor)})
-                      </span>
-                    )}
-                  </div>
+                <div className="flex items-center justify-between border-t border-white/10 pt-1 mt-1">
+                  <span className="text-white/70">Criadas no período:</span>
+                  {loading ? (
+                    <Skeleton className="h-4 w-32 bg-red-500/30" />
+                  ) : (
+                    <span className="text-white/90 font-medium">
+                      {perdidasPeriodo.total.toLocaleString('pt-BR')} ({formatCurrency(perdidasPeriodo.valor)})
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between border-t border-white/10 pt-1 mt-1">
+                  <span className="text-white/70">Criadas em outros períodos:</span>
+                  {loading ? (
+                    <Skeleton className="h-4 w-32 bg-red-500/30" />
+                  ) : (
+                    <span className="text-white/90 font-medium">
+                      {perdidasForaPeriodo.total.toLocaleString('pt-BR')} ({formatCurrency(perdidasForaPeriodo.valor)})
+                    </span>
+                  )}
                 </div>
               </>
             )}

@@ -66,7 +66,8 @@ const menuItems: MenuItem[] = [
       { title: "Motivos de Perda", href: "/analytics/motivos-perda" },
       { title: "Resultados / Meta", href: "/analytics/resultados-meta" },
       { title: "Receita Mensal", href: "/analytics/receita-mensal" },
-      { title: "Acumulado Mês", href: "/analytics/acumulado-mes" }
+      { title: "Acumulado Mês", href: "/analytics/acumulado-mes" },
+      { title: "Comparativo de Vendas", href: "/analytics/comparativo-vendas" }
     ]
   },
   {

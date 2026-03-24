@@ -11,30 +11,59 @@ export async function GET(request: NextRequest) {
     const vendedor_id = searchParams.get('vendedor_id')
     const mes = searchParams.get('mes')
     const ano = searchParams.get('ano')
+    // Suporte a range de período (período multi-mês)
+    const periodo_inicio = searchParams.get('periodo_inicio') // formato: YYYY-MM-DD
+    const periodo_fim = searchParams.get('periodo_fim')       // formato: YYYY-MM-DD
 
-    // Usar mês e ano atual se não especificados
-    const currentDate = new Date()
-    const targetMes = mes ? parseInt(mes) : currentDate.getMonth() + 1
-    const targetAno = ano ? parseInt(ano) : currentDate.getFullYear()
+    // Determinar lista de meses/anos a consultar
+    let mesesConsulta: Array<{ mes: number; ano: number }> = []
 
-    // Validar mês e ano
-    if (targetMes < 1 || targetMes > 12) {
-      return NextResponse.json(
-        { success: false, message: 'Mês deve estar entre 1 e 12' },
-        { status: 400 }
-      )
+    if (periodo_inicio && periodo_fim) {
+      // Extrair todos os meses do período
+      const [anoInicio, mesInicio] = periodo_inicio.split('-').map(Number)
+      const [anoFim, mesFim] = periodo_fim.split('-').map(Number)
+
+      let anoAtual = anoInicio
+      let mesAtual = mesInicio
+      while (anoAtual < anoFim || (anoAtual === anoFim && mesAtual <= mesFim)) {
+        mesesConsulta.push({ mes: mesAtual, ano: anoAtual })
+        mesAtual++
+        if (mesAtual > 12) {
+          mesAtual = 1
+          anoAtual++
+        }
+      }
+    } else {
+      // Usar mês e ano atual se não especificados
+      const currentDate = new Date()
+      const targetMes = mes ? parseInt(mes) : currentDate.getMonth() + 1
+      const targetAno = ano ? parseInt(ano) : currentDate.getFullYear()
+
+      if (targetMes < 1 || targetMes > 12) {
+        return NextResponse.json(
+          { success: false, message: 'Mês deve estar entre 1 e 12' },
+          { status: 400 }
+        )
+      }
+      if (targetAno < 2020 || targetAno > 2030) {
+        return NextResponse.json(
+          { success: false, message: 'Ano deve estar entre 2020 e 2030' },
+          { status: 400 }
+        )
+      }
+
+      mesesConsulta = [{ mes: targetMes, ano: targetAno }]
     }
 
-    if (targetAno < 2020 || targetAno > 2030) {
-      return NextResponse.json(
-        { success: false, message: 'Ano deve estar entre 2020 e 2030' },
-        { status: 400 }
-      )
-    }
+    // Construir condição de meses/anos
+    const mesAnoConditions = mesesConsulta
+      .map(() => '(m.mes = ? AND m.ano = ?)')
+      .join(' OR ')
+    const mesAnoParams: any[] = mesesConsulta.flatMap(({ mes, ano }) => [mes, ano])
 
     // Construir query base
     let query = `
-      SELECT 
+      SELECT
         m.id,
         m.vendedor_id,
         m.unidade_id,
@@ -48,11 +77,10 @@ export async function GET(request: NextRequest) {
       FROM metas_mensais m
       JOIN vendedores v ON m.vendedor_id = v.id
       JOIN unidades u ON m.unidade_id = u.id
-      WHERE m.mes = ? 
-        AND m.ano = ? 
+      WHERE (${mesAnoConditions})
     `
-    
-    const params: any[] = [targetMes, targetAno]
+
+    const params: any[] = [...mesAnoParams]
 
     // Aplicar filtros - suportar múltiplas unidades
     if (unidade_id) {
@@ -71,7 +99,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    query += ' ORDER BY u.nome, v.name'
+    query += ' ORDER BY m.ano, m.mes, u.nome, v.name'
 
     const metas = await executeQuery(query, params) as Array<{
       id: number
@@ -125,6 +153,8 @@ export async function GET(request: NextRequest) {
       }>
     }>)
 
+    const firstMes = mesesConsulta[0]
+
     return NextResponse.json({
       success: true,
       data: {
@@ -135,9 +165,10 @@ export async function GET(request: NextRequest) {
         total_unidades: Object.keys(metasPorUnidade).length
       },
       periodo: {
-        mes: targetMes,
-        ano: targetAno,
-        mes_nome: new Date(targetAno, targetMes - 1).toLocaleString('pt-BR', { month: 'long' })
+        mes: firstMes.mes,
+        ano: firstMes.ano,
+        mes_nome: new Date(firstMes.ano, firstMes.mes - 1).toLocaleString('pt-BR', { month: 'long' }),
+        meses_consultados: mesesConsulta.length
       },
       filtros: {
         unidade_id: unidade_id || null,

@@ -202,7 +202,7 @@ export const PainelUnidadeCard = memo(function PainelUnidadeCard({
       fillClass: 'bg-gradient-to-r from-red-400 to-rose-500',
       expectedMarkerPercent: expectedPercent,
     }
-  }, [filtros?.periodoInicio, filtros?.periodoFim, percentualMeta, unidade.meta_valor])
+  }, [filtros?.periodoInicio, filtros?.periodoFim, percentualReal, unidade.meta_valor])
 
   const handleExportToExcel = async (e: React.MouseEvent) => {
     e.stopPropagation()

@@ -36,16 +36,12 @@ const SORT_STORAGE_KEY = 'painel-unidades-sort'
 
 interface PainelUnidadesGridProps {
   filtros: PainelFiltros
-  mesAtual: number
-  anoAtual: number
 }
 
 export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
   filtros,
-  mesAtual,
-  anoAtual
 }: PainelUnidadesGridProps) {
-  const { unidades, loading, error } = usePainelUnidades(filtros, mesAtual, anoAtual)
+  const { unidades, loading, error } = usePainelUnidades(filtros)
   const [selectedUnidade, setSelectedUnidade] = useState<{ id: number; nome: string; status: 'abertas' | 'ganhas' | 'perdidas' } | null>(null)
   const [viewMode, setViewMode] = useState<"cards" | "tabela">("cards")
   const [sortField, setSortField] = useState<SortField>('valor_ganho')
@@ -298,8 +294,6 @@ export const PainelUnidadesGrid = memo(function PainelUnidadesGrid({
         unidadeNome={selectedUnidade?.nome || ''}
         status={selectedUnidade?.status || 'ganhas'}
         filtros={filtros}
-        mesAtual={mesAtual}
-        anoAtual={anoAtual}
         open={!!selectedUnidade}
         onOpenChange={(open) => {
           if (!open) {

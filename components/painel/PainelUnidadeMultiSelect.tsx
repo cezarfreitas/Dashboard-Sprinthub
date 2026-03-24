@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -74,22 +74,16 @@ export default function PainelUnidadeMultiSelect({
               e.stopPropagation()
               toggleAll()
             }}
-            onMouseDown={(e) => {
-              e.preventDefault()
-            }}
+            onMouseDown={(e) => { e.preventDefault() }}
           >
             <Checkbox
-              id="select-all"
               checked={selectedIds.length === unidadesList.length && unidadesList.length > 0}
               onCheckedChange={toggleAll}
               className="mr-2"
-              onClick={(e) => {
-                e.stopPropagation()
-              }}
+              onClick={(e) => { e.stopPropagation() }}
             />
-            <label
-              htmlFor="select-all"
-              className="flex-1 text-xs font-semibold text-gray-700 cursor-pointer py-1"
+            <span
+              className="flex-1 text-xs font-semibold text-gray-700 cursor-pointer py-1 select-none"
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -97,7 +91,7 @@ export default function PainelUnidadeMultiSelect({
               }}
             >
               Todas as unidades
-            </label>
+            </span>
           </div>
 
           {/* Lista de unidades com scroll */}
@@ -119,21 +113,13 @@ export default function PainelUnidadeMultiSelect({
                     }}
                   >
                     <Checkbox
-                      id={`unidade-${unidade.id}`}
                       checked={isChecked}
-                      onCheckedChange={(checked) => {
-                        if (checked !== isChecked) {
-                          toggleUnidade(unidade.id)
-                        }
-                      }}
+                      onCheckedChange={() => toggleUnidade(unidade.id)}
                       className="mr-2"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                      }}
+                      onClick={(e) => { e.stopPropagation() }}
                     />
-                    <label
-                      htmlFor={`unidade-${unidade.id}`}
-                      className="flex-1 text-xs text-gray-700 cursor-pointer py-1 truncate"
+                    <span
+                      className="flex-1 text-xs text-gray-700 cursor-pointer py-1 truncate select-none"
                       title={unidade.nome}
                       onClick={(e) => {
                         e.preventDefault()
@@ -142,7 +128,7 @@ export default function PainelUnidadeMultiSelect({
                       }}
                     >
                       {unidade.nome}
-                    </label>
+                    </span>
                   </div>
                 )
               })}

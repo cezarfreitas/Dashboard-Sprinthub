@@ -84,19 +84,20 @@ export async function GET(
     filtros.push(`o.user IN (${placeholders})`)
     queryParams.push(...vendedoresIds)
 
-    // Oportunidades abertas - SEM filtro de período (mostrar todas as abertas)
-    filtros.push('o.status IN (?, ?, ?)')
-    queryParams.push('open', 'aberta', 'active')
+    // Oportunidades abertas: sem gain_date e sem lost_date, não arquivadas
+    filtros.push('o.gain_date IS NULL')
+    filtros.push('o.lost_date IS NULL')
+    filtros.push('o.archived = 0')
 
-    // NÃO aplicar filtro de período para oportunidades abertas
-    // Mostrar todas as oportunidades abertas, independente de quando foram criadas
-
-    // Filtro de funil
+    // Filtro de funil (suporta múltiplos IDs separados por vírgula)
     let joinFunil = ''
     if (funilId) {
-      joinFunil = 'LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id'
-      filtros.push('cf.id_funil = ?')
-      queryParams.push(parseInt(funilId))
+      const funilIds = funilId.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id) && id > 0)
+      if (funilIds.length > 0) {
+        joinFunil = 'LEFT JOIN colunas_funil cf ON o.coluna_funil_id = cf.id'
+        filtros.push(`cf.id_funil IN (${funilIds.map(() => '?').join(',')})`)
+        queryParams.push(...funilIds)
+      }
     }
 
     // Buscar oportunidades abertas

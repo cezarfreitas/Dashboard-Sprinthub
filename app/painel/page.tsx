@@ -53,13 +53,6 @@ export default function PainelPage() {
   const [grupos, setGrupos] = useState<Array<{ id: number; nome: string; unidadeIds?: number[] }>>([])
   const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
   
-  const { mesAtual, anoAtual } = useMemo(() => {
-    const dataAtual = new Date()
-    return {
-      mesAtual: dataAtual.getMonth() + 1,
-      anoAtual: dataAtual.getFullYear()
-    }
-  }, [])
 
   // Calcular diferença em dias do período selecionado
   const diasDoPeriodo = useMemo(() => {
@@ -667,10 +660,8 @@ export default function PainelPage() {
             </Card>
           </div>
 
-          <PainelUnidadesGrid 
+          <PainelUnidadesGrid
             filtros={filtros}
-            mesAtual={mesAtual}
-            anoAtual={anoAtual}
           />
         </div>
       </div>

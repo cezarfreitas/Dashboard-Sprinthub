@@ -606,14 +606,12 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Erro na API /oportunidades/diaria:', error)
-    console.error('Stack:', error instanceof Error ? error.stack : 'No stack')
+    console.error('Erro na API /oportunidades/diaria:', error)
     return NextResponse.json(
       {
         success: false,
         message: 'Erro ao buscar oportunidades diárias',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
+        error: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )

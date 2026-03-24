@@ -49,96 +49,91 @@ function PainelTaxaConversaoCard({
 
     try {
       setLoading(true)
-      
-      const params = new URLSearchParams()
-      params.append('status', 'gain')
-      
+
+      const baseParams = new URLSearchParams()
       if (unidadesIds.length > 0) {
-        params.append('unidade_id', unidadesIds.join(','))
+        baseParams.append('unidade_id', unidadesIds.join(','))
       }
-      
       if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
-        params.append('funil_id', funilId)
-      }
-      
-      // Se houver período, usar all=1 para obter taxa de conversão baseada no createDate
-      if (periodoInicio && periodoFim) {
-        params.append('gain_date_start', periodoInicio)
-        params.append('gain_date_end', periodoFim)
-        params.append('all', '1')
-      }
-      
-      const response = await fetch(`/api/oportunidades/stats?${params.toString()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' }
-      })
-      
-      if (!response.ok) {
-        throw new Error('Erro ao buscar dados')
+        baseParams.append('funil_id', funilId)
       }
 
-      const result = await response.json()
-      
-      if (result.success && result.data) {
-        // Se houver período e all=1, usar dados do resumo_periodo com taxa_completa
-        if (periodoInicio && periodoFim && result.data.resumo_dentro_createDate) {
-          // Usar taxa_conversao_completa (inclui ganhas criadas fora do período)
-          const taxa = result.data.taxa_conversao_completa || result.data.resumo_periodo?.taxa_conversao_completa || 0
-          const criadas = result.data.total_criadas_periodo || 0
-          // Total de ganhas inclui as criadas fora do período
-          const ganhas = result.data.total_ganhas_periodo || 0
-          
-          setTaxaConversao(taxa)
-          setTotalCriadas(criadas)
-          setTotalGanhas(ganhas)
-        } else {
-          // Sem período: calcular taxa de conversão geral
-          // Buscar total criadas e total ganhas
-          const paramsCriadas = new URLSearchParams()
-          if (unidadesIds.length > 0) {
-            paramsCriadas.append('unidade_id', unidadesIds.join(','))
-          }
-          
-          if (funilId && funilId !== 'todos' && funilId !== 'undefined') {
-            paramsCriadas.append('funil_id', funilId)
-          }
-          
-          const [criadasRes, ganhasData] = await Promise.all([
-            fetch(`/api/oportunidades/stats?${paramsCriadas.toString()}`, {
-              cache: 'no-store',
-              headers: { 'Cache-Control': 'no-cache' }
-            }),
-            Promise.resolve(result)
-          ])
-          
-          if (!criadasRes.ok) {
-            throw new Error('Erro ao buscar dados')
-          }
-          
-          const criadasData = await criadasRes.json()
-          
-          const criadas = Number(
-            criadasData.data?.total || 
-            criadasData.data?.stats?.[0]?.total || 
-            0
-          )
-          
-          const ganhas = Number(
-            ganhasData.data?.total_ganhas || 
-            ganhasData.data?.total || 
-            ganhasData.data?.stats?.[0]?.total_ganhas || 
-            ganhasData.data?.stats?.[0]?.total || 
-            0
-          )
-          
-          setTotalCriadas(criadas)
-          setTotalGanhas(ganhas)
-          setTaxaConversao(criadas > 0 ? (ganhas / criadas) * 100 : 0)
-        }
+      if (periodoInicio && periodoFim) {
+        // Taxa de conversão com período: ganhas (gain_date) / criadas (createDate) no mesmo período
+        const paramsGanhas = new URLSearchParams(baseParams)
+        paramsGanhas.append('status', 'won')
+        paramsGanhas.append('gain_date_start', periodoInicio)
+        paramsGanhas.append('gain_date_end', periodoFim)
+        paramsGanhas.append('all', '1')
+
+        const paramsCriadas = new URLSearchParams(baseParams)
+        paramsCriadas.append('created_date_start', periodoInicio)
+        paramsCriadas.append('created_date_end', periodoFim)
+
+        const [ganhasRes, criadasRes] = await Promise.all([
+          fetch(`/api/oportunidades/stats?${paramsGanhas.toString()}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+          }),
+          fetch(`/api/oportunidades/stats?${paramsCriadas.toString()}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+          })
+        ])
+
+        if (!ganhasRes.ok || !criadasRes.ok) throw new Error('Erro ao buscar dados')
+
+        const [ganhasData, criadasData] = await Promise.all([
+          ganhasRes.json(),
+          criadasRes.json()
+        ])
+
+        const ganhas = Number(
+          ganhasData.data?.resumo_periodo?.total_oportunidades ??
+          ganhasData.data?.total_ganhas_periodo ??
+          ganhasData.data?.total_ganhas ??
+          0
+        )
+        const criadas = Number(
+          criadasData.data?.total ?? 0
+        )
+
+        setTotalGanhas(ganhas)
+        setTotalCriadas(criadas)
+        setTaxaConversao(criadas > 0 ? (ganhas / criadas) * 100 : 0)
       } else {
-        setTaxaConversao(0)
-        setTotalCriadas(0)
-        setTotalGanhas(0)
+        // Sem período: buscar ganhas e criadas sem filtro de data
+        const paramsGanhas = new URLSearchParams(baseParams)
+        paramsGanhas.append('status', 'won')
+
+        const [ganhasRes, criadasRes] = await Promise.all([
+          fetch(`/api/oportunidades/stats?${paramsGanhas.toString()}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+          }),
+          fetch(`/api/oportunidades/stats?${baseParams.toString()}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+          })
+        ])
+
+        if (!ganhasRes.ok || !criadasRes.ok) throw new Error('Erro ao buscar dados')
+
+        const [ganhasData, criadasData] = await Promise.all([
+          ganhasRes.json(),
+          criadasRes.json()
+        ])
+
+        const ganhas = Number(
+          ganhasData.data?.total_ganhas ??
+          ganhasData.data?.total ??
+          0
+        )
+        const criadas = Number(criadasData.data?.total ?? 0)
+
+        setTotalGanhas(ganhas)
+        setTotalCriadas(criadas)
+        setTaxaConversao(criadas > 0 ? (ganhas / criadas) * 100 : 0)
       }
     } catch (error) {
       setTaxaConversao(0)
@@ -164,25 +159,26 @@ function PainelTaxaConversaoCard({
   return (
     <Card className="bg-gradient-to-br from-purple-600 to-purple-700 border-0 rounded-2xl">
       <CardContent className="p-4">
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <Percent className="w-4 h-4 text-white/90" />
+            <div className="bg-white/15 rounded-lg p-1.5">
+              <Percent className="w-4 h-4 text-white/90" />
+            </div>
             <span className="text-white/90 text-[10px] font-bold uppercase tracking-wider">
               TAXA DE CONVERSÃO
             </span>
           </div>
-          
           {loading ? (
             <Skeleton className="h-9 w-20 bg-purple-500/30" />
           ) : (
-            <p className="text-white text-3xl font-black leading-none">
+            <p className="text-white text-2xl font-black leading-none truncate">
               {taxaFormatada}
             </p>
           )}
 
-          <Separator className="bg-purple-500/30" />
+          <div className="border-t border-white/10 my-1" />
 
-          <div className="space-y-1 text-[10px]">
+          <div className="flex flex-col gap-0 text-[10px]">
             <div className="flex items-center justify-between">
               <span className="text-white/70">Criadas:</span>
               {loading ? (
@@ -193,7 +189,7 @@ function PainelTaxaConversaoCard({
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between border-t border-white/10 pt-1 mt-1">
               <span className="text-white/70">Ganhas:</span>
               {loading ? (
                 <Skeleton className="h-4 w-16 bg-purple-500/30" />

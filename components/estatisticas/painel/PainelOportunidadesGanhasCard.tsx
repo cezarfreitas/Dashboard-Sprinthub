@@ -126,10 +126,8 @@ function PainelOportunidadesGanhasCard({
             0
           )
           const valorGanhas = Number(
-            result.data.valor_ganhas || 
-            result.data.valor_total || 
-            result.data.stats?.[0]?.valor_ganhas || 
-            result.data.stats?.[0]?.valor_total || 
+            result.data.valor_ganhas ??
+            result.data.stats?.[0]?.valor_ganhas ??
             0
           )
           
@@ -173,25 +171,26 @@ function PainelOportunidadesGanhasCard({
   return (
     <Card className="bg-gradient-to-br from-green-600 to-green-700 border-0 rounded-2xl">
       <CardContent className="p-4">
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-white/90" />
+            <div className="bg-white/15 rounded-lg p-1.5">
+              <CheckCircle className="w-4 h-4 text-white/90" />
+            </div>
             <span className="text-white/90 text-[10px] font-bold uppercase tracking-wider">
               GANHOS
             </span>
           </div>
-          
           {loading ? (
             <Skeleton className="h-9 w-32 bg-green-500/30" />
           ) : (
-            <p className="text-white text-3xl font-black leading-none">
+            <p className="text-white text-2xl font-black leading-none truncate">
               {valorTotalFormatado}
             </p>
           )}
 
-          <Separator className="bg-green-500/30" />
+          <div className="border-t border-white/10 my-1" />
 
-          <div className="space-y-1 text-[10px]">
+          <div className="flex flex-col gap-0 text-[10px]">
             <div className="flex items-center justify-between">
               <span className="text-white/70">Total de Oportunidades:</span>
               {loading ? (
@@ -202,31 +201,28 @@ function PainelOportunidadesGanhasCard({
                 </span>
               )}
             </div>
-            
+
             {ganhasPeriodo !== null && ganhasForaPeriodo !== null && (
               <>
-                <Separator className="bg-green-500/20 my-1" />
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/60">Criadas Dentro (CreateDate):</span>
-                    {loading ? (
-                      <Skeleton className="h-4 w-32 bg-green-500/30" />
-                    ) : (
-                      <span className="text-white/90 font-medium">
-                        {ganhasPeriodo.total.toLocaleString('pt-BR')} ({formatCurrency(ganhasPeriodo.valor)})
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/60">Criadas Fora (CreateDate):</span>
-                    {loading ? (
-                      <Skeleton className="h-4 w-32 bg-green-500/30" />
-                    ) : (
-                      <span className="text-white/90 font-medium">
-                        {ganhasForaPeriodo.total.toLocaleString('pt-BR')} ({formatCurrency(ganhasForaPeriodo.valor)})
-                      </span>
-                    )}
-                  </div>
+                <div className="flex items-center justify-between border-t border-white/10 pt-1 mt-1">
+                  <span className="text-white/70">Criadas no período:</span>
+                  {loading ? (
+                    <Skeleton className="h-4 w-32 bg-green-500/30" />
+                  ) : (
+                    <span className="text-white/90 font-medium">
+                      {ganhasPeriodo.total.toLocaleString('pt-BR')} ({formatCurrency(ganhasPeriodo.valor)})
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between border-t border-white/10 pt-1 mt-1">
+                  <span className="text-white/70">Criadas em outros períodos:</span>
+                  {loading ? (
+                    <Skeleton className="h-4 w-32 bg-green-500/30" />
+                  ) : (
+                    <span className="text-white/90 font-medium">
+                      {ganhasForaPeriodo.total.toLocaleString('pt-BR')} ({formatCurrency(ganhasForaPeriodo.valor)})
+                    </span>
+                  )}
                 </div>
               </>
             )}

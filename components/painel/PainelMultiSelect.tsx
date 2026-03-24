@@ -90,15 +90,13 @@ export default function PainelMultiSelect({
             onMouseDown={(e) => e.preventDefault()}
           >
             <Checkbox
-              id="select-all"
               checked={selectedIds.length === items.length && items.length > 0}
               onCheckedChange={toggleAll}
               className="mr-2"
               onClick={(e) => e.stopPropagation()}
             />
-            <label
-              htmlFor="select-all"
-              className="flex-1 text-xs font-semibold text-gray-700 cursor-pointer py-1"
+            <span
+              className="flex-1 text-xs font-semibold text-gray-700 cursor-pointer py-1 select-none"
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -106,7 +104,7 @@ export default function PainelMultiSelect({
               }}
             >
               {allLabel}
-            </label>
+            </span>
           </div>
           <ScrollArea className="max-h-[300px]">
             <div className="p-1">
@@ -124,15 +122,13 @@ export default function PainelMultiSelect({
                     onMouseDown={(e) => e.preventDefault()}
                   >
                     <Checkbox
-                      id={`item-${item.id}`}
                       checked={isChecked}
                       onCheckedChange={() => toggleItem(item.id)}
                       className="mr-2"
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <label
-                      htmlFor={`item-${item.id}`}
-                      className="flex-1 text-xs text-gray-700 cursor-pointer py-1 truncate"
+                    <span
+                      className="flex-1 text-xs text-gray-700 cursor-pointer py-1 truncate select-none"
                       title={item.label}
                       onClick={(e) => {
                         e.preventDefault()
@@ -141,7 +137,7 @@ export default function PainelMultiSelect({
                       }}
                     >
                       {item.label}
-                    </label>
+                    </span>
                   </div>
                 )
               })}
