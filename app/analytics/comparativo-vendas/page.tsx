@@ -6,7 +6,7 @@ import PainelFiltersInline from "@/components/painel/PainelFiltersInline"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   BarChart3, Calendar, TrendingUp, TrendingDown, DollarSign,
-  Target, Clock, AlertTriangle, ShieldCheck, Percent
+  Target, Clock, AlertTriangle, ShieldCheck, Percent, Download, Loader2
 } from "lucide-react"
 import {
   Select,
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 
 // ─── Tipos ───────────────────────────────────────────────
 
@@ -263,6 +264,7 @@ export default function ComparativoVendasPage() {
   const [unidadesList, setUnidadesList] = useState<Array<{ id: number; nome: string }>>([])
   const [dados, setDados] = useState<ComparativoData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   const fetchFunis = useCallback(async () => {
     try { const r = await fetch('/api/funis'); const d = await r.json(); if (d.success && d.funis) setFunis(d.funis) } catch { setFunis([]) }
@@ -290,6 +292,34 @@ export default function ComparativoVendasPage() {
     }
     return selecionadas
   }, [filtros.unidadesSelecionadas, filtros.gruposSelecionados, grupos])
+
+  const handleExport = useCallback(async () => {
+    try {
+      setExporting(true)
+      const params = new URLSearchParams()
+      params.set('mes', String(mesRef))
+      params.set('ano', String(anoRef))
+      if (unidadesIdsAplicadas.length > 0) params.set('unidade_id', unidadesIdsAplicadas.join(','))
+      if (filtros.funisSelecionados.length > 0) params.set('funil_id', filtros.funisSelecionados.join(','))
+
+      const res = await fetch(`/api/analytics/comparativo-vendas/export?${params.toString()}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error('Falha ao exportar')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `comparativo-vendas_${anoRef}-${String(mesRef).padStart(2, '0')}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      alert('Erro ao exportar arquivo.')
+    } finally {
+      setExporting(false)
+    }
+  }, [mesRef, anoRef, unidadesIdsAplicadas, filtros.funisSelecionados])
 
   const fetchComparativo = useCallback(async (signal: AbortSignal) => {
     try {
@@ -353,6 +383,18 @@ export default function ComparativoVendasPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={exporting || loading || !dados}
+              className="h-9 px-3 text-xs gap-1.5"
+              title="Exportar para Excel (XLSX) com dados formatados e oportunidades brutas"
+            >
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              Exportar
+            </Button>
             <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer select-none">
               <input type="checkbox" checked={mostrarDetalhes} onChange={e => setMostrarDetalhes(e.target.checked)} className="rounded border-gray-300" />
               Detalhes (perdidas, ticket, conversão)
