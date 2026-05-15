@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import mysql from 'mysql2/promise'
 
+export const dynamic = 'force-dynamic'
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
