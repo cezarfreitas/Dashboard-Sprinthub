@@ -56,21 +56,7 @@ RUN --mount=type=cache,target=/root/.npm \
     fi
 
 # -----------------------------------------------------------------------------
-# Stage 3: Production Dependencies (separado para melhor cache)
-# -----------------------------------------------------------------------------
-FROM base AS prod-deps
-
-COPY package.json package-lock.json* ./
-
-RUN --mount=type=cache,target=/root/.npm \
-    if [ -f package-lock.json ]; then \
-      npm ci --only=production --prefer-offline --no-audit --loglevel=error; \
-    else \
-      npm install --only=production --no-audit --loglevel=error; \
-    fi
-
-# -----------------------------------------------------------------------------
-# Stage 4: Builder - Build da aplicação com máxima otimização
+# Stage 3: Builder - Build da aplicação com máxima otimização
 # -----------------------------------------------------------------------------
 FROM base AS builder
 
@@ -107,13 +93,8 @@ COPY public ./public
 RUN --mount=type=cache,target=/app/.next/cache \
     npm run build
 
-# Limpeza pós-build (manter node_modules para npm start)
-RUN find . -name "*.test.*" -o -name "*.spec.*" | xargs rm -rf 2>/dev/null || true && \
-    rm -rf node_modules/.cache && \
-    rm -rf .next/cache
-
 # -----------------------------------------------------------------------------
-# Stage 5: Runner - Imagem final para produção (DEFAULT)
+# Stage 4: Runner - Imagem final para produção (DEFAULT)
 # -----------------------------------------------------------------------------
 FROM base AS runner
 
@@ -138,15 +119,10 @@ USER root
 COPY --from=builder /app/public/fonts/*.woff2 /usr/share/fonts/truetype/
 RUN fc-cache -f -v
 
-# Copiar arquivos necessários para produção
-# Se usar standalone, copiar do .next/standalone
-# Se usar npm start, copiar .next e node_modules
+# Copiar bundle standalone do Next.js (inclui server.js + apenas node_modules usados)
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
-COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
-COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copiar script de entrypoint
 COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

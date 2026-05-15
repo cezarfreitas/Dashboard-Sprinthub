@@ -35,18 +35,18 @@ if [ -z "$JWT_SECRET" ]; then
     echo "⚠️  AVISO: JWT_SECRET não definido"
 fi
 
-# 3. Verificar se build existe
-if [ ! -d "/app/.next" ]; then
-    echo "❌ ERRO: Build do Next.js não encontrado em /app/.next"
+# 3. Verificar se build standalone existe
+if [ ! -f "/app/server.js" ]; then
+    echo "❌ ERRO: server.js do Next standalone não encontrado em /app"
     exit 1
 fi
 
 # 4. Iniciar aplicação
-echo "✅ Iniciando Next.js na porta ${PORT:-3000}..."
+echo "✅ Iniciando Next.js standalone na porta ${PORT:-3000}..."
 echo "📡 Escutando em: ${HOSTNAME:-0.0.0.0}:${PORT:-3000}"
 
-# Executar npm start em background e capturar PID
-npm start &
+# Executar server.js standalone (sem overhead do npm)
+node server.js &
 child=$!
 
 # Aguardar processo filho

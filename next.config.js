@@ -31,9 +31,9 @@ function getPackageVersion() {
 const nextConfig = {
   reactStrictMode: true,
   
-  // Habilitar output standalone apenas se especificado
-  // Para Docker/Easypanel, podemos usar npm start sem standalone
-  output: process.env.NEXT_STANDALONE === 'true' ? 'standalone' : undefined,
+  // Output standalone: Next gera um bundle minimal em .next/standalone com apenas as
+  // dependências realmente importadas. Reduz drasticamente o tamanho da imagem final.
+  output: 'standalone',
   
   // Garantir que variáveis NEXT_PUBLIC_* sejam expostas no build
   // Sem fallbacks - variáveis devem estar definidas nas variáveis de ambiente
